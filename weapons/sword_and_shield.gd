@@ -52,14 +52,21 @@ func _do_attack(duration: float) -> void:
 	# the handle, with the blade angle interpolated along the sweep.
 	_swing_flip = not _swing_flip
 	var side := 1.0 if _swing_flip else -1.0
-	var start_pos := SWING_CENTER + Vector3(0.5 * side, 0.55, 0.25)
-	var mid_pos := SWING_CENTER + Vector3(0.0, 0.05, -0.8)
-	var end_pos := SWING_CENTER + Vector3(-0.6 * side, -0.45, -0.15)
+	# Windshield-wiper slash: the handle follows a modest arc while the
+	# blade points *outward past the handle* on the start side and sweeps
+	# to point outward on the end side — tip and handle travel the same
+	# direction, so the tip crosses the whole screen. (Pointing the blade
+	# against the travel direction makes the sword seesaw on its midpoint
+	# and kills the arc.)
+	var start_pos := SWING_CENTER + Vector3(0.35 * side, 0.3, 0.2)
+	var mid_pos := SWING_CENTER + Vector3(0.0, 0.0, -0.7)
+	var end_pos := SWING_CENTER + Vector3(-0.4 * side, -0.3, -0.05)
 	# Quadratic bezier through mid_pos, expressed as cubic control points.
 	var control_1 := start_pos.lerp(mid_pos, 2.0 / 3.0)
 	var control_2 := end_pos.lerp(mid_pos, 2.0 / 3.0)
-	var start_rot := Vector3(60.0, 45.0 * side, 70.0 * side)
-	var end_rot := Vector3(-65.0, -40.0 * side, -75.0 * side)
+	# Tip up-and-outward over the start shoulder -> down-and-outward at the end.
+	var start_rot := Vector3(55.0, -30.0 * side, -20.0 * side)
+	var end_rot := Vector3(-60.0, 30.0 * side, 20.0 * side)
 	if _swing_tween != null:
 		_swing_tween.kill()
 	_swing_tween = create_tween()
