@@ -39,28 +39,39 @@ func _ready() -> void:
 func _do_attack(duration: float) -> void:
 	var damage := weapon_data.damage + stats.get_stat(Stats.DAMAGE)
 	hitbox.activate(AttackInfo.new(owner as Node3D, damage), duration * 0.5)
-	# Alternate diagonal slashes: snap to a raised side pose, sweep across
-	# the screen to the opposite side, then settle back to rest.
+	# Alternate diagonal slashes. The whole sword travels along a bezier arc
+	# across the screen (raised on one side -> bulging forward through
+	# center -> low on the opposite side) instead of rotating in place at
+	# the handle, with the blade angle interpolated along the sweep.
 	_swing_flip = not _swing_flip
 	var side := 1.0 if _swing_flip else -1.0
+	var start_pos := SWORD_REST_POS + Vector3(0.25 * side, 0.35, 0.15)
+	var mid_pos := SWORD_REST_POS + Vector3(0.0, 0.05, -0.55)
+	var end_pos := SWORD_REST_POS + Vector3(-0.5 * side, -0.3, -0.1)
+	# Quadratic bezier through mid_pos, expressed as cubic control points.
+	var control_1 := start_pos.lerp(mid_pos, 2.0 / 3.0)
+	var control_2 := end_pos.lerp(mid_pos, 2.0 / 3.0)
+	var start_rot := Vector3(35.0, 30.0 * side, 55.0 * side)
+	var end_rot := Vector3(-40.0, -25.0 * side, -55.0 * side)
 	if _swing_tween != null:
 		_swing_tween.kill()
-	sword_pivot.position = SWORD_REST_POS + Vector3(0.12 * side, 0.1, 0.08)
-	sword_pivot.rotation_degrees = Vector3(30.0, 45.0 * side, 35.0 * side)
-	_swing_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_swing_tween.set_parallel(true)
+	sword_pivot.position = start_pos
+	sword_pivot.rotation_degrees = start_rot
+	_swing_tween = create_tween()
+	_swing_tween.tween_method(
+		func(t: float) -> void:
+			sword_pivot.position = start_pos.bezier_interpolate(
+				control_1, control_2, end_pos, t)
+			sword_pivot.rotation_degrees = start_rot.lerp(end_rot, t),
+		0.0, 1.0, duration * 0.35
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_swing_tween.chain().set_parallel(true)
 	_swing_tween.tween_property(
-		sword_pivot, "rotation_degrees",
-		Vector3(-50.0, -40.0 * side, -30.0 * side), duration * 0.3)
+		sword_pivot, "position", SWORD_REST_POS, duration * 0.55
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	_swing_tween.tween_property(
-		sword_pivot, "position",
-		SWORD_REST_POS + Vector3(-0.18 * side, -0.12, -0.3), duration * 0.3)
-	_swing_tween.chain().tween_property(
-		sword_pivot, "rotation_degrees", Vector3.ZERO, duration * 0.6
-	).set_ease(Tween.EASE_IN_OUT)
-	_swing_tween.parallel().tween_property(
-		sword_pivot, "position", SWORD_REST_POS, duration * 0.6
-	).set_ease(Tween.EASE_IN_OUT)
+		sword_pivot, "rotation_degrees", Vector3.ZERO, duration * 0.55
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 
 
 func _on_blocking_changed() -> void:
