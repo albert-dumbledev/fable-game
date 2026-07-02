@@ -13,8 +13,9 @@ const SWORD_REST_ROT := Vector3(35.0, 15.0, 10.0)
 ## (ARM_LENGTH + blade) / ARM_LENGTH ≈ 3.5x further than the base.
 const SHOULDER := Vector3(0.0, -0.45, -0.05)
 const ARM_LENGTH := 0.4
-## Extra forward reach at the apex of the swing (stab-through feel).
-const THRUST := 0.3
+## How far past the arc start the windup pulls back (radians), opposite
+## the swing direction.
+const WINDUP_ANGLE := 0.55
 ## Tucked low into the corner so it barely covers the screen when idle.
 const SHIELD_REST_POS := Vector3(-0.55, -0.3, 0.1)
 const SHIELD_REST_ROT := Vector3(-30.0, 35.0, 10.0)
@@ -50,11 +51,7 @@ func _ready() -> void:
 
 func _do_attack(duration: float) -> void:
 	var damage := weapon_data.damage + stats.get_stat(Stats.DAMAGE)
-	hitbox.activate(AttackInfo.new(owner as Node3D, damage), duration * 0.5)
-	# Alternate diagonal slashes. The whole sword travels along a bezier arc
-	# across the screen (raised on one side -> bulging forward through
-	# center -> low on the opposite side) instead of rotating in place at
-	# the handle, with the blade angle interpolated along the sweep.
+	var info := AttackInfo.new(owner as Node3D, damage)
 	_swing_flip = not _swing_flip
 	var side := 1.0 if _swing_flip else -1.0
 	# Rigid arm-swing: the sword orbits the virtual SHOULDER. `dir` is the
@@ -64,35 +61,37 @@ func _do_attack(duration: float) -> void:
 	var dir_start := Vector3(0.55 * side, 0.85, -0.25).normalized()
 	var dir_end := Vector3(-0.6 * side, -0.35, -0.55).normalized()
 	var axis := dir_start.cross(dir_end).normalized()
-	var sweep := dir_start.angle_to(dir_end)
-	var start_pos := SHOULDER + dir_start * ARM_LENGTH
-	var start_quat := Basis.looking_at(dir_start, axis).get_rotation_quaternion()
+	# Windup cocks the arm back past the arc start, opposite the swing;
+	# the attack then sweeps from there through to dir_end in one cut.
+	var dir_windup := dir_start.rotated(axis, -WINDUP_ANGLE)
+	var total_sweep := WINDUP_ANGLE + dir_start.angle_to(dir_end)
+	var windup_pos := SHOULDER + dir_windup * ARM_LENGTH
+	var windup_quat := Basis.looking_at(dir_windup, axis).get_rotation_quaternion()
 	if _swing_tween != null:
 		_swing_tween.kill()
 	_swing_tween = create_tween()
-	# Quick raise from wherever the sword is into the windup pose, so the
-	# swing reads as one continuous motion instead of a teleport.
 	_swing_tween.set_parallel(true)
-	_swing_tween.tween_property(sword_pivot, "position", start_pos, duration * 0.15) \
+	# 1) Windup: pull back over the shoulder, away from the swing direction.
+	_swing_tween.tween_property(sword_pivot, "position", windup_pos, duration * 0.25) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_swing_tween.tween_property(sword_pivot, "quaternion", start_quat, duration * 0.15) \
+	_swing_tween.tween_property(sword_pivot, "quaternion", windup_quat, duration * 0.25) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	# The cut: rotate the arm direction around the shoulder, with a
-	# sin-shaped forward lunge peaking mid-swing.
-	_swing_tween.chain().tween_method(
+	# 2) Attack: fast sweep through the whole arc. The damage window opens
+	# here so hits land with the visible cut, not the windup.
+	_swing_tween.chain().tween_callback(hitbox.activate.bind(info, duration * 0.35))
+	_swing_tween.tween_method(
 		func(t: float) -> void:
-			var dir := dir_start.rotated(axis, sweep * t)
-			sword_pivot.position = SHOULDER + dir * (ARM_LENGTH + sin(t * PI) * THRUST)
+			var dir := dir_windup.rotated(axis, total_sweep * t)
+			sword_pivot.position = SHOULDER + dir * ARM_LENGTH
 			sword_pivot.basis = Basis.looking_at(dir, axis),
-		0.0, 1.0, duration * 0.35
+		0.0, 1.0, duration * 0.3
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	# Settle back to the ready stance.
-	_swing_tween.chain().set_parallel(true)
-	_swing_tween.tween_property(
-		sword_pivot, "position", SWORD_REST_POS, duration * 0.5
+	# 3) Backswing: settle back to the ready stance.
+	_swing_tween.chain().tween_property(
+		sword_pivot, "position", SWORD_REST_POS, duration * 0.45
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	_swing_tween.tween_property(
-		sword_pivot, "rotation_degrees", SWORD_REST_ROT, duration * 0.5
+		sword_pivot, "rotation_degrees", SWORD_REST_ROT, duration * 0.45
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 
 
