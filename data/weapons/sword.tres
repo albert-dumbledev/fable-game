@@ -6,4 +6,4 @@
 script = ExtResource("1_script")
 display_name = "Sword & Shield"
 damage = 10.0
-swing_time = 0.45
+swing_time = 0.7
