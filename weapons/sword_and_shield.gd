@@ -4,7 +4,12 @@ extends Weapon
 ## The block *rule* (frontal cone) lives in Player.mitigate_hit; this class
 ## only owns the swing hitbox and viewmodel motion.
 
-const SWORD_REST_POS := Vector3(0.3, 0.0, 0.0)
+## Held low at the bottom-right, tip angled up-inward — a ready stance
+## mirroring the shield's tucked idle rather than floating mid-screen.
+const SWORD_REST_POS := Vector3(0.4, -0.28, 0.05)
+const SWORD_REST_ROT := Vector3(35.0, 15.0, 10.0)
+## Swings arc around screen center so both directions sweep symmetrically.
+const SWING_CENTER := Vector3(0.0, 0.0, -0.1)
 ## Tucked low into the corner so it barely covers the screen when idle.
 const SHIELD_REST_POS := Vector3(-0.55, -0.3, 0.1)
 const SHIELD_REST_ROT := Vector3(-30.0, 35.0, 10.0)
@@ -24,6 +29,8 @@ var _shield_material: StandardMaterial3D
 
 
 func _ready() -> void:
+	sword_pivot.position = SWORD_REST_POS
+	sword_pivot.rotation_degrees = SWORD_REST_ROT
 	shield_pivot.position = SHIELD_REST_POS
 	shield_pivot.rotation_degrees = SHIELD_REST_ROT
 	# Per-instance material so the block flash can animate emission.
@@ -45,32 +52,39 @@ func _do_attack(duration: float) -> void:
 	# the handle, with the blade angle interpolated along the sweep.
 	_swing_flip = not _swing_flip
 	var side := 1.0 if _swing_flip else -1.0
-	var start_pos := SWORD_REST_POS + Vector3(0.25 * side, 0.35, 0.15)
-	var mid_pos := SWORD_REST_POS + Vector3(0.0, 0.05, -0.55)
-	var end_pos := SWORD_REST_POS + Vector3(-0.5 * side, -0.3, -0.1)
+	var start_pos := SWING_CENTER + Vector3(0.5 * side, 0.55, 0.25)
+	var mid_pos := SWING_CENTER + Vector3(0.0, 0.05, -0.8)
+	var end_pos := SWING_CENTER + Vector3(-0.6 * side, -0.45, -0.15)
 	# Quadratic bezier through mid_pos, expressed as cubic control points.
 	var control_1 := start_pos.lerp(mid_pos, 2.0 / 3.0)
 	var control_2 := end_pos.lerp(mid_pos, 2.0 / 3.0)
-	var start_rot := Vector3(35.0, 30.0 * side, 55.0 * side)
-	var end_rot := Vector3(-40.0, -25.0 * side, -55.0 * side)
+	var start_rot := Vector3(60.0, 45.0 * side, 70.0 * side)
+	var end_rot := Vector3(-65.0, -40.0 * side, -75.0 * side)
 	if _swing_tween != null:
 		_swing_tween.kill()
-	sword_pivot.position = start_pos
-	sword_pivot.rotation_degrees = start_rot
 	_swing_tween = create_tween()
-	_swing_tween.tween_method(
+	# Quick raise from wherever the sword is into the windup pose, so the
+	# swing reads as one continuous motion instead of a teleport.
+	_swing_tween.set_parallel(true)
+	_swing_tween.tween_property(sword_pivot, "position", start_pos, duration * 0.15) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_swing_tween.tween_property(sword_pivot, "rotation_degrees", start_rot, duration * 0.15) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# The cut: sweep the whole sword along the arc.
+	_swing_tween.chain().tween_method(
 		func(t: float) -> void:
 			sword_pivot.position = start_pos.bezier_interpolate(
 				control_1, control_2, end_pos, t)
 			sword_pivot.rotation_degrees = start_rot.lerp(end_rot, t),
 		0.0, 1.0, duration * 0.35
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	# Settle back to the ready stance.
 	_swing_tween.chain().set_parallel(true)
 	_swing_tween.tween_property(
-		sword_pivot, "position", SWORD_REST_POS, duration * 0.55
+		sword_pivot, "position", SWORD_REST_POS, duration * 0.5
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	_swing_tween.tween_property(
-		sword_pivot, "rotation_degrees", Vector3.ZERO, duration * 0.55
+		sword_pivot, "rotation_degrees", SWORD_REST_ROT, duration * 0.5
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 
 
