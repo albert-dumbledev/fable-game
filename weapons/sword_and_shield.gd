@@ -8,8 +8,13 @@ extends Weapon
 ## mirroring the shield's tucked idle rather than floating mid-screen.
 const SWORD_REST_POS := Vector3(0.4, -0.28, 0.05)
 const SWORD_REST_ROT := Vector3(35.0, 15.0, 10.0)
-## Swings arc around screen center so both directions sweep symmetrically.
-const SWING_CENTER := Vector3(0.0, 0.0, -0.1)
+## Virtual shoulder the sword orbits during a slash. Handle and blade are
+## rigidly locked to one arm direction from here, so the tip sweeps
+## (ARM_LENGTH + blade) / ARM_LENGTH ≈ 3.5x further than the base.
+const SHOULDER := Vector3(0.0, -0.45, -0.05)
+const ARM_LENGTH := 0.4
+## Extra forward reach at the apex of the swing (stab-through feel).
+const THRUST := 0.3
 ## Tucked low into the corner so it barely covers the screen when idle.
 const SHIELD_REST_POS := Vector3(-0.55, -0.3, 0.1)
 const SHIELD_REST_ROT := Vector3(-30.0, 35.0, 10.0)
@@ -52,21 +57,16 @@ func _do_attack(duration: float) -> void:
 	# the handle, with the blade angle interpolated along the sweep.
 	_swing_flip = not _swing_flip
 	var side := 1.0 if _swing_flip else -1.0
-	# Windshield-wiper slash: the handle follows a modest arc while the
-	# blade points *outward past the handle* on the start side and sweeps
-	# to point outward on the end side — tip and handle travel the same
-	# direction, so the tip crosses the whole screen. (Pointing the blade
-	# against the travel direction makes the sword seesaw on its midpoint
-	# and kills the arc.)
-	var start_pos := SWING_CENTER + Vector3(0.35 * side, 0.3, 0.2)
-	var mid_pos := SWING_CENTER + Vector3(0.0, 0.0, -0.7)
-	var end_pos := SWING_CENTER + Vector3(-0.4 * side, -0.3, -0.05)
-	# Quadratic bezier through mid_pos, expressed as cubic control points.
-	var control_1 := start_pos.lerp(mid_pos, 2.0 / 3.0)
-	var control_2 := end_pos.lerp(mid_pos, 2.0 / 3.0)
-	# Tip up-and-outward over the start shoulder -> down-and-outward at the end.
-	var start_rot := Vector3(55.0, -30.0 * side, -20.0 * side)
-	var end_rot := Vector3(-60.0, 30.0 * side, 20.0 * side)
+	# Rigid arm-swing: the sword orbits the virtual SHOULDER. `dir` is the
+	# arm direction; the handle sits ARM_LENGTH along it and the blade
+	# points straight out along the same line, so base and tip share one
+	# angular sweep — no independent translation to fight the rotation.
+	var dir_start := Vector3(0.55 * side, 0.85, -0.25).normalized()
+	var dir_end := Vector3(-0.6 * side, -0.35, -0.55).normalized()
+	var axis := dir_start.cross(dir_end).normalized()
+	var sweep := dir_start.angle_to(dir_end)
+	var start_pos := SHOULDER + dir_start * ARM_LENGTH
+	var start_quat := Basis.looking_at(dir_start, axis).get_rotation_quaternion()
 	if _swing_tween != null:
 		_swing_tween.kill()
 	_swing_tween = create_tween()
@@ -75,14 +75,15 @@ func _do_attack(duration: float) -> void:
 	_swing_tween.set_parallel(true)
 	_swing_tween.tween_property(sword_pivot, "position", start_pos, duration * 0.15) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_swing_tween.tween_property(sword_pivot, "rotation_degrees", start_rot, duration * 0.15) \
+	_swing_tween.tween_property(sword_pivot, "quaternion", start_quat, duration * 0.15) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	# The cut: sweep the whole sword along the arc.
+	# The cut: rotate the arm direction around the shoulder, with a
+	# sin-shaped forward lunge peaking mid-swing.
 	_swing_tween.chain().tween_method(
 		func(t: float) -> void:
-			sword_pivot.position = start_pos.bezier_interpolate(
-				control_1, control_2, end_pos, t)
-			sword_pivot.rotation_degrees = start_rot.lerp(end_rot, t),
+			var dir := dir_start.rotated(axis, sweep * t)
+			sword_pivot.position = SHOULDER + dir * (ARM_LENGTH + sin(t * PI) * THRUST)
+			sword_pivot.basis = Basis.looking_at(dir, axis),
 		0.0, 1.0, duration * 0.35
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	# Settle back to the ready stance.
