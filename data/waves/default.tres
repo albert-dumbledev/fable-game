@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="WaveTable" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://core/wave_table.gd" id="1_script"]
+[ext_resource type="Script" path="res://core/enemy_data.gd" id="2_type"]
+[ext_resource type="Resource" path="res://data/enemies/chaser.tres" id="3_chaser"]
+
+[resource]
+script = ExtResource("1_script")
+enemies = Array[ExtResource("2_type")]([ExtResource("3_chaser")])
+start_interval = 2.5
+min_interval = 0.4
+interval_ramp_time = 240.0
+hp_growth_per_min = 0.5
+dmg_growth_per_min = 0.25
+max_alive_start = 15
+max_alive_end = 60
+max_alive_ramp_time = 300.0

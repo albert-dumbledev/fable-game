@@ -1,0 +1,44 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/death_screen.gd" id="1_script"]
+
+[node name="DeathScreen" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.07, 0.07, 0.09, 1)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Box" type="VBoxContainer" parent="Center"]
+custom_minimum_size = Vector2(560, 0)
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Center/Box"]
+theme_override_font_sizes/font_size = 52
+theme_override_colors/font_color = Color(0.85, 0.2, 0.2, 1)
+horizontal_alignment = 1
+text = "YOU DIED"
+
+[node name="StatsLabel" type="Label" parent="Center/Box"]
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+text = "Survived 00:00"
+
+[node name="GoldLabel" type="Label" parent="Center/Box"]
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+text = "Gold: 0"
+
+[node name="Upgrades" type="VBoxContainer" parent="Center/Box"]
+theme_override_constants/separation = 8
+
+[node name="NextRunButton" type="Button" parent="Center/Box"]
+theme_override_font_sizes/font_size = 24
+text = "Next Run"

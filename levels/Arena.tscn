@@ -1,10 +1,39 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=15 format=3]
+
+[ext_resource type="PackedScene" path="res://actors/player/Player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://ui/HUD.tscn" id="2_hud"]
+[ext_resource type="Script" path="res://systems/run_director.gd" id="3_director"]
+[ext_resource type="Script" path="res://systems/spawner.gd" id="4_spawner"]
+[ext_resource type="Resource" path="res://data/waves/default.tres" id="5_waves"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
+albedo_color = Color(0.35, 0.38, 0.4, 1)
+roughness = 0.95
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_floor"]
+material = SubResource("StandardMaterial3D_floor")
 size = Vector2(40, 40)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
 size = Vector3(40, 1, 40)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
+albedo_color = Color(0.25, 0.27, 0.3, 1)
+roughness = 0.95
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall_ns"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(41, 4, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall_ns"]
+size = Vector3(41, 4, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall_ew"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(1, 4, 41)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall_ew"]
+size = Vector3(1, 4, 41)
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 
@@ -26,6 +55,42 @@ mesh = SubResource("PlaneMesh_floor")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 shape = SubResource("BoxShape3D_floor")
 
+[node name="WallN" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -20)
+
+[node name="Mesh" type="MeshInstance3D" parent="WallN"]
+mesh = SubResource("BoxMesh_wall_ns")
+
+[node name="Collision" type="CollisionShape3D" parent="WallN"]
+shape = SubResource("BoxShape3D_wall_ns")
+
+[node name="WallS" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 20)
+
+[node name="Mesh" type="MeshInstance3D" parent="WallS"]
+mesh = SubResource("BoxMesh_wall_ns")
+
+[node name="Collision" type="CollisionShape3D" parent="WallS"]
+shape = SubResource("BoxShape3D_wall_ns")
+
+[node name="WallE" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 2, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="WallE"]
+mesh = SubResource("BoxMesh_wall_ew")
+
+[node name="Collision" type="CollisionShape3D" parent="WallE"]
+shape = SubResource("BoxShape3D_wall_ew")
+
+[node name="WallW" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 2, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="WallW"]
+mesh = SubResource("BoxMesh_wall_ew")
+
+[node name="Collision" type="CollisionShape3D" parent="WallW"]
+shape = SubResource("BoxShape3D_wall_ew")
+
 [node name="Sun" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 12, 0)
 shadow_enabled = true
@@ -33,5 +98,14 @@ shadow_enabled = true
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_arena")
 
-[node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0, 4, 12)
+[node name="Player" parent="." instance=ExtResource("1_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+
+[node name="RunDirector" type="Node" parent="."]
+script = ExtResource("3_director")
+
+[node name="Spawner" type="Node" parent="RunDirector"]
+script = ExtResource("4_spawner")
+wave_table = ExtResource("5_waves")
+
+[node name="HUD" parent="." instance=ExtResource("2_hud")]

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="UpgradeRegistry" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://core/upgrade_registry.gd" id="1_script"]
+[ext_resource type="Script" path="res://core/upgrade_data.gd" id="2_type"]
+[ext_resource type="Resource" path="res://data/upgrades/damage_up.tres" id="3_dmg"]
+[ext_resource type="Resource" path="res://data/upgrades/health_up.tres" id="4_hp"]
+[ext_resource type="Resource" path="res://data/upgrades/attack_speed_up.tres" id="5_as"]
+[ext_resource type="Resource" path="res://data/upgrades/move_speed_up.tres" id="6_ms"]
+
+[resource]
+script = ExtResource("1_script")
+upgrades = Array[ExtResource("2_type")]([ExtResource("3_dmg"), ExtResource("4_hp"), ExtResource("5_as"), ExtResource("6_ms")])

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://core/enemy_data.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://actors/enemies/ChaserEnemy.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Chaser"
+scene = ExtResource("2_scene")
+max_health = 25.0
+move_speed = 4.5
+damage = 10.0
+attack_range = 1.8
+windup_time = 0.4
+recover_time = 0.8
+gold_reward = 5
+spawn_weight = 1.0

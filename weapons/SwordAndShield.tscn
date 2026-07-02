@@ -1,0 +1,52 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://weapons/sword_and_shield.gd" id="1_script"]
+[ext_resource type="Resource" path="res://data/weapons/sword.tres" id="2_data"]
+[ext_resource type="Script" path="res://components/hitbox_component.gd" id="3_hitbox"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sword"]
+albedo_color = Color(0.75, 0.78, 0.82, 1)
+metallic = 0.8
+roughness = 0.35
+
+[sub_resource type="BoxMesh" id="BoxMesh_sword"]
+size = Vector3(0.07, 0.07, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_shield"]
+albedo_color = Color(0.45, 0.3, 0.16, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="BoxMesh_shield"]
+size = Vector3(0.45, 0.6, 0.06)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_hitbox"]
+size = Vector3(1.4, 1.2, 2.2)
+
+[node name="SwordAndShield" type="Node3D"]
+script = ExtResource("1_script")
+weapon_data = ExtResource("2_data")
+
+[node name="SwordPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 0, 0)
+
+[node name="SwordMesh" type="MeshInstance3D" parent="SwordPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
+mesh = SubResource("BoxMesh_sword")
+surface_material_override/0 = SubResource("StandardMaterial3D_sword")
+
+[node name="ShieldPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.35, 0, 0)
+
+[node name="ShieldMesh" type="MeshInstance3D" parent="ShieldPivot"]
+mesh = SubResource("BoxMesh_shield")
+surface_material_override/0 = SubResource("StandardMaterial3D_shield")
+
+[node name="Hitbox" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 16
+monitorable = false
+script = ExtResource("3_hitbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hitbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, -1.1)
+shape = SubResource("BoxShape3D_hitbox")

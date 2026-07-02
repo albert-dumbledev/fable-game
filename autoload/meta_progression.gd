@@ -4,13 +4,30 @@ extends Node
 ## not new systems — this is the prestige hook.
 
 const SAVE_PATH: String = "user://save.json"
+const REGISTRY_PATH: String = "res://data/upgrades/registry.tres"
 
 var currencies: Dictionary[StringName, int] = {}
 var upgrade_levels: Dictionary[StringName, int] = {}
+var registry: UpgradeRegistry
 
 
 func _ready() -> void:
+	registry = load(REGISTRY_PATH) as UpgradeRegistry
+	if registry == null:
+		push_error("Failed to load upgrade registry: %s" % REGISTRY_PATH)
 	load_game()
+
+
+## Every modifier granted by purchased upgrades; applied by the player on spawn.
+func get_stat_modifiers() -> Array[StatModifier]:
+	var modifiers: Array[StatModifier] = []
+	if registry == null:
+		return modifiers
+	for upgrade: UpgradeData in registry.upgrades:
+		var level := get_upgrade_level(upgrade.id)
+		for i: int in level:
+			modifiers.append_array(upgrade.modifiers)
+	return modifiers
 
 
 func get_currency(id: StringName) -> int:
