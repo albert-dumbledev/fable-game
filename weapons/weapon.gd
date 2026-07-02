@@ -42,3 +42,8 @@ func _do_attack(_duration: float) -> void:
 ## Override: react to block starting/stopping.
 func _on_blocking_changed() -> void:
 	pass
+
+
+## Override: feedback when this weapon successfully blocks a hit.
+func notify_block_success() -> void:
+	pass

@@ -8,11 +8,16 @@ enum State { CHASE, WINDUP, ATTACK, RECOVER, DEAD }
 
 const ATTACK_ACTIVE_TIME := 0.25
 const WINDUP_COLOR := Color(1.0, 0.55, 0.35)
+const FIST_REST := Vector3(0.35, 1.05, -0.35)
+const FIST_WINDUP := FIST_REST + Vector3(0.05, 0.05, 0.35)
+const FIST_PUNCH := FIST_REST + Vector3(-0.15, -0.1, -0.95)
+const LUNGE_SPEED_MULT := 1.8
 
 @onready var health: HealthComponent = $Health
 @onready var hurtbox: HurtboxComponent = $Hurtbox
 @onready var hitbox: HitboxComponent = $AttackHitbox
 @onready var mesh: MeshInstance3D = $Mesh
+@onready var fist_pivot: Node3D = $FistPivot
 
 var data: EnemyData
 var state: State = State.CHASE
@@ -23,6 +28,7 @@ var _dmg_mult := 1.0
 var _target: Node3D
 var _material: StandardMaterial3D
 var _base_color := Color.WHITE
+var _fist_tween: Tween
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -72,9 +78,11 @@ func _physics_process(delta: float) -> void:
 			if _state_time >= data.windup_time:
 				_begin_attack()
 		State.ATTACK:
-			_hold_still()
+			# Lunge momentum from _begin_attack, bleeding off quickly.
+			velocity.x = move_toward(velocity.x, 0.0, 30.0 * delta)
+			velocity.z = move_toward(velocity.z, 0.0, 30.0 * delta)
 			if _state_time >= ATTACK_ACTIVE_TIME:
-				_set_state(State.RECOVER)
+				_begin_recover()
 		State.RECOVER:
 			_hold_still()
 			if _state_time >= data.recover_time:
@@ -113,6 +121,8 @@ func _begin_windup() -> void:
 	if _material != null:
 		var tween := create_tween()
 		tween.tween_property(_material, "albedo_color", WINDUP_COLOR, data.windup_time)
+	# Cock the fist back so the incoming punch is readable.
+	_tween_fist(FIST_WINDUP, data.windup_time)
 
 
 func _begin_attack() -> void:
@@ -120,6 +130,26 @@ func _begin_attack() -> void:
 	if _material != null:
 		_material.albedo_color = _base_color
 	hitbox.activate(AttackInfo.new(self, data.damage * _dmg_mult), ATTACK_ACTIVE_TIME)
+	# Punch toward the player with a short lunge for readability.
+	_tween_fist(FIST_PUNCH, ATTACK_ACTIVE_TIME * 0.5)
+	var dir := _target.global_position - global_position
+	dir.y = 0.0
+	dir = dir.normalized()
+	velocity.x = dir.x * data.move_speed * LUNGE_SPEED_MULT
+	velocity.z = dir.z * data.move_speed * LUNGE_SPEED_MULT
+
+
+func _begin_recover() -> void:
+	_set_state(State.RECOVER)
+	_tween_fist(FIST_REST, 0.3)
+
+
+func _tween_fist(target: Vector3, duration: float) -> void:
+	if _fist_tween != null:
+		_fist_tween.kill()
+	_fist_tween = create_tween()
+	_fist_tween.tween_property(fist_pivot, "position", target, duration) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 func _on_damaged(_info: AttackInfo) -> void:

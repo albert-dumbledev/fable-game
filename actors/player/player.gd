@@ -80,6 +80,8 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 		forward.y = 0.0
 		if to_attacker.length() > 0.01 \
 				and rad_to_deg(forward.angle_to(to_attacker)) <= BLOCK_HALF_ANGLE_DEG:
+			weapon.notify_block_success()
+			EventBus.attack_blocked.emit()
 			return null
 	return info
 

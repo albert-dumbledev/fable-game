@@ -16,6 +16,7 @@ func _ready() -> void:
 	EventBus.currency_changed.connect(_on_currency_changed)
 	EventBus.enemy_killed.connect(_on_enemy_killed)
 	EventBus.player_damaged.connect(_on_player_damaged)
+	EventBus.attack_blocked.connect(_on_attack_blocked)
 	EventBus.player_died.connect(_on_player_died)
 	gold_label.text = "Gold: %d" % MetaProgression.get_currency(&"gold")
 	_bind_player.call_deferred()
@@ -52,9 +53,15 @@ func _on_enemy_killed(_data: Resource, _position: Vector3) -> void:
 
 
 func _on_player_damaged(_amount: float) -> void:
-	damage_flash.color.a = 0.35
+	damage_flash.color = Color(1.0, 0.0, 0.0, 0.35)
 	var tween := create_tween()
 	tween.tween_property(damage_flash, "color:a", 0.0, 0.3)
+
+
+func _on_attack_blocked() -> void:
+	damage_flash.color = Color(1.0, 1.0, 1.0, 0.14)
+	var tween := create_tween()
+	tween.tween_property(damage_flash, "color:a", 0.0, 0.2)
 
 
 func _on_player_died() -> void:

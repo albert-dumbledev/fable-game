@@ -19,6 +19,10 @@ signal enemy_killed(enemy_data: Resource, position: Vector3)
 @warning_ignore("unused_signal")
 signal player_damaged(amount: float)
 
+## Emitted when the player's shield successfully blocks a hit.
+@warning_ignore("unused_signal")
+signal attack_blocked
+
 ## Emitted the moment the player's health reaches zero.
 @warning_ignore("unused_signal")
 signal player_died
