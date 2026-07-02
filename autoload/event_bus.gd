@@ -23,6 +23,10 @@ signal player_damaged(amount: float)
 @warning_ignore("unused_signal")
 signal attack_blocked
 
+## Emitted on a perfectly timed block (attacker stunned).
+@warning_ignore("unused_signal")
+signal perfect_block
+
 ## Emitted the moment the player's health reaches zero.
 @warning_ignore("unused_signal")
 signal player_died

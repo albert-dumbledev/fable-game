@@ -8,6 +8,10 @@ const PITCH_LIMIT := deg_to_rad(89.0)
 const BLOCK_HALF_ANGLE_DEG := 60.0
 const BLOCK_SPEED_MULT := 0.5
 const SPRINT_MULT := 1.4
+## Raising the block within this window before a hit lands is a perfect
+## block: the attack is negated and the attacker is stunned.
+const PERFECT_BLOCK_WINDOW := 0.2
+const PERFECT_BLOCK_STUN := 1.5
 
 @onready var camera_rig: Node3D = $CameraRig
 @onready var health: HealthComponent = $Health
@@ -17,6 +21,7 @@ var stats := StatBlock.new()
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _dead := false
+var _block_started_ms := -10000
 
 
 func _ready() -> void:
@@ -51,7 +56,10 @@ func _physics_process(delta: float) -> void:
 		return
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
-	weapon.set_blocking(Input.is_action_pressed("block"))
+	var block_held := Input.is_action_pressed("block")
+	if block_held and not weapon.is_blocking:
+		_block_started_ms = Time.get_ticks_msec()
+	weapon.set_blocking(block_held)
 	if Input.is_action_pressed("attack"):
 		weapon.try_attack()
 
@@ -80,8 +88,15 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 		forward.y = 0.0
 		if to_attacker.length() > 0.01 \
 				and rad_to_deg(forward.angle_to(to_attacker)) <= BLOCK_HALF_ANGLE_DEG:
-			weapon.notify_block_success()
-			EventBus.attack_blocked.emit()
+			var since_raise := (Time.get_ticks_msec() - _block_started_ms) / 1000.0
+			var perfect := since_raise <= PERFECT_BLOCK_WINDOW
+			weapon.notify_block_success(perfect)
+			if perfect:
+				EventBus.perfect_block.emit()
+				if info.source.has_method(&"stun"):
+					info.source.call(&"stun", PERFECT_BLOCK_STUN)
+			else:
+				EventBus.attack_blocked.emit()
 			return null
 	return info
 

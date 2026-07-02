@@ -4,10 +4,12 @@ extends CharacterBody3D
 ## Ranged/boss variants override state behavior, not the plumbing.
 ## All numbers come from an EnemyData resource, scaled by the spawner.
 
-enum State { CHASE, WINDUP, ATTACK, RECOVER, DEAD }
+enum State { CHASE, WINDUP, ATTACK, RECOVER, STUNNED, DEAD }
 
 const ATTACK_ACTIVE_TIME := 0.25
 const WINDUP_COLOR := Color(1.0, 0.55, 0.35)
+const STUN_COLOR := Color(0.55, 0.7, 1.0)
+const STUN_TILT_DEG := 14.0
 const FIST_REST := Vector3(0.35, 1.05, -0.35)
 const FIST_WINDUP := FIST_REST + Vector3(0.05, 0.05, 0.35)
 const FIST_PUNCH := FIST_REST + Vector3(-0.15, -0.1, -0.95)
@@ -29,6 +31,8 @@ var _target: Node3D
 var _material: StandardMaterial3D
 var _base_color := Color.WHITE
 var _fist_tween: Tween
+var _color_tween: Tween
+var _stun_duration := 0.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -69,7 +73,8 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 	_state_time += delta
-	_face_target()
+	if state != State.STUNNED:
+		_face_target()
 	match state:
 		State.CHASE:
 			_chase()
@@ -87,6 +92,10 @@ func _physics_process(delta: float) -> void:
 			_hold_still()
 			if _state_time >= data.recover_time:
 				_set_state(State.CHASE)
+		State.STUNNED:
+			_hold_still()
+			if _state_time >= _stun_duration:
+				_end_stun()
 	move_and_slide()
 
 
@@ -119,8 +128,9 @@ func _set_state(new_state: State) -> void:
 func _begin_windup() -> void:
 	_set_state(State.WINDUP)
 	if _material != null:
-		var tween := create_tween()
-		tween.tween_property(_material, "albedo_color", WINDUP_COLOR, data.windup_time)
+		_kill_color_tween()
+		_color_tween = create_tween()
+		_color_tween.tween_property(_material, "albedo_color", WINDUP_COLOR, data.windup_time)
 	# Cock the fist back so the incoming punch is readable.
 	_tween_fist(FIST_WINDUP, data.windup_time)
 
@@ -128,8 +138,13 @@ func _begin_windup() -> void:
 func _begin_attack() -> void:
 	_set_state(State.ATTACK)
 	if _material != null:
+		_kill_color_tween()
 		_material.albedo_color = _base_color
 	hitbox.activate(AttackInfo.new(self, data.damage * _dmg_mult), ATTACK_ACTIVE_TIME)
+	# A perfect block inside activate() can stun us synchronously — if so,
+	# skip the punch and lunge.
+	if state != State.ATTACK:
+		return
 	# Punch toward the player with a short lunge for readability.
 	_tween_fist(FIST_PUNCH, ATTACK_ACTIVE_TIME * 0.5)
 	var dir := _target.global_position - global_position
@@ -137,6 +152,39 @@ func _begin_attack() -> void:
 	dir = dir.normalized()
 	velocity.x = dir.x * data.move_speed * LUNGE_SPEED_MULT
 	velocity.z = dir.z * data.move_speed * LUNGE_SPEED_MULT
+
+
+## Perfect-block reward: freeze in place, visibly dazed, attack cancelled.
+## Called dynamically (e.g. from Player.mitigate_hit); bosses can override.
+func stun(duration: float) -> void:
+	if state == State.DEAD:
+		return
+	_set_state(State.STUNNED)
+	_stun_duration = duration
+	velocity.x = 0.0
+	velocity.z = 0.0
+	hitbox.deactivate()
+	_tween_fist(FIST_REST, 0.2)
+	if _material != null:
+		_kill_color_tween()
+		_material.albedo_color = STUN_COLOR
+	var tween := create_tween()
+	tween.tween_property(mesh, "rotation_degrees:z", STUN_TILT_DEG, 0.15) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+func _end_stun() -> void:
+	if _material != null:
+		_material.albedo_color = _base_color
+	var tween := create_tween()
+	tween.tween_property(mesh, "rotation_degrees:z", 0.0, 0.15)
+	_set_state(State.CHASE)
+
+
+func _kill_color_tween() -> void:
+	if _color_tween != null:
+		_color_tween.kill()
+		_color_tween = null
 
 
 func _begin_recover() -> void:

@@ -105,19 +105,23 @@ func _on_blocking_changed() -> void:
 	_shield_tween.tween_property(shield_pivot, "rotation_degrees", target_rot, 0.12)
 
 
-func notify_block_success() -> void:
-	# White emission flash on the shield face.
+func notify_block_success(perfect: bool = false) -> void:
+	# Emission flash on the shield face: white for a block, brighter gold
+	# for a perfect block.
 	if _shield_material != null:
 		if _flash_tween != null:
 			_flash_tween.kill()
-		_shield_material.emission_energy_multiplier = 2.5
+		_shield_material.emission = Color(1.0, 0.8, 0.25) if perfect else Color(1.0, 1.0, 1.0)
+		_shield_material.emission_energy_multiplier = 5.0 if perfect else 2.5
 		_flash_tween = create_tween()
 		_flash_tween.tween_property(
-			_shield_material, "emission_energy_multiplier", 0.0, 0.25)
+			_shield_material, "emission_energy_multiplier", 0.0, 0.4 if perfect else 0.25)
 	# Impact kick: shield knocked back toward the camera, then re-settles.
+	# A perfect block rebounds outward instead — a confident punch-back.
 	if _shield_tween != null:
 		_shield_tween.kill()
-	shield_pivot.position = SHIELD_BLOCK_POS + Vector3(0.0, -0.03, 0.12)
+	var kick := Vector3(0.0, 0.02, -0.15) if perfect else Vector3(0.0, -0.03, 0.12)
+	shield_pivot.position = SHIELD_BLOCK_POS + kick
 	_shield_tween = create_tween()
-	_shield_tween.tween_property(shield_pivot, "position", SHIELD_BLOCK_POS, 0.15) \
+	_shield_tween.tween_property(shield_pivot, "position", SHIELD_BLOCK_POS, 0.18) \
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
