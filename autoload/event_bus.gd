@@ -41,3 +41,7 @@ signal xp_changed(current: int, required: int, level: int)
 ## Emitted each time the player levels up mid-run (triggers the boon choice).
 @warning_ignore("unused_signal")
 signal level_up(new_level: int)
+
+## Emitted when the player collects a dropped pickup (&"gold", &"xp", ...).
+@warning_ignore("unused_signal")
+signal pickup_collected(kind: StringName, value: int)

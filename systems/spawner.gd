@@ -35,7 +35,8 @@ func _spawn(elapsed: float) -> void:
 	var enemy := data.scene.instantiate() as EnemyBase
 	if enemy == null:
 		return
-	enemy.setup(data, wave_table.hp_mult_at(elapsed), wave_table.dmg_mult_at(elapsed))
+	enemy.setup(data, wave_table.hp_mult_at(elapsed), wave_table.dmg_mult_at(elapsed),
+			wave_table.reward_mult_at(elapsed))
 	var angle := randf() * TAU
 	var radius := randf_range(RING_MIN, RING_MAX)
 	var pos := target.global_position + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)

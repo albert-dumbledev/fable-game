@@ -15,6 +15,7 @@ min_interval = 0.4
 interval_ramp_time = 240.0
 hp_growth_per_min = 0.5
 dmg_growth_per_min = 0.25
+reward_growth_per_min = 0.3
 max_alive_start = 15
 max_alive_end = 60
 max_alive_ramp_time = 300.0

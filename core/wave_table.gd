@@ -9,6 +9,8 @@ extends Resource
 @export var interval_ramp_time := 240.0
 @export var hp_growth_per_min := 0.5
 @export var dmg_growth_per_min := 0.25
+## Gold/XP drops scale alongside enemy strength.
+@export var reward_growth_per_min := 0.3
 @export var max_alive_start := 15
 @export var max_alive_end := 60
 @export var max_alive_ramp_time := 300.0
@@ -24,6 +26,10 @@ func hp_mult_at(elapsed: float) -> float:
 
 func dmg_mult_at(elapsed: float) -> float:
 	return 1.0 + dmg_growth_per_min * elapsed / 60.0
+
+
+func reward_mult_at(elapsed: float) -> float:
+	return 1.0 + reward_growth_per_min * elapsed / 60.0
 
 
 func max_alive_at(elapsed: float) -> int:

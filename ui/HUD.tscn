@@ -59,12 +59,10 @@ show_percentage = false
 
 [node name="Minimap" type="Control" parent="."]
 anchor_left = 1.0
-anchor_top = 1.0
 anchor_right = 1.0
-anchor_bottom = 1.0
 offset_left = -216.0
-offset_top = -216.0
+offset_top = 16.0
 offset_right = -16.0
-offset_bottom = -16.0
+offset_bottom = 216.0
 mouse_filter = 2
 script = ExtResource("2_minimap")

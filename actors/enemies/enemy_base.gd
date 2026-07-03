@@ -6,6 +6,9 @@ extends CharacterBody3D
 
 enum State { CHASE, WINDUP, ATTACK, RECOVER, STUNNED, DEAD }
 
+const PICKUP_SCENE := preload("res://actors/pickups/Pickup.tscn")
+const MAX_PICKUP_PIECES := 5
+
 const ATTACK_ACTIVE_TIME := 0.25
 const WINDUP_COLOR := Color(1.0, 0.55, 0.35)
 const STUN_COLOR := Color(0.55, 0.7, 1.0)
@@ -27,6 +30,7 @@ var state: State = State.CHASE
 var _state_time := 0.0
 var _hp_mult := 1.0
 var _dmg_mult := 1.0
+var _reward_mult := 1.0
 var _target: Node3D
 var _material: StandardMaterial3D
 var _base_color := Color.WHITE
@@ -37,10 +41,12 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
 ## Must be called before adding to the tree.
-func setup(enemy_data: EnemyData, hp_mult: float, dmg_mult: float) -> void:
+func setup(enemy_data: EnemyData, hp_mult: float, dmg_mult: float,
+		reward_mult: float = 1.0) -> void:
 	data = enemy_data
 	_hp_mult = hp_mult
 	_dmg_mult = dmg_mult
+	_reward_mult = reward_mult
 
 
 func _ready() -> void:
@@ -217,6 +223,33 @@ func _on_died() -> void:
 	hitbox.deactivate()
 	hurtbox.set_deferred(&"monitorable", false)
 	EventBus.enemy_killed.emit(data, global_position)
+	_spawn_pickups(&"gold", int(round(data.gold_reward * _reward_mult)))
+	_spawn_pickups(&"xp", int(round(data.xp_reward * _reward_mult)))
 	var tween := create_tween()
 	tween.tween_property(self, "scale", Vector3.ONE * 0.05, 0.22)
 	tween.tween_callback(queue_free)
+
+
+## Explode the reward outward as collectable pieces.
+func _spawn_pickups(kind: StringName, total: int) -> void:
+	if total <= 0:
+		return
+	var parent := get_tree().current_scene
+	if parent == null:
+		return
+	var pieces := clampi(total, 1, MAX_PICKUP_PIECES)
+	var base_value := int(floor(float(total) / float(pieces)))
+	var remainder := total - base_value * pieces
+	for i: int in pieces:
+		var piece_value := base_value + (1 if i < remainder else 0)
+		if piece_value <= 0:
+			continue
+		var pickup := PICKUP_SCENE.instantiate() as Pickup
+		var angle := randf() * TAU
+		var burst := Vector3(
+			cos(angle) * randf_range(1.5, 3.5),
+			randf_range(4.5, 7.5),
+			sin(angle) * randf_range(1.5, 3.5))
+		pickup.setup(kind, piece_value, burst)
+		parent.add_child(pickup)
+		pickup.global_position = global_position + Vector3(0.0, 1.2, 0.0)

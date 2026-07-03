@@ -20,6 +20,7 @@ var _run_active := true
 func _ready() -> void:
 	GameManager.state = GameManager.State.IN_RUN
 	EventBus.enemy_killed.connect(_on_enemy_killed)
+	EventBus.pickup_collected.connect(_on_pickup_collected)
 	EventBus.player_died.connect(_on_player_died)
 	EventBus.run_started.emit()
 	# Deferred so the HUD (readied after us) catches the initial state.
@@ -33,15 +34,23 @@ func _physics_process(delta: float) -> void:
 	spawner.tick(elapsed, delta)
 
 
-func _on_enemy_killed(enemy_data: Resource, _position: Vector3) -> void:
+func _on_enemy_killed(_enemy_data: Resource, _position: Vector3) -> void:
 	if not _run_active:
 		return
 	kills += 1
-	var data := enemy_data as EnemyData
-	if data != null:
-		gold_earned += data.gold_reward
-		MetaProgression.add_currency(&"gold", data.gold_reward)
-		_grant_xp(data.xp_reward)
+	# Gold/XP are no longer granted here — enemies drop collectable
+	# pickups, and rewards land in _on_pickup_collected.
+
+
+func _on_pickup_collected(kind: StringName, value: int) -> void:
+	if not _run_active:
+		return
+	match kind:
+		&"gold":
+			gold_earned += value
+			MetaProgression.add_currency(&"gold", value)
+		&"xp":
+			_grant_xp(value)
 
 
 func _grant_xp(amount: int) -> void:
