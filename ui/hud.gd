@@ -15,6 +15,8 @@ extends CanvasLayer
 
 ## Skills that show a cooldown slot once the player owns the ability.
 const SKILLS: Array[Dictionary] = [
+	{"id": &"block", "key": "RMB", "name": "Block"},
+	{"id": &"hammer_wave", "key": "RMB", "name": "Shockwave"},
 	{"id": &"dash", "key": "SHIFT", "name": "Dash"},
 	{"id": &"firebolt", "key": "Q", "name": "Fireball"},
 	{"id": &"frost_nova", "key": "E", "name": "Frost Nova"},
@@ -65,7 +67,7 @@ func _update_skill_slots() -> void:
 		return
 	for skill: Dictionary in SKILLS:
 		var id: StringName = skill["id"]
-		if not _player.has_ability(id):
+		if not _skill_owned(id):
 			continue
 		var slot: SkillSlot = _skill_slots.get(id)
 		if slot == null:
@@ -76,6 +78,18 @@ func _update_skill_slots() -> void:
 		slot.update_cooldown(
 			_player.get_cooldown_remaining(id), _player.get_cooldown_max(id))
 		slot.update_charges(_player.get_charges(id), _player.get_max_charges(id))
+
+
+## Most skills are ability flags; block/shockwave come with the weapon.
+func _skill_owned(id: StringName) -> bool:
+	match id:
+		&"block":
+			return _player.weapon != null and _player.weapon.weapon_data != null \
+					and _player.weapon.weapon_data.can_block
+		&"hammer_wave":
+			return _player.weapon is Warhammer
+		_:
+			return _player.has_ability(id)
 
 
 func _on_health_changed(current: float, max_health: float) -> void:

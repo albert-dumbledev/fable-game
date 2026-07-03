@@ -23,6 +23,15 @@ const AFTERSHOCK_DELAY := 0.45
 const AFTERSHOCK_DAMAGE_MULT := 0.5
 const AFTERSHOCK_AOE_MULT := 0.8
 const AFTERSHOCK_SHOVE_MULT := 0.6
+## Seismic Slam (RMB): a long committed overhead windup, then a slam that
+## sends a GroundShockwave forward in a straight line.
+const WAVE_WINDUP := 1.1
+const WAVE_SLAM_TIME := 0.15
+const WAVE_SETTLE_TIME := 0.45
+const WAVE_COOLDOWN := 6.0
+const WAVE_DAMAGE_MULT := 1.2
+const WAVE_RAISED_POS := Vector3(0.05, 0.45, 0.2)
+const WAVE_RAISED_ROT := Vector3(95.0, 0.0, 0.0)
 
 @onready var hammer_pivot: Node3D = $HammerPivot
 @onready var handle_mesh: MeshInstance3D = $HammerPivot/HandleMesh
@@ -59,6 +68,53 @@ func _do_attack(duration: float) -> void:
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	_swing_tween.tween_property(hammer_pivot, "rotation_degrees", REST_ROT, duration * 0.45) \
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+
+
+func _do_secondary() -> void:
+	_secondary_cooldown = WAVE_COOLDOWN
+	# The whole committed animation locks the primary slam out.
+	_cooldown = maxf(_cooldown, WAVE_WINDUP + WAVE_SLAM_TIME + WAVE_SETTLE_TIME)
+	var damage := (weapon_data.damage + stats.get_stat(Stats.DAMAGE)) * WAVE_DAMAGE_MULT
+	if _swing_tween != null:
+		_swing_tween.kill()
+	_swing_tween = create_tween()
+	_swing_tween.set_parallel(true)
+	# 1) Slow haul high overhead — a much longer telegraph than the primary.
+	_swing_tween.tween_property(hammer_pivot, "position", WAVE_RAISED_POS, WAVE_WINDUP) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	_swing_tween.tween_property(
+		hammer_pivot, "rotation_degrees", WAVE_RAISED_ROT, WAVE_WINDUP
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	# 2) Crash down.
+	_swing_tween.chain().tween_property(
+		hammer_pivot, "position", SLAM_POS, WAVE_SLAM_TIME
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_swing_tween.tween_property(hammer_pivot, "rotation_degrees", SLAM_ROT, WAVE_SLAM_TIME) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_swing_tween.chain().tween_callback(_wave_impact.bind(damage))
+	# 3) Settle back to ready.
+	_swing_tween.chain().tween_property(
+		hammer_pivot, "position", REST_POS, WAVE_SETTLE_TIME
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	_swing_tween.tween_property(
+		hammer_pivot, "rotation_degrees", REST_ROT, WAVE_SETTLE_TIME
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+
+
+func _wave_impact(damage: float) -> void:
+	if wielder == null or not is_inside_tree():
+		return
+	var forward := -wielder.global_transform.basis.z
+	forward.y = 0.0
+	forward = forward.normalized()
+	var origin := wielder.global_position + forward * 1.2
+	origin.y = 0.1
+	GroundShockwave.spawn(get_tree().current_scene, origin,
+			AttackInfo.new(wielder, damage), forward, stats.get_stat(Stats.HAMMER_AOE))
+	BlastVfx.spawn(get_tree().current_scene, origin, 1.6, SHOCKWAVE_COLOR, 0.15, 0.2)
+	var player := wielder as Player
+	if player != null:
+		player.add_shake(0.6)
 
 
 ## The slam is a ground AoE, not a hitbox sweep: full damage inside

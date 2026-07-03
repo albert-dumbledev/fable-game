@@ -25,7 +25,9 @@ The player instantiates the chosen scene into `WeaponMount` at runtime (`_mount_
 
 ## Block and perfect block (`player.gd`)
 
-`mitigate_hit` blocks a hit when **all** hold: block held (RMB), valid `info.source`, and the attacker within **60°** (`BLOCK_HALF_ANGLE_DEG`) of player forward, flat-plane. Blocked damage is fully negated. Blocking costs mobility: **×0.5 move speed** (`BLOCK_SPEED_MULT`). Only weapons with `can_block = true` can raise a block at all — the warhammer's whole trade is giving this up.
+`mitigate_hit` blocks a hit when **all** hold: block held (RMB), valid `info.source`, and the attacker within **60°** (`BLOCK_HALF_ANGLE_DEG`) of player forward, flat-plane. Blocked damage is fully negated. Blocking costs mobility: **×0.5 move speed** (`BLOCK_SPEED_MULT`). Only weapons with `can_block = true` can raise a block at all — the warhammer's whole trade is giving this up (its RMB is Seismic Slam instead, see below).
+
+**Guard meter (anti-turtle):** blocking is a depleting resource — `GUARD_MAX 3.0s` drains 1/s while the shield is up, and every *non-perfect* blocked hit costs an extra `GUARD_HIT_COST 0.5s`; **perfect blocks cost nothing**. Hitting zero breaks the block (forced down, 0.3 shake) and blocking stays locked out until the meter refills completely (`GUARD_REGEN 1/s` while lowered — ~3s exposed after a full break). Quick parry taps are nearly free, so the perfect-block game is untouched; corner-hiding is dead. The HUD shows an RMB "Block" slot whose overlay fills with guard spent and drains as it recovers.
 
 **Perfect block:** the player timestamps every block *raise* (`_block_started_ms`). If a hit arrives within **`PERFECT_BLOCK_WINDOW = 0.2s`** of the raise (0.35s with the Duelist's Focus boon, `long_parry`), the attack is negated *and* the attacker is stunned for **`PERFECT_BLOCK_STUN = 1.5s`** via a duck-typed `stun(duration)` call (see docs/ENEMIES.md — bosses can override). Holding block permanently never parries; you must re-raise with timing.
 
@@ -51,6 +53,8 @@ Two parallel impulse systems, both "set once, decay on top of normal movement":
 Two-handed slam, `swing_time 1.4s`, `damage 26` + damage stat. **No shield, no block** (`can_block = false`) — dash and Frost Nova are the defense. The swing is three tween phases like the sword (40% telegraph haul-up / 15% crash / 45% recover), but damage is **not a hitbox sweep**: at the crash moment, a ground AoE lands `IMPACT_DISTANCE 2.2m` in front of the player — full damage within `INNER_RADIUS 2.4m` of the impact point, `×0.4` splash out to `OUTER_RADIUS 4.2m`, and a radial 9-impulse shove for everything caught (same `apply_shove` the fireball uses). All damage flows through hurtboxes as usual. Flattened blast ring + 0.5 camera shake sell the hit.
 
 Boon hooks: both radii scale with the **`hammer_aoe`** stat (Wide Tremor); **Aftershock** (`aftershock` flag) re-slams the same point 0.45s later at ×0.5 damage / ×0.8 radii / ×0.6 shove.
+
+**Seismic Slam (RMB):** the hammer's secondary (`Weapon.try_secondary` — RMB routes here for any `can_block = false` weapon). A **1.1s** overhead windup — deliberately much longer than the primary's telegraph — then a slam that launches a `GroundShockwave` (`weapons/ground_shockwave.gd`) forward in a straight line: speed 14, range 16m, hit radius 2.2m × `hammer_aoe`, dealing `(hammer damage) × 1.2` to each enemy **at most once** and carrying it along the wave with a 12-impulse shove. 6s cooldown (HUD slot "Shockwave"); the committed animation locks the primary out for its full duration.
 
 ## Frost Nova (spell unlock; `player.gd`)
 
@@ -102,6 +106,8 @@ Modifier sources, in spawn order: player base values (**80 HP** — tuned so ~4 
 | Knob | Where |
 |---|---|
 | Block cone, block speed penalty, parry window/stun | consts atop `player.gd` |
+| Guard meter (hold time, hit cost, regen) | `GUARD_*` consts atop `player.gd` |
+| Seismic Slam windup/cooldown/damage, wave speed/range/width | `WAVE_*` in `warhammer.gd`, consts in `ground_shockwave.gd` |
 | Swing time / damage | `data/weapons/sword.tres`, `data/weapons/warhammer.tres` |
 | Hammer impact point/radii/splash/shove | consts atop `weapons/warhammer.gd` |
 | Frost nova radius/slow/cooldown | `FROST_NOVA_*` consts atop `player.gd` |

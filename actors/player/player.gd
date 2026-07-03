@@ -7,6 +7,13 @@ const MOUSE_SENSITIVITY := 0.002
 const PITCH_LIMIT := deg_to_rad(89.0)
 const BLOCK_HALF_ANGLE_DEG := 60.0
 const BLOCK_SPEED_MULT := 0.5
+## Guard: blocking is a depleting resource, not a wall to hide behind.
+## Holding the shield drains it and every blocked hit costs extra
+## (perfect blocks are free — the parry stays skill-expressive). Emptying
+## it breaks the block: no blocking until it refills completely.
+const GUARD_MAX := 3.0
+const GUARD_REGEN := 1.0
+const GUARD_HIT_COST := 0.5
 const JUMP_VELOCITY := 4.8
 ## Raising the block within this window before a hit lands is a perfect
 ## block: the attack is negated and the attacker is stunned.
@@ -59,6 +66,8 @@ var stats := StatBlock.new()
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _dead := false
 var _block_started_ms := -10000
+var _guard := GUARD_MAX
+var _guard_broken := false
 var _shake := 0.0
 var _abilities: Dictionary[StringName, bool] = {}
 var _dash_time := 0.0
@@ -137,6 +146,12 @@ func _physics_process(delta: float) -> void:
 			if _fireball_charges < _max_fireball_charges():
 				_cast_cooldown = _spell_cooldown(FIREBALL_COOLDOWN)
 	_nova_cooldown = maxf(0.0, _nova_cooldown - delta)
+	if weapon != null and weapon.is_blocking:
+		_drain_guard(delta)
+	else:
+		_guard = minf(GUARD_MAX, _guard + GUARD_REGEN * delta)
+		if _guard_broken and _guard >= GUARD_MAX:
+			_guard_broken = false
 	if _charging:
 		# Committed cast: sword and shield are locked out while the orb
 		# charges, then the fireball releases automatically.
@@ -148,10 +163,15 @@ func _physics_process(delta: float) -> void:
 		if _charge_time >= _charge_duration:
 			_finish_cast()
 	else:
-		var block_held := Input.is_action_pressed("block")
+		var block_held := Input.is_action_pressed("block") \
+				and not _guard_broken and _guard > 0.0
 		if block_held and not weapon.is_blocking:
 			_block_started_ms = Time.get_ticks_msec()
 		weapon.set_blocking(block_held)
+		# On weapons with no shield, RMB is the weapon's secondary ability.
+		if not weapon.weapon_data.can_block \
+				and Input.is_action_just_pressed("block"):
+			weapon.try_secondary()
 		if Input.is_action_pressed("attack"):
 			weapon.try_attack()
 		if has_ability(&"firebolt") and Input.is_action_just_pressed("cast") \
@@ -227,6 +247,7 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 					info.source.call(&"stun", PERFECT_BLOCK_STUN)
 			else:
 				EventBus.attack_blocked.emit()
+				_drain_guard(GUARD_HIT_COST)
 			return null
 	return info
 
@@ -372,6 +393,14 @@ func _spell_cooldown(base: float) -> float:
 	return base * maxf(0.25, stats.get_stat(Stats.SPELL_COOLDOWN))
 
 
+func _drain_guard(amount: float) -> void:
+	_guard = maxf(0.0, _guard - amount)
+	if _guard <= 0.0 and not _guard_broken:
+		_guard_broken = true
+		weapon.set_blocking(false)
+		add_shake(0.3)
+
+
 func _max_fireball_charges() -> int:
 	return maxi(1, int(round(stats.get_stat(Stats.FIREBALL_CHARGES))))
 
@@ -385,6 +414,12 @@ func get_cooldown_remaining(id: StringName) -> float:
 			return 0.0 if _fireball_charges > 0 else _cast_cooldown
 		&"frost_nova":
 			return _nova_cooldown
+		&"block":
+			# The slot reads as a recharge bar: full overlay right after a
+			# guard break, draining away as the meter refills.
+			return (GUARD_MAX - _guard) / GUARD_REGEN
+		&"hammer_wave":
+			return weapon.get_secondary_cooldown() if weapon != null else 0.0
 	return 0.0
 
 
@@ -396,6 +431,10 @@ func get_cooldown_max(id: StringName) -> float:
 			return _spell_cooldown(FIREBALL_COOLDOWN)
 		&"frost_nova":
 			return _spell_cooldown(FROST_NOVA_COOLDOWN)
+		&"block":
+			return GUARD_MAX / GUARD_REGEN
+		&"hammer_wave":
+			return Warhammer.WAVE_COOLDOWN
 	return 0.0
 
 

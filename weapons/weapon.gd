@@ -16,6 +16,7 @@ var is_blocking := false
 var is_stowed := false
 
 var _cooldown := 0.0
+var _secondary_cooldown := 0.0
 var _stow_tween: Tween
 
 
@@ -26,6 +27,7 @@ func setup(stat_block: StatBlock, wielder_node: Node3D) -> void:
 
 func _process(delta: float) -> void:
 	_cooldown = maxf(0.0, _cooldown - delta)
+	_secondary_cooldown = maxf(0.0, _secondary_cooldown - delta)
 
 
 func try_attack() -> void:
@@ -34,6 +36,17 @@ func try_attack() -> void:
 	var duration := weapon_data.swing_time / maxf(0.1, stats.get_stat(Stats.ATTACK_SPEED))
 	_cooldown = duration
 	_do_attack(duration)
+
+
+## RMB ability for weapons that can't block (the shield owns RMB otherwise).
+func try_secondary() -> void:
+	if is_stowed or _secondary_cooldown > 0.0 or stats == null or weapon_data == null:
+		return
+	_do_secondary()
+
+
+func get_secondary_cooldown() -> float:
+	return _secondary_cooldown
 
 
 func set_blocking(value: bool) -> void:
@@ -62,6 +75,11 @@ func set_stowed(value: bool) -> void:
 
 ## Override: perform the attack. `duration` is the attack-speed-scaled swing time.
 func _do_attack(_duration: float) -> void:
+	pass
+
+
+## Override: the RMB secondary. Set `_secondary_cooldown` when it fires.
+func _do_secondary() -> void:
 	pass
 
 
