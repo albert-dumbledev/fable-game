@@ -46,7 +46,7 @@ Boon selection itself is weighted sampling **without replacement** (no duplicate
 Unique boons (`unique = true`) skip the rarity roll — tagged `[UNIQUE]`, orange, never scaled, hand-written description used verbatim — and are offered **at most once per run** (screen tracks `_taken_uniques`). Instead of modifiers they set `grants_ability`, which flows into the player's flag dictionary:
 
 - `Player.grant_ability(id: StringName)` / `Player.has_ability(id)` — a plain `Dictionary[StringName, bool]`. Anything can branch on a flag; `grant_ability` is also the hook for one-time wiring (vampire connects to `EventBus.enemy_killed` there).
-- **dash** — Space: 18 u/s burst for 0.18s, 2s cooldown, overrides movement (constants in `player.gd`).
+- **dash** — Space: fixed 6m blink over 0.12s (traveled, not teleported; walls still stop it), fully intangible during — enemy collision off, hurtbox dark so melee and projectiles pass through — 2s cooldown (constants in `player.gd`).
 - **thorns** — successful blocks deal 15 damage back to the attacker via its `Hurtbox` (in `Player.mitigate_hit`).
 - **vampire** — heal 2 HP per enemy kill.
 

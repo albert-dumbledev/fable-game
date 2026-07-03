@@ -12,9 +12,13 @@ const SPRINT_MULT := 1.4
 ## block: the attack is negated and the attacker is stunned.
 const PERFECT_BLOCK_WINDOW := 0.2
 const PERFECT_BLOCK_STUN := 1.5
-const DASH_SPEED := 18.0
-const DASH_TIME := 0.18
+## Dash: a fixed-distance blink — traveled, not teleported — with full
+## intangibility (no enemy collision, no damage, projectiles pass through).
+const DASH_DISTANCE := 6.0
+const DASH_DURATION := 0.12
 const DASH_COOLDOWN := 2.0
+const NORMAL_COLLISION_MASK := 5
+const DASH_COLLISION_MASK := 1
 const THORNS_DAMAGE := 15.0
 const VAMPIRE_HEAL := 2.0
 const KNOCKBACK_DECAY := 25.0
@@ -25,6 +29,7 @@ const FIREBOLT_COOLDOWN := 2.5
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
 @onready var health: HealthComponent = $Health
+@onready var hurtbox: HurtboxComponent = $Hurtbox
 @onready var weapon: Weapon = $CameraRig/Camera3D/WeaponMount/SwordAndShield
 
 var stats := StatBlock.new()
@@ -91,23 +96,19 @@ func _physics_process(delta: float) -> void:
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
 
-	# Dash (unique boon): burst of speed in the move direction, or facing
-	# if standing still. Overrides normal movement while active.
+	# Dash (unique boon): blink a fixed distance in the move direction, or
+	# facing if standing still. Intangible while dashing.
 	_dash_cooldown = maxf(0.0, _dash_cooldown - delta)
 	if has_ability(&"dash") and Input.is_action_just_pressed("dash") \
 			and _dash_cooldown <= 0.0:
-		_dash_dir = direction
-		if _dash_dir == Vector3.ZERO:
-			_dash_dir = -global_transform.basis.z
-			_dash_dir.y = 0.0
-			_dash_dir = _dash_dir.normalized()
-		_dash_time = DASH_TIME
-		_dash_cooldown = DASH_COOLDOWN
+		_begin_dash(direction)
 	if _dash_time > 0.0:
 		_dash_time -= delta
-		velocity.x = _dash_dir.x * DASH_SPEED
-		velocity.z = _dash_dir.z * DASH_SPEED
+		velocity = _dash_dir * (DASH_DISTANCE / DASH_DURATION)
+		velocity.y = 0.0
 		move_and_slide()
+		if _dash_time <= 0.0:
+			_end_dash()
 		return
 
 	var speed := stats.get_stat(Stats.MOVE_SPEED)
@@ -130,6 +131,9 @@ func _physics_process(delta: float) -> void:
 
 ## Called by HurtboxComponent before damage lands. Returning null blocks fully.
 func mitigate_hit(info: AttackInfo) -> AttackInfo:
+	# Belt-and-braces with the disabled hurtbox: nothing lands mid-dash.
+	if _dash_time > 0.0:
+		return null
 	if weapon.is_blocking and info.source != null and is_instance_valid(info.source):
 		var to_attacker := info.source.global_position - global_position
 		to_attacker.y = 0.0
@@ -188,6 +192,33 @@ func apply_boon(boon: BoonData, value_mult: float = 1.0) -> void:
 		health.set_max_health(new_max)
 		if new_max > old_max:
 			health.heal(new_max - old_max)
+
+
+func _begin_dash(direction: Vector3) -> void:
+	_dash_dir = direction
+	if _dash_dir == Vector3.ZERO:
+		_dash_dir = -global_transform.basis.z
+		_dash_dir.y = 0.0
+		_dash_dir = _dash_dir.normalized()
+	_dash_time = DASH_DURATION
+	_dash_cooldown = DASH_COOLDOWN
+	_knockback = Vector3.ZERO
+	# Intangible: pass through enemies (walls still stop the dash) and
+	# turn the hurtbox dark so nothing — melee or projectile — connects.
+	collision_mask = DASH_COLLISION_MASK
+	hurtbox.set_deferred(&"monitorable", false)
+	# FOV punch sells the burst.
+	var tween := create_tween()
+	tween.tween_property(camera, "fov", 84.0, DASH_DURATION * 0.6)
+	tween.tween_property(camera, "fov", 75.0, 0.18)
+
+
+func _end_dash() -> void:
+	collision_mask = NORMAL_COLLISION_MASK
+	hurtbox.set_deferred(&"monitorable", true)
+	# Kill most momentum so the blink stops crisply.
+	velocity.x *= 0.2
+	velocity.z *= 0.2
 
 
 func _cast_firebolt() -> void:
