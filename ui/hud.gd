@@ -8,14 +8,23 @@ extends CanvasLayer
 @onready var damage_flash: ColorRect = $DamageFlash
 @onready var xp_bar: ProgressBar = $XpRow/XpBar
 @onready var level_label: Label = $XpRow/LevelLabel
+@onready var skill_row: HBoxContainer = $SkillRow
 @onready var boss_bar: ProgressBar = $BossBar
 @onready var boss_name_label: Label = $BossNameLabel
 @onready var announce_label: Label = $AnnounceLabel
+
+## Skills that show a cooldown slot once the player owns the ability.
+const SKILLS: Array[Dictionary] = [
+	{"id": &"dash", "key": "SPACE", "name": "Dash"},
+	{"id": &"firebolt", "key": "Q", "name": "Firebolt"},
+]
 
 var _elapsed := 0.0
 var _kills := 0
 var _running := true
 var _boss_health: HealthComponent
+var _player: Player
+var _skill_slots: Dictionary[StringName, SkillSlot] = {}
 
 
 func _ready() -> void:
@@ -37,14 +46,34 @@ func _process(delta: float) -> void:
 		return
 	_elapsed += delta
 	timer_label.text = "%02d:%02d" % [int(_elapsed / 60.0), int(fmod(_elapsed, 60.0))]
+	_update_skill_slots()
 
 
 func _bind_player() -> void:
-	var player := get_tree().get_first_node_in_group(&"player") as Player
-	if player == null:
+	_player = get_tree().get_first_node_in_group(&"player") as Player
+	if _player == null:
 		return
-	player.health.health_changed.connect(_on_health_changed)
-	_on_health_changed(player.health.current, player.health.max_health)
+	_player.health.health_changed.connect(_on_health_changed)
+	_on_health_changed(_player.health.current, _player.health.max_health)
+
+
+## Slots appear the moment an ability is owned (meta unlock or mid-run
+## boon) and track remaining cooldown every frame.
+func _update_skill_slots() -> void:
+	if _player == null or not is_instance_valid(_player):
+		return
+	for skill: Dictionary in SKILLS:
+		var id: StringName = skill["id"]
+		if not _player.has_ability(id):
+			continue
+		var slot: SkillSlot = _skill_slots.get(id)
+		if slot == null:
+			slot = SkillSlot.new()
+			slot.setup(id, skill["key"], skill["name"])
+			skill_row.add_child(slot)
+			_skill_slots[id] = slot
+		slot.update_cooldown(
+			_player.get_cooldown_remaining(id), _player.get_cooldown_max(id))
 
 
 func _on_health_changed(current: float, max_health: float) -> void:

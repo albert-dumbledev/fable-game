@@ -193,6 +193,24 @@ func _cast_firebolt() -> void:
 	bolt.global_position = camera.global_position + dir * 0.6
 
 
+func get_cooldown_remaining(id: StringName) -> float:
+	match id:
+		&"dash":
+			return _dash_cooldown
+		&"firebolt":
+			return _cast_cooldown
+	return 0.0
+
+
+func get_cooldown_max(id: StringName) -> float:
+	match id:
+		&"dash":
+			return DASH_COOLDOWN
+		&"firebolt":
+			return FIREBOLT_COOLDOWN
+	return 0.0
+
+
 func grant_ability(id: StringName) -> void:
 	if _abilities.get(id, false):
 		return
