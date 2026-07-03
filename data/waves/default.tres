@@ -1,12 +1,15 @@
-[gd_resource type="Resource" script_class="WaveTable" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="WaveTable" load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://core/wave_table.gd" id="1_script"]
 [ext_resource type="Script" path="res://core/enemy_data.gd" id="2_type"]
 [ext_resource type="Resource" path="res://data/enemies/chaser.tres" id="3_chaser"]
+[ext_resource type="Resource" path="res://data/enemies/sprinter.tres" id="4_sprinter"]
+[ext_resource type="Resource" path="res://data/enemies/brute.tres" id="5_brute"]
+[ext_resource type="Resource" path="res://data/enemies/spitter.tres" id="6_spitter"]
 
 [resource]
 script = ExtResource("1_script")
-enemies = Array[ExtResource("2_type")]([ExtResource("3_chaser")])
+enemies = Array[ExtResource("2_type")]([ExtResource("3_chaser"), ExtResource("4_sprinter"), ExtResource("5_brute"), ExtResource("6_spitter")])
 start_interval = 2.5
 min_interval = 0.4
 interval_ramp_time = 240.0

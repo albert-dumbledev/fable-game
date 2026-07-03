@@ -38,6 +38,25 @@ text = "Kills: 0"
 theme_override_font_sizes/font_size = 22
 text = "Gold: 0"
 
+[node name="XpRow" type="HBoxContainer" parent="."]
+anchor_right = 1.0
+offset_left = 16.0
+offset_top = 62.0
+offset_right = -16.0
+offset_bottom = 84.0
+theme_override_constants/separation = 12
+
+[node name="LevelLabel" type="Label" parent="XpRow"]
+theme_override_font_sizes/font_size = 18
+text = "Lv 0"
+
+[node name="XpBar" type="ProgressBar" parent="XpRow"]
+custom_minimum_size = Vector2(0, 12)
+size_flags_horizontal = 3
+size_flags_vertical = 4
+max_value = 20.0
+show_percentage = false
+
 [node name="Minimap" type="Control" parent="."]
 anchor_left = 1.0
 anchor_top = 1.0

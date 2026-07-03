@@ -100,13 +100,13 @@ res://
   components/      HealthComponent, Hitbox/HurtboxComponent
   core/            StatBlock, StatModifier, AttackInfo
   data/
-    enemies/       *.tres (EnemyData)
-    weapons/       *.tres (WeaponData)
-    upgrades/      *.tres (UpgradeData)
-    waves/         *.tres (WaveTable)
+	enemies/       *.tres (EnemyData)
+	weapons/       *.tres (WeaponData)
+	upgrades/      *.tres (UpgradeData)
+	waves/         *.tres (WaveTable)
   actors/
-    player/        Player.tscn + controller, camera rig, weapon mount
-    enemies/       EnemyBase.tscn, ChaserEnemy.tscn
+	player/        Player.tscn + controller, camera rig, weapon mount
+	enemies/       EnemyBase.tscn, ChaserEnemy.tscn
   weapons/         weapon.gd, SwordAndShield.tscn
   systems/         run_director.gd, spawner.gd
   ui/              HUD.tscn, DeathScreen.tscn, UpgradeShop.tscn

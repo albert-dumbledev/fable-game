@@ -29,7 +29,7 @@ func _spawn(elapsed: float) -> void:
 	var target := get_tree().get_first_node_in_group(&"player") as Node3D
 	if target == null:
 		return
-	var data := wave_table.pick_enemy()
+	var data := wave_table.pick_enemy(elapsed)
 	if data == null or data.scene == null:
 		return
 	var enemy := data.scene.instantiate() as EnemyBase

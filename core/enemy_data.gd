@@ -11,5 +11,8 @@ extends Resource
 @export var windup_time := 0.4
 @export var recover_time := 0.8
 @export var gold_reward := 5
+@export var xp_reward := 3
 @export var spawn_weight := 1.0
+## Run time (seconds) before this enemy can appear in the spawn pool.
+@export var min_elapsed := 0.0
 @export var tags: Array[StringName] = []

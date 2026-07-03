@@ -31,15 +31,20 @@ func max_alive_at(elapsed: float) -> int:
 	return int(round(lerpf(float(max_alive_start), float(max_alive_end), t)))
 
 
-func pick_enemy() -> EnemyData:
-	if enemies.is_empty():
-		return null
+func pick_enemy(elapsed: float) -> EnemyData:
 	var total := 0.0
 	for data: EnemyData in enemies:
-		total += data.spawn_weight
+		if elapsed >= data.min_elapsed:
+			total += data.spawn_weight
+	if total <= 0.0:
+		return null
 	var roll := randf() * total
+	var last: EnemyData = null
 	for data: EnemyData in enemies:
+		if elapsed < data.min_elapsed:
+			continue
+		last = data
 		roll -= data.spawn_weight
 		if roll <= 0.0:
 			return data
-	return enemies[-1]
+	return last

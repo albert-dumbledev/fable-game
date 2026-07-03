@@ -1,0 +1,19 @@
+﻿[gd_resource type="Resource" script_class="EnemyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://core/enemy_data.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://actors/enemies/SprinterEnemy.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Sprinter"
+scene = ExtResource("2_scene")
+max_health = 12.0
+move_speed = 7.0
+damage = 6.0
+attack_range = 1.6
+windup_time = 0.3
+recover_time = 0.6
+gold_reward = 4
+xp_reward = 3
+spawn_weight = 0.8
+min_elapsed = 45.0

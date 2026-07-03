@@ -1,0 +1,87 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://actors/enemies/enemy_base.gd" id="1_script"]
+[ext_resource type="Script" path="res://components/health_component.gd" id="2_health"]
+[ext_resource type="Script" path="res://components/hurtbox_component.gd" id="3_hurtbox"]
+[ext_resource type="Script" path="res://components/hitbox_component.gd" id="4_hitbox"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+radius = 0.62
+height = 2.3
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_body"]
+albedo_color = Color(0.35, 0.12, 0.4, 1)
+roughness = 0.85
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
+radius = 0.62
+height = 2.3
+material = SubResource("StandardMaterial3D_body")
+
+[sub_resource type="SphereMesh" id="SphereMesh_eye"]
+radius = 0.11
+height = 0.22
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fist"]
+albedo_color = Color(0.2, 0.05, 0.24, 1)
+roughness = 0.7
+
+[sub_resource type="SphereMesh" id="SphereMesh_fist"]
+radius = 0.3
+height = 0.6
+material = SubResource("StandardMaterial3D_fist")
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_attack"]
+radius = 0.95
+
+[node name="BruteEnemy" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 7
+script = ExtResource("1_script")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0)
+mesh = SubResource("CapsuleMesh_body")
+
+[node name="EyeL" type="MeshInstance3D" parent="Mesh"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.22, 0.6, -0.54)
+mesh = SubResource("SphereMesh_eye")
+
+[node name="EyeR" type="MeshInstance3D" parent="Mesh"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0.6, -0.54)
+mesh = SubResource("SphereMesh_eye")
+
+[node name="FistPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.3, -0.45)
+
+[node name="Fist" type="MeshInstance3D" parent="FistPivot"]
+mesh = SubResource("SphereMesh_fist")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("2_health")
+max_health = 80.0
+
+[node name="Hurtbox" type="Area3D" parent="." node_paths=PackedStringArray("health")]
+collision_layer = 16
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_hurtbox")
+health = NodePath("../Health")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hurtbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="AttackHitbox" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 8
+monitorable = false
+script = ExtResource("4_hitbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AttackHitbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, -1.3)
+shape = SubResource("SphereShape3D_attack")

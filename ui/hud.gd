@@ -6,6 +6,8 @@ extends CanvasLayer
 @onready var kills_label: Label = $TopBar/KillsLabel
 @onready var gold_label: Label = $TopBar/GoldLabel
 @onready var damage_flash: ColorRect = $DamageFlash
+@onready var xp_bar: ProgressBar = $XpRow/XpBar
+@onready var level_label: Label = $XpRow/LevelLabel
 
 var _elapsed := 0.0
 var _kills := 0
@@ -19,6 +21,7 @@ func _ready() -> void:
 	EventBus.attack_blocked.connect(_on_attack_blocked)
 	EventBus.perfect_block.connect(_on_perfect_block)
 	EventBus.player_died.connect(_on_player_died)
+	EventBus.xp_changed.connect(_on_xp_changed)
 	gold_label.text = "Gold: %d" % MetaProgression.get_currency(&"gold")
 	_bind_player.call_deferred()
 
@@ -69,6 +72,12 @@ func _on_perfect_block() -> void:
 	damage_flash.color = Color(1.0, 0.85, 0.3, 0.25)
 	var tween := create_tween()
 	tween.tween_property(damage_flash, "color:a", 0.0, 0.35)
+
+
+func _on_xp_changed(current: int, required: int, level: int) -> void:
+	xp_bar.max_value = required
+	xp_bar.value = current
+	level_label.text = "Lv %d" % level
 
 
 func _on_player_died() -> void:

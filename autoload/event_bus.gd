@@ -33,3 +33,11 @@ signal player_died
 
 ## Emitted whenever a currency balance changes (kill rewards, shop purchases).
 signal currency_changed(id: StringName, amount: int)
+
+## Emitted whenever run XP changes. `required` is the threshold for the next level.
+@warning_ignore("unused_signal")
+signal xp_changed(current: int, required: int, level: int)
+
+## Emitted each time the player levels up mid-run (triggers the boon choice).
+@warning_ignore("unused_signal")
+signal level_up(new_level: int)

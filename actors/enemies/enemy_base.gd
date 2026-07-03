@@ -200,10 +200,14 @@ func _tween_fist(target: Vector3, duration: float) -> void:
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
-func _on_damaged(_info: AttackInfo) -> void:
+func _on_damaged(info: AttackInfo) -> void:
 	mesh.scale = Vector3.ONE * 1.18
 	var tween := create_tween()
 	tween.tween_property(mesh, "scale", Vector3.ONE, 0.12)
+	DamageNumber.spawn(
+		get_tree().current_scene,
+		global_position + Vector3(randf_range(-0.25, 0.25), 2.0, randf_range(-0.25, 0.25)),
+		info.damage)
 
 
 func _on_died() -> void:

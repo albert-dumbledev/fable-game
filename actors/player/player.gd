@@ -14,6 +14,7 @@ const PERFECT_BLOCK_WINDOW := 0.2
 const PERFECT_BLOCK_STUN := 1.5
 
 @onready var camera_rig: Node3D = $CameraRig
+@onready var camera: Camera3D = $CameraRig/Camera3D
 @onready var health: HealthComponent = $Health
 @onready var weapon: Weapon = $CameraRig/Camera3D/WeaponMount/SwordAndShield
 
@@ -22,6 +23,7 @@ var stats := StatBlock.new()
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _dead := false
 var _block_started_ms := -10000
+var _shake := 0.0
 
 
 func _ready() -> void:
@@ -101,7 +103,37 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 	return info
 
 
+func _process(delta: float) -> void:
+	# Trauma-style camera shake: quadratic falloff, jitter on the camera
+	# node so the viewmodel shakes with the view.
+	if _shake > 0.0:
+		_shake = maxf(_shake - delta * 1.8, 0.0)
+		var strength := _shake * _shake * 0.1
+		camera.position = Vector3(
+			randf_range(-strength, strength), randf_range(-strength, strength), 0.0)
+	elif camera.position != Vector3.ZERO:
+		camera.position = Vector3.ZERO
+
+
+func add_shake(amount: float) -> void:
+	_shake = minf(_shake + amount, 1.0)
+
+
+## Applies a run-scoped level-up boon. Max-health gains also heal the
+## gained amount so the boon never feels like an empty bar extension.
+func apply_boon(boon: BoonData) -> void:
+	var old_max := stats.get_stat(Stats.MAX_HEALTH)
+	for modifier: StatModifier in boon.modifiers:
+		stats.add_modifier(modifier)
+	var new_max := stats.get_stat(Stats.MAX_HEALTH)
+	if new_max != old_max:
+		health.set_max_health(new_max)
+		if new_max > old_max:
+			health.heal(new_max - old_max)
+
+
 func _on_damaged(info: AttackInfo) -> void:
+	add_shake(0.4)
 	EventBus.player_damaged.emit(info.damage)
 
 

@@ -1,0 +1,35 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/boon_screen.gd" id="1_script"]
+
+[node name="BoonScreen" type="CanvasLayer"]
+process_mode = 3
+layer = 2
+visible = false
+script = ExtResource("1_script")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.6)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Box" type="VBoxContainer" parent="Center"]
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="Center/Box"]
+theme_override_font_sizes/font_size = 44
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+horizontal_alignment = 1
+text = "LEVEL 1!"
+
+[node name="Subtitle" type="Label" parent="Center/Box"]
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text = "Choose a boon (this run only)"
+
+[node name="ChoiceRow" type="HBoxContainer" parent="Center/Box"]
+theme_override_constants/separation = 16
