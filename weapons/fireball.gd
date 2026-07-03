@@ -8,6 +8,9 @@ const LIFETIME := 4.0
 const EXPLOSION_RADIUS := 4.0
 const EXPLOSION_SHOVE := 10.0
 const BLAST_DURATION := 0.25
+## Scorched Earth (unique boon): burning patches dropped along the flight.
+const TRAIL_INTERVAL := 0.18
+const TRAIL_DAMAGE_MULT := 0.12
 
 @export var speed := 18.0
 
@@ -15,11 +18,17 @@ var _info: AttackInfo
 var _dir := Vector3.FORWARD
 var _age := 0.0
 var _exploded := false
+var _radius := EXPLOSION_RADIUS
+var _fire_trail := false
+var _trail_timer := 0.0
 
 
-func setup(info: AttackInfo, direction: Vector3) -> void:
+func setup(info: AttackInfo, direction: Vector3, radius_mult: float = 1.0,
+		fire_trail: bool = false) -> void:
 	_info = info
 	_dir = direction.normalized()
+	_radius = EXPLOSION_RADIUS * radius_mult
+	_fire_trail = fire_trail
 
 
 func _ready() -> void:
@@ -35,6 +44,13 @@ func _physics_process(delta: float) -> void:
 		_explode()
 		return
 	global_position += _dir * speed * delta
+	if _fire_trail:
+		_trail_timer -= delta
+		if _trail_timer <= 0.0:
+			_trail_timer = TRAIL_INTERVAL
+			FlamePatch.spawn(get_tree().current_scene,
+					Vector3(global_position.x, 0.05, global_position.z),
+					AttackInfo.new(_info.source, _info.damage * TRAIL_DAMAGE_MULT))
 
 
 func _on_area_entered(area: Area3D) -> void:
@@ -55,7 +71,7 @@ func _explode() -> void:
 		if enemy == null or not enemy.is_inside_tree():
 			continue
 		var offset := enemy.global_position - global_position
-		if offset.length() > EXPLOSION_RADIUS:
+		if offset.length() > _radius:
 			continue
 		var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 		if hurtbox != null:
@@ -63,7 +79,7 @@ func _explode() -> void:
 		offset.y = 0.0
 		if offset.length() > 0.01:
 			enemy.apply_shove(offset.normalized() * EXPLOSION_SHOVE)
-	BlastVfx.spawn(get_tree().current_scene, global_position, EXPLOSION_RADIUS,
+	BlastVfx.spawn(get_tree().current_scene, global_position, _radius,
 			Color(1.0, 0.5, 0.1, 0.7), 1.0, BLAST_DURATION)
 	# Nearby blasts rattle the camera a little.
 	var player := get_tree().get_first_node_in_group(&"player") as Player

@@ -100,11 +100,11 @@ func _skip_gold() -> int:
 
 
 func _roll_offers(count: int) -> Array[Offer]:
+	var player := get_tree().get_first_node_in_group(&"player") as Player
 	var pool: Array[BoonData] = []
 	for boon: BoonData in _registry.boons:
-		if boon.unique and boon.id in _taken_uniques:
-			continue
-		pool.append(boon)
+		if _is_offerable(boon, player):
+			pool.append(boon)
 	var offers: Array[Offer] = []
 	while offers.size() < count and not pool.is_empty():
 		var total := 0.0
@@ -130,6 +130,28 @@ func _roll_offers(count: int) -> Array[Offer]:
 			offer.color = rarity["color"]
 		offers.append(offer)
 	return offers
+
+
+## Loadout/build gating: weapon-specific boons only appear with their weapon
+## mounted, spell boons only once the spell is owned.
+func _is_offerable(boon: BoonData, player: Player) -> bool:
+	if boon.unique and boon.id in _taken_uniques:
+		return false
+	if player == null:
+		return true
+	if boon.requires_weapon != &"" and (player.weapon == null
+			or player.weapon.weapon_data == null
+			or player.weapon.weapon_data.id != boon.requires_weapon):
+		return false
+	if not boon.requires_any_ability.is_empty():
+		var owns_one := false
+		for ability: StringName in boon.requires_any_ability:
+			if player.has_ability(ability):
+				owns_one = true
+				break
+		if not owns_one:
+			return false
+	return true
 
 
 func _roll_rarity() -> Dictionary:

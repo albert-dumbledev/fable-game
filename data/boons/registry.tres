@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BoonRegistry" load_steps=12 format=3]
+[gd_resource type="Resource" script_class="BoonRegistry" load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://core/boon_registry.gd" id="1_script"]
 [ext_resource type="Script" path="res://core/boon_data.gd" id="2_type"]
@@ -11,7 +11,17 @@
 [ext_resource type="Resource" path="res://data/boons/dash.tres" id="9"]
 [ext_resource type="Resource" path="res://data/boons/thorns.tres" id="10"]
 [ext_resource type="Resource" path="res://data/boons/vampire.tres" id="11"]
+[ext_resource type="Resource" path="res://data/boons/quick_mind.tres" id="12"]
+[ext_resource type="Resource" path="res://data/boons/fast_hands.tres" id="13"]
+[ext_resource type="Resource" path="res://data/boons/greater_blast.tres" id="14"]
+[ext_resource type="Resource" path="res://data/boons/twin_flame.tres" id="15"]
+[ext_resource type="Resource" path="res://data/boons/scorched_earth.tres" id="16"]
+[ext_resource type="Resource" path="res://data/boons/echo_nova.tres" id="17"]
+[ext_resource type="Resource" path="res://data/boons/glacial_wave.tres" id="18"]
+[ext_resource type="Resource" path="res://data/boons/wide_tremor.tres" id="19"]
+[ext_resource type="Resource" path="res://data/boons/aftershock.tres" id="20"]
+[ext_resource type="Resource" path="res://data/boons/duelists_focus.tres" id="21"]
 
 [resource]
 script = ExtResource("1_script")
-boons = Array[ExtResource("2_type")]([ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("9"), ExtResource("10"), ExtResource("11")])
+boons = Array[ExtResource("2_type")]([ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("9"), ExtResource("10"), ExtResource("11"), ExtResource("12"), ExtResource("13"), ExtResource("14"), ExtResource("15"), ExtResource("16"), ExtResource("17"), ExtResource("18"), ExtResource("19"), ExtResource("20"), ExtResource("21")])

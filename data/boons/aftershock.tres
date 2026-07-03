@@ -4,10 +4,10 @@
 
 [resource]
 script = ExtResource("1_script")
-id = &"thorns"
-display_name = "Spiked Bulwark"
-description = "Blocked melee hits wound the attacker (15 damage)"
-weight = 0.35
+id = &"aftershock"
+display_name = "Aftershock"
+description = "Every slam is followed by a second, weaker shock at the same spot"
+weight = 0.3
 unique = true
-grants_ability = &"thorns"
-requires_weapon = &"sword_and_shield"
+grants_ability = &"aftershock"
+requires_weapon = &"warhammer"

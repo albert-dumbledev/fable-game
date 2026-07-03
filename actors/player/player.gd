@@ -12,6 +12,8 @@ const JUMP_VELOCITY := 4.8
 ## block: the attack is negated and the attacker is stunned.
 const PERFECT_BLOCK_WINDOW := 0.2
 const PERFECT_BLOCK_STUN := 1.5
+## Duelist's Focus (sword unique boon) widens the parry window by this much.
+const LONG_PARRY_BONUS := 0.15
 ## Dash: a fixed-distance blink — traveled, not teleported — with full
 ## intangibility (no enemy collision, no damage, projectiles pass through).
 const DASH_DISTANCE := 6.0
@@ -35,6 +37,13 @@ const FROST_NOVA_SLOW_MULT := 0.35
 const FROST_NOVA_SLOW_TIME := 3.5
 const FROST_NOVA_COOLDOWN := 8.0
 const FROST_NOVA_COLOR := Color(0.55, 0.85, 1.0, 0.6)
+## Echo Nova (unique boon): a second, weaker pulse after the first.
+const NOVA_ECHO_DELAY := 1.0
+const NOVA_ECHO_DAMAGE_MULT := 0.5
+const NOVA_ECHO_SLOW_MULT := 0.6
+const NOVA_ECHO_SLOW_TIME := 2.0
+## Glacial Wave (unique boon): novas also shove everything caught.
+const NOVA_PUSH_FORCE := 12.0
 
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
@@ -56,9 +65,11 @@ var _dash_time := 0.0
 var _dash_cooldown := 0.0
 var _dash_dir := Vector3.ZERO
 var _cast_cooldown := 0.0
+var _fireball_charges := 1
 var _nova_cooldown := 0.0
 var _charging := false
 var _charge_time := 0.0
+var _charge_duration := FIREBALL_CHARGE_TIME
 var _charge_orb: MeshInstance3D
 var _knockback := Vector3.ZERO
 
@@ -69,6 +80,11 @@ func _ready() -> void:
 	stats.set_base(Stats.MOVE_SPEED, 6.0)
 	stats.set_base(Stats.DAMAGE, 0.0)
 	stats.set_base(Stats.ATTACK_SPEED, 1.0)
+	stats.set_base(Stats.SPELL_COOLDOWN, 1.0)
+	stats.set_base(Stats.CAST_TIME, 1.0)
+	stats.set_base(Stats.FIREBALL_AOE, 1.0)
+	stats.set_base(Stats.FIREBALL_CHARGES, 1.0)
+	stats.set_base(Stats.HAMMER_AOE, 1.0)
 	for modifier: StatModifier in MetaProgression.get_stat_modifiers():
 		stats.add_modifier(modifier)
 	health.set_max_health(stats.get_stat(Stats.MAX_HEALTH), true)
@@ -111,7 +127,13 @@ func _physics_process(delta: float) -> void:
 		return
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
-	_cast_cooldown = maxf(0.0, _cast_cooldown - delta)
+	# Fireball charges refill one at a time through the cooldown.
+	if _fireball_charges < _max_fireball_charges():
+		_cast_cooldown = maxf(0.0, _cast_cooldown - delta)
+		if _cast_cooldown <= 0.0:
+			_fireball_charges += 1
+			if _fireball_charges < _max_fireball_charges():
+				_cast_cooldown = _spell_cooldown(FIREBALL_COOLDOWN)
 	_nova_cooldown = maxf(0.0, _nova_cooldown - delta)
 	if _charging:
 		# Committed cast: sword and shield are locked out while the orb
@@ -119,9 +141,9 @@ func _physics_process(delta: float) -> void:
 		weapon.set_blocking(false)
 		_charge_time += delta
 		if _charge_orb != null:
-			var t := clampf(_charge_time / FIREBALL_CHARGE_TIME, 0.0, 1.0)
+			var t := clampf(_charge_time / _charge_duration, 0.0, 1.0)
 			_charge_orb.scale = Vector3.ONE * lerpf(0.4, 1.8, t)
-		if _charge_time >= FIREBALL_CHARGE_TIME:
+		if _charge_time >= _charge_duration:
 			_finish_cast()
 	else:
 		var block_held := Input.is_action_pressed("block")
@@ -131,7 +153,7 @@ func _physics_process(delta: float) -> void:
 		if Input.is_action_pressed("attack"):
 			weapon.try_attack()
 		if has_ability(&"firebolt") and Input.is_action_just_pressed("cast") \
-				and _cast_cooldown <= 0.0:
+				and _fireball_charges > 0:
 			_begin_cast()
 		if has_ability(&"frost_nova") and Input.is_action_just_pressed("cast_2") \
 				and _nova_cooldown <= 0.0:
@@ -187,7 +209,9 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 		if to_attacker.length() > 0.01 \
 				and rad_to_deg(forward.angle_to(to_attacker)) <= BLOCK_HALF_ANGLE_DEG:
 			var since_raise := (Time.get_ticks_msec() - _block_started_ms) / 1000.0
-			var perfect := since_raise <= PERFECT_BLOCK_WINDOW
+			var window := PERFECT_BLOCK_WINDOW \
+					+ (LONG_PARRY_BONUS if has_ability(&"long_parry") else 0.0)
+			var perfect := since_raise <= window
 			weapon.notify_block_success(perfect)
 			# Thorns (unique boon): blocked melee hits wound the attacker.
 			if has_ability(&"thorns"):
@@ -269,6 +293,7 @@ func _end_dash() -> void:
 func _begin_cast() -> void:
 	_charging = true
 	_charge_time = 0.0
+	_charge_duration = FIREBALL_CHARGE_TIME * maxf(0.2, stats.get_stat(Stats.CAST_TIME))
 	weapon.set_stowed(true)
 	# Growing orb in front of the camera telegraphs the charge.
 	_charge_orb = MeshInstance3D.new()
@@ -293,18 +318,33 @@ func _finish_cast() -> void:
 	if _charge_orb != null:
 		_charge_orb.queue_free()
 		_charge_orb = null
-	_cast_cooldown = FIREBALL_COOLDOWN
+	_fireball_charges -= 1
+	if _cast_cooldown <= 0.0:
+		_cast_cooldown = _spell_cooldown(FIREBALL_COOLDOWN)
 	var ball := FIREBALL_SCENE.instantiate() as Fireball
 	var dir := -camera.global_transform.basis.z
 	ball.setup(
-		AttackInfo.new(self, FIREBALL_BASE_DAMAGE + stats.get_stat(Stats.DAMAGE) * 1.5), dir)
+		AttackInfo.new(self, FIREBALL_BASE_DAMAGE + stats.get_stat(Stats.DAMAGE) * 1.5),
+		dir, stats.get_stat(Stats.FIREBALL_AOE), has_ability(&"fire_trail"))
 	get_tree().current_scene.add_child(ball)
 	ball.global_position = camera.global_position + dir * 0.8
 
 
 func _cast_frost_nova() -> void:
-	_nova_cooldown = FROST_NOVA_COOLDOWN
-	var damage := FROST_NOVA_DAMAGE + stats.get_stat(Stats.DAMAGE) * 0.4
+	_nova_cooldown = _spell_cooldown(FROST_NOVA_COOLDOWN)
+	_do_nova(1.0, FROST_NOVA_SLOW_MULT, FROST_NOVA_SLOW_TIME)
+	if has_ability(&"nova_echo"):
+		get_tree().create_timer(NOVA_ECHO_DELAY, false).timeout.connect(_nova_echo)
+
+
+func _nova_echo() -> void:
+	if _dead or not is_inside_tree():
+		return
+	_do_nova(NOVA_ECHO_DAMAGE_MULT, NOVA_ECHO_SLOW_MULT, NOVA_ECHO_SLOW_TIME)
+
+
+func _do_nova(damage_mult: float, slow_mult: float, slow_time: float) -> void:
+	var damage := (FROST_NOVA_DAMAGE + stats.get_stat(Stats.DAMAGE) * 0.4) * damage_mult
 	for node: Node in get_tree().get_nodes_in_group(&"enemies"):
 		var enemy := node as EnemyBase
 		if enemy == null or not enemy.is_inside_tree():
@@ -316,10 +356,22 @@ func _cast_frost_nova() -> void:
 		var enemy_hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 		if enemy_hurtbox != null:
 			enemy_hurtbox.receive_hit(AttackInfo.new(self, damage))
-		enemy.apply_slow(FROST_NOVA_SLOW_MULT, FROST_NOVA_SLOW_TIME)
+		enemy.apply_slow(slow_mult, slow_time)
+		if has_ability(&"nova_push") and offset.length() > 0.01:
+			enemy.apply_shove(offset.normalized() * NOVA_PUSH_FORCE)
 	BlastVfx.spawn(get_tree().current_scene, global_position, FROST_NOVA_RADIUS,
 			FROST_NOVA_COLOR, 0.35, 0.4)
 	add_shake(0.2)
+
+
+## Spell cooldowns scale with the spell_cooldown stat (clamped so stacked
+## reduction can never zero a cooldown out).
+func _spell_cooldown(base: float) -> float:
+	return base * maxf(0.25, stats.get_stat(Stats.SPELL_COOLDOWN))
+
+
+func _max_fireball_charges() -> int:
+	return maxi(1, int(round(stats.get_stat(Stats.FIREBALL_CHARGES))))
 
 
 func get_cooldown_remaining(id: StringName) -> float:
@@ -327,7 +379,8 @@ func get_cooldown_remaining(id: StringName) -> float:
 		&"dash":
 			return _dash_cooldown
 		&"firebolt":
-			return _cast_cooldown
+			# A banked charge means castable now, whatever the refill timer says.
+			return 0.0 if _fireball_charges > 0 else _cast_cooldown
 		&"frost_nova":
 			return _nova_cooldown
 	return 0.0
@@ -338,10 +391,18 @@ func get_cooldown_max(id: StringName) -> float:
 		&"dash":
 			return DASH_COOLDOWN
 		&"firebolt":
-			return FIREBALL_COOLDOWN
+			return _spell_cooldown(FIREBALL_COOLDOWN)
 		&"frost_nova":
-			return FROST_NOVA_COOLDOWN
+			return _spell_cooldown(FROST_NOVA_COOLDOWN)
 	return 0.0
+
+
+func get_charges(id: StringName) -> int:
+	return _fireball_charges if id == &"firebolt" else -1
+
+
+func get_max_charges(id: StringName) -> int:
+	return _max_fireball_charges() if id == &"firebolt" else 1
 
 
 func grant_ability(id: StringName) -> void:

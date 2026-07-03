@@ -10,6 +10,7 @@ var skill_id: StringName
 
 var _overlay: ColorRect
 var _cooldown_label: Label
+var _charges_label: Label
 
 
 func setup(id: StringName, key_text: String, display_name: String) -> void:
@@ -43,6 +44,16 @@ func setup(id: StringName, key_text: String, display_name: String) -> void:
 	_cooldown_label.visible = false
 	panel.add_child(_cooldown_label)
 
+	# Charge count (top-right), shown only for multi-charge skills.
+	_charges_label = Label.new()
+	_charges_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_charges_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_charges_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_charges_label.add_theme_font_size_override(&"font_size", 13)
+	_charges_label.add_theme_color_override(&"font_color", Color(1.0, 0.85, 0.4))
+	_charges_label.visible = false
+	panel.add_child(_charges_label)
+
 	var name_label := Label.new()
 	name_label.text = display_name
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -60,3 +71,8 @@ func update_cooldown(remaining: float, max_value: float) -> void:
 	_overlay.anchor_bottom = fraction
 	_cooldown_label.visible = remaining > 0.05
 	_cooldown_label.text = "%.1f" % maxf(remaining, 0.0)
+
+
+func update_charges(current: int, maximum: int) -> void:
+	_charges_label.visible = maximum > 1
+	_charges_label.text = str(current)

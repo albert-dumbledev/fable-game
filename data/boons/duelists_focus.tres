@@ -4,10 +4,10 @@
 
 [resource]
 script = ExtResource("1_script")
-id = &"thorns"
-display_name = "Spiked Bulwark"
-description = "Blocked melee hits wound the attacker (15 damage)"
-weight = 0.35
+id = &"duelists_focus"
+display_name = "Duelist's Focus"
+description = "The perfect-block window nearly doubles (0.2s to 0.35s)"
+weight = 0.3
 unique = true
-grants_ability = &"thorns"
+grants_ability = &"long_parry"
 requires_weapon = &"sword_and_shield"

@@ -18,6 +18,11 @@ extends Resource
 @export var unique := false
 ## Ability flag granted to the player on pick (e.g. &"dash").
 @export var grants_ability: StringName = &""
+## Only offered while this weapon is mounted (WeaponData id; empty = any).
+@export var requires_weapon: StringName = &""
+## Only offered if the player owns at least one of these ability flags
+## (e.g. spell boons gated on the spell being unlocked). Empty = no gate.
+@export var requires_any_ability: Array[StringName] = []
 
 
 func describe(value_mult: float = 1.0) -> String:
@@ -31,7 +36,8 @@ func describe(value_mult: float = 1.0) -> String:
 			StatModifier.Kind.FLAT:
 				parts.append("+%s %s" % [_format_number(value), stat_name])
 			StatModifier.Kind.PERCENT_ADD:
-				parts.append("+%d%% %s" % [int(round(value * 100.0)), stat_name])
+				# Signed so reductions (e.g. -12% spell cooldown) read right.
+				parts.append("%+d%% %s" % [int(round(value * 100.0)), stat_name])
 			StatModifier.Kind.PERCENT_MULT:
 				parts.append("x%.2f %s" % [1.0 + value, stat_name])
 	return ", ".join(parts)

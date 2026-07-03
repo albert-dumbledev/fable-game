@@ -75,6 +75,7 @@ func _update_skill_slots() -> void:
 			_skill_slots[id] = slot
 		slot.update_cooldown(
 			_player.get_cooldown_remaining(id), _player.get_cooldown_max(id))
+		slot.update_charges(_player.get_charges(id), _player.get_max_charges(id))
 
 
 func _on_health_changed(current: float, max_health: float) -> void:

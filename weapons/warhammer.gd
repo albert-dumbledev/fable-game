@@ -18,6 +18,11 @@ const OUTER_RADIUS := 4.2
 const SPLASH_DAMAGE_MULT := 0.4
 const SHOVE_FORCE := 9.0
 const SHOCKWAVE_COLOR := Color(1.0, 0.75, 0.35, 0.55)
+## Aftershock (unique boon): a second, weaker shock at the same spot.
+const AFTERSHOCK_DELAY := 0.45
+const AFTERSHOCK_DAMAGE_MULT := 0.5
+const AFTERSHOCK_AOE_MULT := 0.8
+const AFTERSHOCK_SHOVE_MULT := 0.6
 
 @onready var hammer_pivot: Node3D = $HammerPivot
 @onready var handle_mesh: MeshInstance3D = $HammerPivot/HandleMesh
@@ -59,7 +64,8 @@ func _do_attack(duration: float) -> void:
 ## The slam is a ground AoE, not a hitbox sweep: full damage inside
 ## INNER_RADIUS of the impact point, splash out to OUTER_RADIUS, and a
 ## radial shove for everything caught. Damage flows through hurtboxes so
-## numbers, drops, and mitigation all work as usual.
+## numbers, drops, and mitigation all work as usual. Radii scale with the
+## hammer_aoe stat (Wide Tremor boon).
 func _impact(damage: float) -> void:
 	if wielder == null or not is_inside_tree():
 		return
@@ -67,6 +73,26 @@ func _impact(damage: float) -> void:
 	forward.y = 0.0
 	forward = forward.normalized()
 	var point := wielder.global_position + forward * IMPACT_DISTANCE
+	var aoe := stats.get_stat(Stats.HAMMER_AOE)
+	_slam(point, damage, aoe, SHOVE_FORCE)
+	var player := wielder as Player
+	if player != null:
+		player.add_shake(0.5)
+		if player.has_ability(&"aftershock"):
+			get_tree().create_timer(AFTERSHOCK_DELAY, false).timeout.connect(
+					_aftershock.bind(point, damage, aoe))
+
+
+func _aftershock(point: Vector3, damage: float, aoe: float) -> void:
+	if not is_inside_tree():
+		return
+	_slam(point, damage * AFTERSHOCK_DAMAGE_MULT, aoe * AFTERSHOCK_AOE_MULT,
+			SHOVE_FORCE * AFTERSHOCK_SHOVE_MULT)
+
+
+func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> void:
+	var inner := INNER_RADIUS * aoe_mult
+	var outer := OUTER_RADIUS * aoe_mult
 	for node: Node in get_tree().get_nodes_in_group(&"enemies"):
 		var enemy := node as EnemyBase
 		if enemy == null or not enemy.is_inside_tree():
@@ -74,15 +100,12 @@ func _impact(damage: float) -> void:
 		var offset := enemy.global_position - point
 		offset.y = 0.0
 		var dist := offset.length()
-		if dist > OUTER_RADIUS:
+		if dist > outer:
 			continue
 		var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 		if hurtbox != null:
-			var dealt := damage if dist <= INNER_RADIUS else damage * SPLASH_DAMAGE_MULT
+			var dealt := damage if dist <= inner else damage * SPLASH_DAMAGE_MULT
 			hurtbox.receive_hit(AttackInfo.new(wielder, dealt))
 		if dist > 0.01:
-			enemy.apply_shove(offset.normalized() * SHOVE_FORCE)
-	BlastVfx.spawn(get_tree().current_scene, point, OUTER_RADIUS, SHOCKWAVE_COLOR, 0.12, 0.3)
-	var player := wielder as Player
-	if player != null:
-		player.add_shake(0.5)
+			enemy.apply_shove(offset.normalized() * shove)
+	BlastVfx.spawn(get_tree().current_scene, point, outer, SHOCKWAVE_COLOR, 0.12, 0.3)
