@@ -40,6 +40,6 @@ func _begin_attack() -> void:
 	var spawn_pos := global_position + Vector3(0.0, 1.2, 0.0) \
 			- global_transform.basis.z * 0.8
 	var aim := _target.global_position + Vector3(0.0, 1.0, 0.0) - spawn_pos
-	projectile.setup(AttackInfo.new(self, data.damage * _dmg_mult), aim)
+	projectile.setup(AttackInfo.new(self, data.damage * _dmg_mult, data.knockback), aim)
 	get_tree().current_scene.add_child(projectile)
 	projectile.global_position = spawn_pos

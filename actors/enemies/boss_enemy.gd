@@ -5,13 +5,18 @@ extends EnemyBase
 ## speed with its hitbox live. A perfect block still stuns it, which
 ## cancels the charge (the parry reward stays the answer to everything).
 
-const CHARGE_INTERVAL := 9.0
-const CHARGE_WINDUP := 0.9
-const CHARGE_TIME := 1.1
-const CHARGE_SPEED := 14.0
+const CHARGE_INTERVAL := 5.5
+const CHARGE_WINDUP := 0.7
+const CHARGE_TIME := 1.5
+const CHARGE_SPEED := 24.0
 const CHARGE_DAMAGE_MULT := 1.5
-const CHARGE_MIN_RANGE := 5.0
+const CHARGE_KNOCKBACK := 18.0
+const CHARGE_MIN_RANGE := 4.0
 const CHARGE_COLOR := Color(1.0, 0.9, 0.2)
+## World + enemies only — the rush phases through the player so the boss
+## barrels past instead of pinning them; the hitbox + knockback do the work.
+const CHARGE_COLLISION_MASK := 5
+const NORMAL_COLLISION_MASK := 7
 
 enum ChargePhase { NONE, WINDUP, RUSH }
 
@@ -66,13 +71,16 @@ func _begin_charge_rush() -> void:
 	_charge_dir.y = 0.0
 	_charge_dir = _charge_dir.normalized()
 	_tween_fist(FIST_PUNCH, 0.15)
-	hitbox.activate(AttackInfo.new(self, data.damage * _dmg_mult * CHARGE_DAMAGE_MULT),
-			CHARGE_TIME)
+	collision_mask = CHARGE_COLLISION_MASK
+	hitbox.activate(
+		AttackInfo.new(self, data.damage * _dmg_mult * CHARGE_DAMAGE_MULT, CHARGE_KNOCKBACK),
+		CHARGE_TIME)
 
 
 func _end_charge() -> void:
 	_charge_phase = ChargePhase.NONE
 	_charge_cooldown = CHARGE_INTERVAL
+	collision_mask = NORMAL_COLLISION_MASK
 	hitbox.deactivate()
 	_tween_fist(FIST_REST, 0.3)
 	velocity.x = 0.0

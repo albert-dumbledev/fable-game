@@ -10,6 +10,8 @@ extends Resource
 @export var attack_range := 1.8
 @export var windup_time := 0.4
 @export var recover_time := 0.8
+## Impulse shoving the player on a landed hit.
+@export var knockback := 5.0
 @export var gold_reward := 5
 @export var xp_reward := 3
 @export var spawn_weight := 1.0

@@ -13,6 +13,7 @@ damage = 8.0
 attack_range = 9.0
 windup_time = 0.6
 recover_time = 1.4
+knockback = 2.0
 gold_reward = 8
 xp_reward = 6
 spawn_weight = 0.5

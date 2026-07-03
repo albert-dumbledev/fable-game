@@ -146,7 +146,8 @@ func _begin_attack() -> void:
 	if _material != null:
 		_kill_color_tween()
 		_material.albedo_color = _base_color
-	hitbox.activate(AttackInfo.new(self, data.damage * _dmg_mult), ATTACK_ACTIVE_TIME)
+	hitbox.activate(
+		AttackInfo.new(self, data.damage * _dmg_mult, data.knockback), ATTACK_ACTIVE_TIME)
 	# A perfect block inside activate() can stun us synchronously — if so,
 	# skip the punch and lunge.
 	if state != State.ATTACK:

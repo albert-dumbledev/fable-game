@@ -17,6 +17,7 @@ const DASH_TIME := 0.18
 const DASH_COOLDOWN := 2.0
 const THORNS_DAMAGE := 15.0
 const VAMPIRE_HEAL := 2.0
+const KNOCKBACK_DECAY := 25.0
 const FIREBOLT_SCENE := preload("res://weapons/FireBolt.tscn")
 const FIREBOLT_BASE_DAMAGE := 20.0
 const FIREBOLT_COOLDOWN := 2.5
@@ -37,6 +38,7 @@ var _dash_time := 0.0
 var _dash_cooldown := 0.0
 var _dash_dir := Vector3.ZERO
 var _cast_cooldown := 0.0
+var _knockback := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -119,6 +121,10 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, speed * 10.0 * delta)
 		velocity.z = move_toward(velocity.z, 0.0, speed * 10.0 * delta)
+	# Hit knockback rides on top of normal movement and bleeds off.
+	velocity.x += _knockback.x
+	velocity.z += _knockback.z
+	_knockback = _knockback.move_toward(Vector3.ZERO, KNOCKBACK_DECAY * delta)
 	move_and_slide()
 
 
@@ -229,6 +235,13 @@ func _on_vampire_kill(_enemy_data: Resource, _position: Vector3) -> void:
 
 func _on_damaged(info: AttackInfo) -> void:
 	add_shake(0.4)
+	if info.knockback > 0.0 and info.source != null and is_instance_valid(info.source):
+		var away := global_position - info.source.global_position
+		away.y = 0.0
+		if away.length() > 0.01:
+			_knockback = away.normalized() * info.knockback
+			# Small pop so big hits read as being launched, not slid.
+			velocity.y += minf(info.knockback * 0.15, 3.0)
 	EventBus.player_damaged.emit(info.damage)
 
 
