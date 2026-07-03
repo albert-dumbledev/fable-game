@@ -1,11 +1,11 @@
-[gd_resource type="Resource" script_class="UpgradeRegistry" load_steps=7 format=3]
+[gd_resource type="Resource" script_class="UpgradeRegistry" format=3 uid="uid://dylgt2kwucn48"]
 
-[ext_resource type="Script" path="res://core/upgrade_registry.gd" id="1_script"]
-[ext_resource type="Script" path="res://core/upgrade_data.gd" id="2_type"]
-[ext_resource type="Resource" path="res://data/upgrades/damage_up.tres" id="3_dmg"]
-[ext_resource type="Resource" path="res://data/upgrades/health_up.tres" id="4_hp"]
-[ext_resource type="Resource" path="res://data/upgrades/attack_speed_up.tres" id="5_as"]
-[ext_resource type="Resource" path="res://data/upgrades/move_speed_up.tres" id="6_ms"]
+[ext_resource type="Script" uid="uid://b3fkdg7jv2mdv" path="res://core/upgrade_registry.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://babfycsgpc2ec" path="res://core/upgrade_data.gd" id="2_type"]
+[ext_resource type="Resource" uid="uid://c371bypik2jr7" path="res://data/upgrades/damage_up.tres" id="3_dmg"]
+[ext_resource type="Resource" uid="uid://2d0j3fdi8nqo" path="res://data/upgrades/health_up.tres" id="4_hp"]
+[ext_resource type="Resource" uid="uid://cvyd0phelo40w" path="res://data/upgrades/attack_speed_up.tres" id="5_as"]
+[ext_resource type="Resource" uid="uid://cjwvhhv1h154s" path="res://data/upgrades/move_speed_up.tres" id="6_ms"]
 
 [resource]
 script = ExtResource("1_script")

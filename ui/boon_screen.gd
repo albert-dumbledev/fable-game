@@ -1,27 +1,59 @@
 extends CanvasLayer
-## Level-up overlay: pauses the run and offers a choice of 3 boons.
+## Level-up overlay: pauses the run and offers a choice of 3 boons, each
+## with a rolled rarity that scales its power. Skipping pays gold;
+## rerolling costs gold (doubling per use each run). Unique boons appear
+## at most once per run and never scale.
 ## Runs with PROCESS_MODE_ALWAYS so it works while the tree is paused.
 
 const REGISTRY_PATH := "res://data/boons/registry.tres"
 const CHOICE_COUNT := 3
+const BASE_REROLL_COST := 10
+const SKIP_GOLD_BASE := 15
+const SKIP_GOLD_PER_LEVEL := 5
+const UNIQUE_COLOR := Color(1.0, 0.5, 0.15)
+
+## Rolled per offer slot; mult scales the boon's modifier values.
+const RARITIES: Array[Dictionary] = [
+	{"tag": "COMMON", "chance": 0.55, "mult": 1.0, "color": Color(0.85, 0.85, 0.85)},
+	{"tag": "RARE", "chance": 0.27, "mult": 1.6, "color": Color(0.4, 0.65, 1.0)},
+	{"tag": "EPIC", "chance": 0.13, "mult": 2.4, "color": Color(0.8, 0.45, 1.0)},
+	{"tag": "LEGENDARY", "chance": 0.05, "mult": 3.5, "color": Color(1.0, 0.78, 0.2)},
+]
+
+
+class Offer:
+	extends RefCounted
+	var boon: BoonData
+	var mult := 1.0
+	var tag := "COMMON"
+	var color := Color(0.85, 0.85, 0.85)
+
 
 @onready var title: Label = $Center/Box/Title
+@onready var gold_label: Label = $Center/Box/GoldLabel
 @onready var choice_row: HBoxContainer = $Center/Box/ChoiceRow
+@onready var reroll_button: Button = $Center/Box/ActionRow/RerollButton
+@onready var skip_button: Button = $Center/Box/ActionRow/SkipButton
 
 var _registry: BoonRegistry
 var _pending := 0
+var _current_level := 0
+var _reroll_cost := BASE_REROLL_COST
+var _taken_uniques: Array[StringName] = []
 
 
 func _ready() -> void:
 	_registry = load(REGISTRY_PATH) as BoonRegistry
 	if _registry == null:
 		push_error("Failed to load boon registry: %s" % REGISTRY_PATH)
+	reroll_button.pressed.connect(_on_reroll)
+	skip_button.pressed.connect(_on_skip)
 	EventBus.level_up.connect(_on_level_up)
 
 
 func _on_level_up(new_level: int) -> void:
 	_pending += 1
-	title.text = "LEVEL %d!" % new_level
+	_current_level = new_level
 	if not visible:
 		# Deferred: level_up fires mid-physics (kill -> xp); don't pause
 		# the tree inside that callback stack.
@@ -35,22 +67,46 @@ func _show_choices() -> void:
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	visible = true
+	title.text = "LEVEL %d!" % _current_level
+	_populate()
+
+
+func _populate() -> void:
 	for child: Node in choice_row.get_children():
 		child.queue_free()
-	for boon: BoonData in _roll(CHOICE_COUNT):
+	for offer: Offer in _roll_offers(CHOICE_COUNT):
 		var button := Button.new()
-		button.custom_minimum_size = Vector2(230, 140)
-		button.text = "%s\n\n%s" % [boon.display_name, boon.description]
+		button.custom_minimum_size = Vector2(230, 150)
+		button.text = "[%s]\n%s\n\n%s" % [
+			offer.tag, offer.boon.display_name, offer.boon.describe(offer.mult)]
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		button.pressed.connect(_on_pick.bind(boon))
+		button.add_theme_color_override(&"font_color", offer.color)
+		button.add_theme_color_override(&"font_hover_color", offer.color.lightened(0.3))
+		button.pressed.connect(_on_pick.bind(offer))
 		choice_row.add_child(button)
+	_refresh_actions()
 
 
-## Weighted sample without replacement.
-func _roll(count: int) -> Array[BoonData]:
-	var pool: Array[BoonData] = _registry.boons.duplicate()
-	var result: Array[BoonData] = []
-	while result.size() < count and not pool.is_empty():
+func _refresh_actions() -> void:
+	var gold := MetaProgression.get_currency(&"gold")
+	gold_label.text = "Gold: %d" % gold
+	reroll_button.text = "Reroll (-%d gold)" % _reroll_cost
+	reroll_button.disabled = gold < _reroll_cost
+	skip_button.text = "Skip (+%d gold)" % _skip_gold()
+
+
+func _skip_gold() -> int:
+	return SKIP_GOLD_BASE + SKIP_GOLD_PER_LEVEL * _current_level
+
+
+func _roll_offers(count: int) -> Array[Offer]:
+	var pool: Array[BoonData] = []
+	for boon: BoonData in _registry.boons:
+		if boon.unique and boon.id in _taken_uniques:
+			continue
+		pool.append(boon)
+	var offers: Array[Offer] = []
+	while offers.size() < count and not pool.is_empty():
 		var total := 0.0
 		for boon: BoonData in pool:
 			total += boon.weight
@@ -61,18 +117,59 @@ func _roll(count: int) -> Array[BoonData]:
 			if roll <= 0.0:
 				picked = i
 				break
-		result.append(pool[picked])
+		var offer := Offer.new()
+		offer.boon = pool[picked]
 		pool.remove_at(picked)
-	return result
+		if offer.boon.unique:
+			offer.tag = "UNIQUE"
+			offer.color = UNIQUE_COLOR
+		else:
+			var rarity := _roll_rarity()
+			offer.tag = rarity["tag"]
+			offer.mult = rarity["mult"]
+			offer.color = rarity["color"]
+		offers.append(offer)
+	return offers
 
 
-func _on_pick(boon: BoonData) -> void:
+func _roll_rarity() -> Dictionary:
+	var roll := randf()
+	for rarity: Dictionary in RARITIES:
+		var chance: float = rarity["chance"]
+		if roll < chance:
+			return rarity
+		roll -= chance
+	return RARITIES[0]
+
+
+func _on_pick(offer: Offer) -> void:
 	var player := get_tree().get_first_node_in_group(&"player") as Player
 	if player != null:
-		player.apply_boon(boon)
+		player.apply_boon(offer.boon, offer.mult)
+	if offer.boon.unique:
+		_taken_uniques.append(offer.boon.id)
+	_advance()
+
+
+func _on_reroll() -> void:
+	if not MetaProgression.try_spend(&"gold", _reroll_cost):
+		return
+	_reroll_cost *= 2
+	_populate()
+
+
+func _on_skip() -> void:
+	# Routed through pickup_collected so RunDirector counts it as
+	# gold earned this run, same as a dropped coin.
+	EventBus.pickup_collected.emit(&"gold", _skip_gold())
+	_advance()
+
+
+func _advance() -> void:
 	_pending -= 1
 	if _pending > 0:
-		_show_choices()
+		title.text = "LEVEL %d!" % _current_level
+		_populate()
 		return
 	visible = false
 	get_tree().paused = false

@@ -12,6 +12,11 @@ const SPRINT_MULT := 1.4
 ## block: the attack is negated and the attacker is stunned.
 const PERFECT_BLOCK_WINDOW := 0.2
 const PERFECT_BLOCK_STUN := 1.5
+const DASH_SPEED := 18.0
+const DASH_TIME := 0.18
+const DASH_COOLDOWN := 2.0
+const THORNS_DAMAGE := 15.0
+const VAMPIRE_HEAL := 2.0
 
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
@@ -24,6 +29,10 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _dead := false
 var _block_started_ms := -10000
 var _shake := 0.0
+var _abilities: Dictionary[StringName, bool] = {}
+var _dash_time := 0.0
+var _dash_cooldown := 0.0
+var _dash_dir := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -67,6 +76,26 @@ func _physics_process(delta: float) -> void:
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
+
+	# Dash (unique boon): burst of speed in the move direction, or facing
+	# if standing still. Overrides normal movement while active.
+	_dash_cooldown = maxf(0.0, _dash_cooldown - delta)
+	if has_ability(&"dash") and Input.is_action_just_pressed("dash") \
+			and _dash_cooldown <= 0.0:
+		_dash_dir = direction
+		if _dash_dir == Vector3.ZERO:
+			_dash_dir = -global_transform.basis.z
+			_dash_dir.y = 0.0
+			_dash_dir = _dash_dir.normalized()
+		_dash_time = DASH_TIME
+		_dash_cooldown = DASH_COOLDOWN
+	if _dash_time > 0.0:
+		_dash_time -= delta
+		velocity.x = _dash_dir.x * DASH_SPEED
+		velocity.z = _dash_dir.z * DASH_SPEED
+		move_and_slide()
+		return
+
 	var speed := stats.get_stat(Stats.MOVE_SPEED)
 	if weapon.is_blocking:
 		speed *= BLOCK_SPEED_MULT
@@ -93,6 +122,12 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 			var since_raise := (Time.get_ticks_msec() - _block_started_ms) / 1000.0
 			var perfect := since_raise <= PERFECT_BLOCK_WINDOW
 			weapon.notify_block_success(perfect)
+			# Thorns (unique boon): blocked melee hits wound the attacker.
+			if has_ability(&"thorns"):
+				var attacker_hurtbox := info.source.get_node_or_null(^"Hurtbox") \
+						as HurtboxComponent
+				if attacker_hurtbox != null:
+					attacker_hurtbox.receive_hit(AttackInfo.new(self, THORNS_DAMAGE))
 			if perfect:
 				EventBus.perfect_block.emit()
 				if info.source.has_method(&"stun"):
@@ -119,17 +154,38 @@ func add_shake(amount: float) -> void:
 	_shake = minf(_shake + amount, 1.0)
 
 
-## Applies a run-scoped level-up boon. Max-health gains also heal the
-## gained amount so the boon never feels like an empty bar extension.
-func apply_boon(boon: BoonData) -> void:
+## Applies a run-scoped level-up boon, with modifier values scaled by the
+## rarity rolled at offer time. Max-health gains also heal the gained
+## amount so the boon never feels like an empty bar extension.
+func apply_boon(boon: BoonData, value_mult: float = 1.0) -> void:
 	var old_max := stats.get_stat(Stats.MAX_HEALTH)
 	for modifier: StatModifier in boon.modifiers:
-		stats.add_modifier(modifier)
+		var scaled := modifier.duplicate() as StatModifier
+		scaled.value = modifier.value * value_mult
+		stats.add_modifier(scaled)
+	if boon.grants_ability != &"":
+		grant_ability(boon.grants_ability)
 	var new_max := stats.get_stat(Stats.MAX_HEALTH)
 	if new_max != old_max:
 		health.set_max_health(new_max)
 		if new_max > old_max:
 			health.heal(new_max - old_max)
+
+
+func grant_ability(id: StringName) -> void:
+	if _abilities.get(id, false):
+		return
+	_abilities[id] = true
+	if id == &"vampire":
+		EventBus.enemy_killed.connect(_on_vampire_kill)
+
+
+func has_ability(id: StringName) -> bool:
+	return _abilities.get(id, false)
+
+
+func _on_vampire_kill(_enemy_data: Resource, _position: Vector3) -> void:
+	health.heal(VAMPIRE_HEAL)
 
 
 func _on_damaged(info: AttackInfo) -> void:

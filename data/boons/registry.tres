@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BoonRegistry" load_steps=9 format=3]
+[gd_resource type="Resource" script_class="BoonRegistry" load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://core/boon_registry.gd" id="1_script"]
 [ext_resource type="Script" path="res://core/boon_data.gd" id="2_type"]
@@ -8,7 +8,10 @@
 [ext_resource type="Resource" path="res://data/boons/fleet_footed.tres" id="6"]
 [ext_resource type="Resource" path="res://data/boons/bulwark.tres" id="7"]
 [ext_resource type="Resource" path="res://data/boons/warrior_spirit.tres" id="8"]
+[ext_resource type="Resource" path="res://data/boons/dash.tres" id="9"]
+[ext_resource type="Resource" path="res://data/boons/thorns.tres" id="10"]
+[ext_resource type="Resource" path="res://data/boons/vampire.tres" id="11"]
 
 [resource]
 script = ExtResource("1_script")
-boons = Array[ExtResource("2_type")]([ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7"), ExtResource("8")])
+boons = Array[ExtResource("2_type")]([ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("9"), ExtResource("10"), ExtResource("11")])

@@ -1,12 +1,11 @@
-[gd_resource type="Resource" script_class="UpgradeData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="UpgradeData" format=3 uid="uid://c371bypik2jr7"]
 
-[ext_resource type="Script" path="res://core/upgrade_data.gd" id="1_script"]
-[ext_resource type="Script" path="res://core/stat_modifier.gd" id="2_mod"]
+[ext_resource type="Script" uid="uid://babfycsgpc2ec" path="res://core/upgrade_data.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://c4lbvxn2u6yci" path="res://core/stat_modifier.gd" id="2_mod"]
 
 [sub_resource type="Resource" id="Resource_mod"]
 script = ExtResource("2_mod")
 stat = &"damage"
-kind = 0
 value = 2.0
 
 [resource]
@@ -14,7 +13,4 @@ script = ExtResource("1_script")
 id = &"damage_up"
 display_name = "Damage"
 description = "+2 sword damage"
-base_cost = 10
-cost_growth = 1.4
-max_level = 0
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])

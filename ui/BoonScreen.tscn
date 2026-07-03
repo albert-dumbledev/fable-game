@@ -31,5 +31,23 @@ theme_override_font_sizes/font_size = 18
 horizontal_alignment = 1
 text = "Choose a boon (this run only)"
 
+[node name="GoldLabel" type="Label" parent="Center/Box"]
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(1, 0.78, 0.2, 1)
+horizontal_alignment = 1
+text = "Gold: 0"
+
 [node name="ChoiceRow" type="HBoxContainer" parent="Center/Box"]
 theme_override_constants/separation = 16
+
+[node name="ActionRow" type="HBoxContainer" parent="Center/Box"]
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="RerollButton" type="Button" parent="Center/Box/ActionRow"]
+theme_override_font_sizes/font_size = 18
+text = "Reroll (-10 gold)"
+
+[node name="SkipButton" type="Button" parent="Center/Box/ActionRow"]
+theme_override_font_sizes/font_size = 18
+text = "Skip (+15 gold)"

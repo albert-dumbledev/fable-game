@@ -4,7 +4,7 @@ extends Node3D
 ## bounces to rest, then magnets to the player once they come near.
 ## No physics body — manual motion keeps hundreds of these cheap.
 
-const MAGNET_RADIUS := 2.5
+const MAGNET_RADIUS := 4.5
 const MAGNET_SPEED := 13.0
 const MAGNET_ACCEL := 50.0
 const COLLECT_RADIUS := 0.85
