@@ -45,3 +45,11 @@ signal level_up(new_level: int)
 ## Emitted when the player collects a dropped pickup (&"gold", &"xp", ...).
 @warning_ignore("unused_signal")
 signal pickup_collected(kind: StringName, value: int)
+
+## Emitted when a scheduled wave event with an announcement fires.
+@warning_ignore("unused_signal")
+signal wave_announcement(text: String)
+
+## Emitted when a boss-tagged enemy spawns. `boss` is the EnemyBase node.
+@warning_ignore("unused_signal")
+signal boss_spawned(boss: Node)

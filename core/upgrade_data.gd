@@ -11,6 +11,9 @@ extends Resource
 @export var max_level := 0
 ## Modifiers granted per level purchased.
 @export var modifiers: Array[StatModifier] = []
+## Ability flag granted to the player while owned (e.g. &"firebolt").
+## Pair with max_level = 1 for one-time unlocks.
+@export var grants_ability: StringName = &""
 
 
 func cost_at(level: int) -> int:

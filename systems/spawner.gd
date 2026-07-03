@@ -26,15 +26,21 @@ func tick(elapsed: float, delta: float) -> void:
 
 
 func _spawn(elapsed: float) -> void:
+	var data := wave_table.pick_enemy(elapsed)
+	spawn_enemy(data, elapsed)
+
+
+## Spawns a specific enemy in the ring around the player, with time-scaled
+## stats. Used by both the regular cadence and scheduled wave events.
+func spawn_enemy(data: EnemyData, elapsed: float) -> EnemyBase:
+	if data == null or data.scene == null:
+		return null
 	var target := get_tree().get_first_node_in_group(&"player") as Node3D
 	if target == null:
-		return
-	var data := wave_table.pick_enemy(elapsed)
-	if data == null or data.scene == null:
-		return
+		return null
 	var enemy := data.scene.instantiate() as EnemyBase
 	if enemy == null:
-		return
+		return null
 	enemy.setup(data, wave_table.hp_mult_at(elapsed), wave_table.dmg_mult_at(elapsed),
 			wave_table.reward_mult_at(elapsed))
 	var angle := randf() * TAU
@@ -45,3 +51,4 @@ func _spawn(elapsed: float) -> void:
 	pos.y = SPAWN_HEIGHT
 	get_tree().current_scene.add_child(enemy)
 	enemy.global_position = pos
+	return enemy

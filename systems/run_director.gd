@@ -15,6 +15,7 @@ var xp := 0
 var level := 0
 
 var _run_active := true
+var _event_index := 0
 
 
 func _ready() -> void:
@@ -32,6 +33,23 @@ func _physics_process(delta: float) -> void:
 		return
 	elapsed += delta
 	spawner.tick(elapsed, delta)
+	_fire_due_events()
+
+
+## Scheduled spawns (bosses, ambushes) from the WaveTable, in time order.
+func _fire_due_events() -> void:
+	var table := spawner.wave_table
+	if table == null:
+		return
+	while _event_index < table.events.size() and elapsed >= table.events[_event_index].time:
+		var event := table.events[_event_index]
+		_event_index += 1
+		if event.announcement != "":
+			EventBus.wave_announcement.emit(event.announcement)
+		for i: int in event.count:
+			var enemy := spawner.spawn_enemy(event.enemy, elapsed)
+			if enemy != null and event.enemy.tags.has(&"boss"):
+				EventBus.boss_spawned.emit(enemy)
 
 
 func _on_enemy_killed(_enemy_data: Resource, _position: Vector3) -> void:

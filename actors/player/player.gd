@@ -17,6 +17,9 @@ const DASH_TIME := 0.18
 const DASH_COOLDOWN := 2.0
 const THORNS_DAMAGE := 15.0
 const VAMPIRE_HEAL := 2.0
+const FIREBOLT_SCENE := preload("res://weapons/FireBolt.tscn")
+const FIREBOLT_BASE_DAMAGE := 20.0
+const FIREBOLT_COOLDOWN := 2.5
 
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
@@ -33,6 +36,7 @@ var _abilities: Dictionary[StringName, bool] = {}
 var _dash_time := 0.0
 var _dash_cooldown := 0.0
 var _dash_dir := Vector3.ZERO
+var _cast_cooldown := 0.0
 
 
 func _ready() -> void:
@@ -47,6 +51,8 @@ func _ready() -> void:
 	health.damaged.connect(_on_damaged)
 	health.died.connect(_on_died)
 	weapon.setup(stats)
+	for ability: StringName in MetaProgression.get_granted_abilities():
+		grant_ability(ability)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -73,6 +79,12 @@ func _physics_process(delta: float) -> void:
 	weapon.set_blocking(block_held)
 	if Input.is_action_pressed("attack"):
 		weapon.try_attack()
+
+	# Firebolt (spell unlock): fired from the camera on Q.
+	_cast_cooldown = maxf(0.0, _cast_cooldown - delta)
+	if has_ability(&"firebolt") and Input.is_action_just_pressed("cast") \
+			and _cast_cooldown <= 0.0:
+		_cast_firebolt()
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
@@ -170,6 +182,15 @@ func apply_boon(boon: BoonData, value_mult: float = 1.0) -> void:
 		health.set_max_health(new_max)
 		if new_max > old_max:
 			health.heal(new_max - old_max)
+
+
+func _cast_firebolt() -> void:
+	_cast_cooldown = FIREBOLT_COOLDOWN
+	var bolt := FIREBOLT_SCENE.instantiate() as Projectile
+	var dir := -camera.global_transform.basis.z
+	bolt.setup(AttackInfo.new(self, FIREBOLT_BASE_DAMAGE + stats.get_stat(Stats.DAMAGE)), dir)
+	get_tree().current_scene.add_child(bolt)
+	bolt.global_position = camera.global_position + dir * 0.6
 
 
 func grant_ability(id: StringName) -> void:

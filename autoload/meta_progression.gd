@@ -18,6 +18,17 @@ func _ready() -> void:
 	load_game()
 
 
+## Ability flags granted by owned upgrades (spell unlocks etc.).
+func get_granted_abilities() -> Array[StringName]:
+	var abilities: Array[StringName] = []
+	if registry == null:
+		return abilities
+	for upgrade: UpgradeData in registry.upgrades:
+		if upgrade.grants_ability != &"" and get_upgrade_level(upgrade.id) > 0:
+			abilities.append(upgrade.grants_ability)
+	return abilities
+
+
 ## Every modifier granted by purchased upgrades; applied by the player on spawn.
 func get_stat_modifiers() -> Array[StatModifier]:
 	var modifiers: Array[StatModifier] = []

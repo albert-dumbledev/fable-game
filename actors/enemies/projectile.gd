@@ -3,8 +3,9 @@ extends Area3D
 ## Straight-line projectile. Damage flows through the same hurtbox pipeline
 ## as melee, so shields (and mitigate_hit) work against it unchanged.
 
-const SPEED := 12.0
 const LIFETIME := 4.0
+
+@export var speed := 12.0
 
 var _info: AttackInfo
 var _dir := Vector3.FORWARD
@@ -26,7 +27,7 @@ func _physics_process(delta: float) -> void:
 	if _age >= LIFETIME:
 		queue_free()
 		return
-	global_position += _dir * SPEED * delta
+	global_position += _dir * speed * delta
 
 
 func _on_area_entered(area: Area3D) -> void:

@@ -4,6 +4,8 @@ extends Resource
 ## pool. Bosses later become scheduled entries here.
 
 @export var enemies: Array[EnemyData] = []
+## Scheduled one-shot spawns (bosses, ambushes), sorted by time.
+@export var events: Array[WaveEvent] = []
 @export var start_interval := 2.5
 @export var min_interval := 0.4
 @export var interval_ramp_time := 240.0

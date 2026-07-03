@@ -8,10 +8,14 @@ extends CanvasLayer
 @onready var damage_flash: ColorRect = $DamageFlash
 @onready var xp_bar: ProgressBar = $XpRow/XpBar
 @onready var level_label: Label = $XpRow/LevelLabel
+@onready var boss_bar: ProgressBar = $BossBar
+@onready var boss_name_label: Label = $BossNameLabel
+@onready var announce_label: Label = $AnnounceLabel
 
 var _elapsed := 0.0
 var _kills := 0
 var _running := true
+var _boss_health: HealthComponent
 
 
 func _ready() -> void:
@@ -22,6 +26,8 @@ func _ready() -> void:
 	EventBus.perfect_block.connect(_on_perfect_block)
 	EventBus.player_died.connect(_on_player_died)
 	EventBus.xp_changed.connect(_on_xp_changed)
+	EventBus.wave_announcement.connect(_on_wave_announcement)
+	EventBus.boss_spawned.connect(_on_boss_spawned)
 	gold_label.text = "Gold: %d" % MetaProgression.get_currency(&"gold")
 	_bind_player.call_deferred()
 
@@ -78,6 +84,41 @@ func _on_xp_changed(current: int, required: int, level: int) -> void:
 	xp_bar.max_value = required
 	xp_bar.value = current
 	level_label.text = "Lv %d" % level
+
+
+func _on_wave_announcement(text: String) -> void:
+	announce_label.text = text
+	announce_label.modulate.a = 1.0
+	var tween := create_tween()
+	tween.tween_interval(2.0)
+	tween.tween_property(announce_label, "modulate:a", 0.0, 1.0)
+
+
+func _on_boss_spawned(boss: Node) -> void:
+	var enemy := boss as EnemyBase
+	if enemy == null:
+		return
+	# Rebind to the newest boss; the bar hides when it dies.
+	if _boss_health != null and is_instance_valid(_boss_health):
+		_boss_health.health_changed.disconnect(_on_boss_health_changed)
+		_boss_health.died.disconnect(_on_boss_died)
+	_boss_health = enemy.health
+	_boss_health.health_changed.connect(_on_boss_health_changed)
+	_boss_health.died.connect(_on_boss_died)
+	boss_name_label.text = enemy.data.display_name
+	boss_name_label.visible = true
+	boss_bar.visible = true
+	_on_boss_health_changed(_boss_health.current, _boss_health.max_health)
+
+
+func _on_boss_health_changed(current: float, max_health: float) -> void:
+	boss_bar.max_value = max_health
+	boss_bar.value = current
+
+
+func _on_boss_died() -> void:
+	boss_bar.visible = false
+	boss_name_label.visible = false
 
 
 func _on_player_died() -> void:
