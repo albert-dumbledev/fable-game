@@ -62,7 +62,7 @@ Boon hooks: **Echo Nova** (`nova_echo`) pulses again 1s later at ×0.5 damage wi
 
 Q starts a **committed charge** (`0.8s × cast_time`): the weapon viewmodel stows (`Weapon.set_stowed` — both hands busy, no attacking or blocking), an orb grows in front of the camera, then the fireball auto-releases toward the crosshair. The projectile (speed 18) **explodes on any contact** — enemy hurtbox, world, or 4s lifetime: every enemy within **4m × `fireball_aoe`** takes `30 + 1.5× damage stat` through its hurtbox (numbers/drops as usual) and is shoved 10 away from the blast; expanding emissive sphere scaled to the true damage radius; camera shake within 9m. The 1.5× stat scaling (vs sword's 1.0×) is the caster-build axis.
 
-**Charges:** casts spend from a bank of `fireball_charges` (base 1; Twin Flame +1) that refills one charge per `3s × spell_cooldown` — the HUD slot shows a count when the bank exceeds 1. **Scorched Earth** (`fire_trail`): while flying, the ball drops a `FlamePatch` every 0.18s (`weapons/flame_patch.gd` — 1.3m ground circle ticking ×0.12 of the fireball's damage every 0.4s for 2.5s).
+**Charges:** casts spend from a bank of `fireball_charges` (base 1; Twin Flame +1) that refills one charge per `3s × spell_cooldown` — the HUD slot shows a count when the bank exceeds 1. **Scorched Earth** (`burning_ground`): the explosion leaves a `FlamePatch` at the blast point (`weapons/flame_patch.gd` — ground circle at ×0.55 of the blast radius, ticking ×0.2 of the fireball's damage every 0.4s for 3s), so the zone stays denied after the hit.
 
 ## Spell stats (`core/stats.gd`)
 

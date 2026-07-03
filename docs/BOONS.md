@@ -56,7 +56,7 @@ Gates are checked at roll time, so unlocking a spell mid-run immediately opens i
 | Fast Hands | −15% cast time | 0.7 | fireball |
 | Greater Blast | +25% fireball blast size | 0.7 | fireball |
 | Twin Flame *(unique)* | +1 fireball charge (flat modifier on a unique) | 0.3 | fireball |
-| Scorched Earth *(unique)* | Fireballs leave a burning trail (`fire_trail`) | 0.3 | fireball |
+| Scorched Earth *(unique)* | Fireball blasts leave burning ground (`burning_ground`) | 0.3 | fireball |
 | Echo Nova *(unique)* | Nova pulses again, weaker (`nova_echo`) | 0.3 | frost nova |
 | Glacial Wave *(unique)* | Nova shoves everything away (`nova_push`) | 0.3 | frost nova |
 
@@ -70,7 +70,7 @@ Unique boons (`unique = true`) skip the rarity roll — tagged `[UNIQUE]`, orang
 - **dash** — Shift: fixed 6m blink over 0.12s (traveled, not teleported; walls still stop it), fully intangible during — enemy collision off, hurtbox dark so melee and projectiles pass through — 2s cooldown (constants in `player.gd`).
 - **thorns** — successful blocks deal 15 damage back to the attacker via its `Hurtbox` (in `Player.mitigate_hit`).
 - **vampire** — heal 2 HP per enemy kill.
-- **long_parry / fire_trail / nova_echo / nova_push / aftershock** — the Phase-3.5 uniques; each is a one-line flag check at its effect site (`player.gd`, `fireball.gd`, `warhammer.gd`).
+- **long_parry / burning_ground / nova_echo / nova_push / aftershock** — the Phase-3.5 uniques; each is a one-line flag check at its effect site (`player.gd`, `fireball.gd`, `warhammer.gd`).
 
 This same flag system is how spell and weapon unlocks work from `UpgradeData` — abilities are ids, not subsystems. A unique **can** also carry modifiers (Twin Flame: flat +1 `fireball_charges`); uniques never rarity-scale, so those values apply verbatim.
 

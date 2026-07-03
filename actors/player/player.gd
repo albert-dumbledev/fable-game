@@ -327,7 +327,7 @@ func _finish_cast() -> void:
 	var dir := -camera.global_transform.basis.z
 	ball.setup(
 		AttackInfo.new(self, FIREBALL_BASE_DAMAGE + stats.get_stat(Stats.DAMAGE) * 1.5),
-		dir, stats.get_stat(Stats.FIREBALL_AOE), has_ability(&"fire_trail"))
+		dir, stats.get_stat(Stats.FIREBALL_AOE), has_ability(&"burning_ground"))
 	get_tree().current_scene.add_child(ball)
 	ball.global_position = camera.global_position + dir * 0.8
 

@@ -6,8 +6,8 @@
 script = ExtResource("1_script")
 id = &"scorched_earth"
 display_name = "Scorched Earth"
-description = "Fireballs leave a burning trail that scorches everything crossing it"
+description = "The fireball blast leaves burning ground that scorches everything standing in it"
 weight = 0.3
 unique = true
-grants_ability = &"fire_trail"
+grants_ability = &"burning_ground"
 requires_any_ability = Array[StringName]([&"firebolt"])

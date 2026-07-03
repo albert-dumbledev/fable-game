@@ -1,24 +1,28 @@
 class_name FlamePatch
 extends Node3D
-## Burning ground left by Scorched Earth fireballs: ticks damage to enemies
-## standing in it, then burns out. Built entirely in code, no scene.
+## Burning ground left where a Scorched Earth fireball explodes: ticks
+## damage to enemies standing in it, then burns out. Built entirely in
+## code, no scene.
 
 const RADIUS := 1.3
 const TICK_INTERVAL := 0.4
-const LIFETIME := 2.5
+const LIFETIME := 3.0
 const FADE_TIME := 0.4
 
 var _info: AttackInfo
+var _radius := RADIUS
 var _age := 0.0
 var _tick := 0.0
 var _fading := false
 
 
-static func spawn(parent: Node, position: Vector3, info: AttackInfo) -> void:
+static func spawn(parent: Node, position: Vector3, info: AttackInfo,
+		radius: float = RADIUS) -> void:
 	if parent == null:
 		return
 	var patch := FlamePatch.new()
 	patch._info = info
+	patch._radius = radius
 	parent.add_child(patch)
 	patch.global_position = position
 
@@ -38,7 +42,7 @@ func _ready() -> void:
 	sphere.material = material
 	mesh.mesh = sphere
 	add_child(mesh)
-	mesh.scale = Vector3(RADIUS, 0.18, RADIUS)
+	mesh.scale = Vector3(_radius, 0.18, _radius)
 	# Flicker sells fire without particles.
 	var tween := mesh.create_tween().set_loops()
 	tween.tween_property(mesh, "scale:y", 0.26, 0.12)
@@ -64,7 +68,7 @@ func _physics_process(delta: float) -> void:
 			continue
 		var offset := enemy.global_position - global_position
 		offset.y = 0.0
-		if offset.length() > RADIUS:
+		if offset.length() > _radius:
 			continue
 		var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 		if hurtbox != null:
