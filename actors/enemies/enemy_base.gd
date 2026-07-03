@@ -17,6 +17,7 @@ const FIST_REST := Vector3(0.35, 1.05, -0.35)
 const FIST_WINDUP := FIST_REST + Vector3(0.05, 0.05, 0.35)
 const FIST_PUNCH := FIST_REST + Vector3(-0.15, -0.1, -0.95)
 const LUNGE_SPEED_MULT := 1.8
+const SHOVE_DECAY := 18.0
 
 @onready var health: HealthComponent = $Health
 @onready var hurtbox: HurtboxComponent = $Hurtbox
@@ -37,6 +38,7 @@ var _base_color := Color.WHITE
 var _fist_tween: Tween
 var _color_tween: Tween
 var _stun_duration := 0.0
+var _shove := Vector3.ZERO
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -102,7 +104,17 @@ func _physics_process(delta: float) -> void:
 			_hold_still()
 			if _state_time >= _stun_duration:
 				_end_stun()
+	# External shoves (boss charge plowing) ride on top of state movement.
+	if _shove != Vector3.ZERO:
+		velocity.x += _shove.x
+		velocity.z += _shove.z
+		_shove = _shove.move_toward(Vector3.ZERO, SHOVE_DECAY * delta)
 	move_and_slide()
+
+
+## Physically fling this enemy (no damage). Impulse decays over ~a second.
+func apply_shove(impulse: Vector3) -> void:
+	_shove = impulse
 
 
 func _chase() -> void:

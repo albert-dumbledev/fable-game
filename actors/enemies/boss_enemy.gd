@@ -13,10 +13,12 @@ const CHARGE_DAMAGE_MULT := 1.5
 const CHARGE_KNOCKBACK := 18.0
 const CHARGE_MIN_RANGE := 4.0
 const CHARGE_COLOR := Color(1.0, 0.9, 0.2)
-## World + enemies only — the rush phases through the player so the boss
-## barrels past instead of pinning them; the hitbox + knockback do the work.
-const CHARGE_COLLISION_MASK := 5
+## World only — the rush phases through the player AND minions so nothing
+## bodily blocks it; the hitbox handles the player, _shove_minions() the rest.
+const CHARGE_COLLISION_MASK := 1
 const NORMAL_COLLISION_MASK := 7
+const SHOVE_RADIUS := 2.8
+const SHOVE_FORCE := 14.0
 
 enum ChargePhase { NONE, WINDUP, RUSH }
 
@@ -46,6 +48,7 @@ func _chase() -> void:
 			_charge_time += delta
 			velocity.x = _charge_dir.x * CHARGE_SPEED
 			velocity.z = _charge_dir.z * CHARGE_SPEED
+			_shove_minions()
 			if _charge_time >= CHARGE_TIME or is_on_wall():
 				_end_charge()
 
@@ -85,6 +88,24 @@ func _end_charge() -> void:
 	_tween_fist(FIST_REST, 0.3)
 	velocity.x = 0.0
 	velocity.z = 0.0
+
+
+## Fling nearby minions sideways out of the charge path — pure flavor,
+## no damage. Side is whichever one they're already leaning toward, with
+## a little forward carry so they tumble along the rush.
+func _shove_minions() -> void:
+	var side := _charge_dir.cross(Vector3.UP)
+	for node: Node in get_tree().get_nodes_in_group(&"enemies"):
+		var minion := node as EnemyBase
+		if minion == null or minion == self or not minion.is_inside_tree():
+			continue
+		var offset := minion.global_position - global_position
+		offset.y = 0.0
+		if offset.length() > SHOVE_RADIUS:
+			continue
+		var lateral := side if offset.dot(side) >= 0.0 else -side
+		var impulse := (lateral * 0.9 + _charge_dir * 0.35).normalized() * SHOVE_FORCE
+		minion.apply_shove(impulse)
 
 
 ## A parry cancels the charge entirely and restarts its cooldown.
