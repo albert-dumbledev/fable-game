@@ -15,7 +15,8 @@ var xp := 0
 var level := 0
 
 var _run_active := true
-var _event_index := 0
+## Per-event next-fire clock (repeating events re-arm; one-shots go INF).
+var _next_event_at: PackedFloat64Array = []
 
 
 func _ready() -> void:
@@ -36,17 +37,23 @@ func _physics_process(delta: float) -> void:
 	_fire_due_events()
 
 
-## Scheduled spawns (bosses, ambushes) from the WaveTable, in time order.
+## Scheduled spawns (bosses, ambushes, repeating swarms) from the WaveTable.
 func _fire_due_events() -> void:
 	var table := spawner.wave_table
 	if table == null:
 		return
-	while _event_index < table.events.size() and elapsed >= table.events[_event_index].time:
-		var event := table.events[_event_index]
-		_event_index += 1
+	if _next_event_at.size() != table.events.size():
+		_next_event_at.resize(table.events.size())
+		for i: int in table.events.size():
+			_next_event_at[i] = table.events[i].time
+	for i: int in table.events.size():
+		if elapsed < _next_event_at[i]:
+			continue
+		var event := table.events[i]
+		_next_event_at[i] = elapsed + event.repeat_every if event.repeat_every > 0.0 else INF
 		if event.announcement != "":
 			EventBus.wave_announcement.emit(event.announcement)
-		for i: int in event.count:
+		for j: int in event.count:
 			var enemy := spawner.spawn_enemy(event.enemy, elapsed)
 			if enemy != null and event.enemy.tags.has(&"boss"):
 				EventBus.boss_spawned.emit(enemy)

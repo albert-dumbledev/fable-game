@@ -27,13 +27,15 @@ Fields: `display_name`, `scene`, `max_health`, `move_speed`, `damage`, `attack_r
 |---|---|---|---|---|
 | Unlocks at | 0s | **45s** | **90s** | **120s** |
 | HP | 25 | 12 | 80 | 20 |
-| Speed | 4.5 | 7.0 | 2.8 | 3.5 |
-| Damage | 10 | 6 | 22 | 8 |
+| Speed | 4.5 | 8.5 | 2.8 | 3.5 |
+| Damage | 18 | 10 | 32 | 14 |
 | Range | 1.8 | 1.6 | 2.2 | **9.0 (ranged)** |
-| Windup / recover | 0.4 / 0.8 | 0.3 / 0.6 | 0.7 / 1.2 | 0.6 / 1.4 |
+| Windup / recover | 0.3 / 0.5 | 0.25 / 0.5 | 0.55 / 0.8 | 0.45 / 0.7 |
 | Knockback | 5 | 3 | 9 | 2 |
 | Gold / XP | 5 / 4 | 4 / 3 | 15 / 10 | 8 / 6 |
 | Spawn weight | 1.0 | 0.8 | 0.35 | 0.5 |
+
+Numbers were re-tuned in the chaos/lethality pass (2026-07-03): every hit is meant to matter against a fresh 80-HP player (~4 chaser hits early), telegraphs are ~25% snappier across the board, and the Spitter's recovery halved so it genuinely suppresses.
 
 Roles: Chaser is the baseline; Sprinter forces backpedal discipline (fast, fragile, quick windup); Brute is the parry tutor (long telegraph, big hit, worst recovery); Spitter breaks camping. Only the Spitter has a script (`spitter_enemy.gd`, ~45 lines): overrides `_chase()` — kites away inside `RETREAT_RANGE 4.0`, closes to 9.0 — and `_begin_attack()` — spawns a `Projectile` (speed 12, lifetime 4s) aimed at the player, through the same hurtbox pipeline so shields work. Everything else inherits.
 
@@ -43,18 +45,20 @@ Roles: Chaser is the baseline; Sprinter forces backpedal discipline (fast, fragi
 
 | Knob | Formula | Default |
 |---|---|---|
-| Spawn interval | lerp `start → min` over `interval_ramp_time` | 2.5s → 0.4s over 240s |
+| Spawn interval | lerp `start → min` over `interval_ramp_time` | 1.8s → 0.25s over 210s |
 | Enemy HP | `× (1 + hp_growth_per_min · min)` | +50%/min |
-| Enemy damage | `× (1 + dmg_growth_per_min · min)` | +25%/min |
+| Enemy damage | `× (1 + dmg_growth_per_min · min)` | +40%/min |
 | Reward (gold & XP drops) | `× (1 + reward_growth_per_min · min)` | +30%/min |
-| Alive cap | lerp `start → end` over ramp | 15 → 60 over 300s |
+| Alive cap | lerp `start → end` over ramp | 24 → 90 over 270s |
 | Pool pick | weight-roll among entries with `elapsed ≥ min_elapsed` | — |
 
-Multipliers are baked per-enemy at spawn via `enemy.setup(data, hp_mult, dmg_mult, reward_mult)` — `EnemyData` resources are never mutated. Damage growth is deliberately half of HP growth: runs end by attrition and being swarmed, not one-shots. `spawn_enemy()` is public so scheduled `WaveTable` events reuse ring placement and scaling.
+Multipliers are baked per-enemy at spawn via `enemy.setup(data, hp_mult, dmg_mult, reward_mult)` — `EnemyData` resources are never mutated. Damage growth stays under HP growth so runs still end by attrition and being swarmed rather than pure one-shots, but at +40%/min it bites: with the 80-HP player baseline, "3–4 hits from death" holds through the midgame unless health boons are picked. The 90 alive cap is still well under the ~200 GDScript danger zone (PLAN §6); profile before raising it again. `spawn_enemy()` is public so scheduled `WaveTable` events reuse ring placement and scaling.
 
-## Wave events & the Juggernaut boss
+## Wave events, swarms & the Juggernaut boss
 
-`WaveTable.events` is an `Array[WaveEvent]` (`time`, `enemy`, `count`, `announcement`), fired once each by `RunDirector` in time order, **bypassing the alive cap**. An event whose enemy is tagged `boss` also emits `EventBus.boss_spawned` — the HUD binds a name + health bar to it; announcements show a fading banner. Default table: one Juggernaut at **150s**, two at **360s**.
+`WaveTable.events` is an `Array[WaveEvent]` (`time`, `enemy`, `count`, `announcement`, `repeat_every`), fired by `RunDirector` off a per-event next-fire clock, **bypassing the alive cap**. `repeat_every = 0` means one-shot; anything greater re-arms the event that many seconds after each firing — that's the SWARM mechanism. An event whose enemy is tagged `boss` also emits `EventBus.boss_spawned` — the HUD binds a name + health bar to it; announcements show a fading banner.
+
+Default table: one Juggernaut at **150s**, two at **360s** (one-shots), plus **12 Sprinters at 60s repeating every 75s** ("A SWARM APPROACHES") and **16 Chasers at 180s repeating every 150s** ("THEY POUR IN").
 
 **Juggernaut** (`boss_enemy.gd` extends EnemyBase; `juggernaut.tres`): 500 HP base (× wave HP mult at spawn), 4.6m tall, melee slam with 3.4 reach / 0.6 windup / 0.6 recover / knockback 12. Signature: every **5.5s** it telegraphs (yellow tween + fist cock, 0.7s) then **charges** at 24 u/s for 1.5s — effectively wall to wall:
 

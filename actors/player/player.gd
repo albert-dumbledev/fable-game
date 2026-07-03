@@ -76,7 +76,9 @@ var _knockback := Vector3.ZERO
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	stats.set_base(Stats.MAX_HEALTH, 100.0)
+	# 80: a fresh run should feel 4-5 early hits from death; in-run health
+	# boons (Bulwark) are the intended survivability investment.
+	stats.set_base(Stats.MAX_HEALTH, 80.0)
 	stats.set_base(Stats.MOVE_SPEED, 6.0)
 	stats.set_base(Stats.DAMAGE, 0.0)
 	stats.set_base(Stats.ATTACK_SPEED, 1.0)
