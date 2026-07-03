@@ -18,9 +18,11 @@ Trade-off accepted: less compile-time safety and weaker refactoring tools than C
 
 ---
 
-## 2. Phase 1 — Playable Demo (the only priority right now)
+## 2. Phase 1 — Playable Demo ✅ SHIPPED (and exceeded)
 
-**Goal:** one full loop — *spawn in → fight → die → buy upgrades → run again, measurably stronger* — with graybox visuals. Everything below is deliberately minimal but built on the real architecture from §3 so nothing gets thrown away.
+**Status:** done. The full loop — *spawn in → fight → die → buy upgrades → run again, measurably stronger* — is playable, and the demo overshot its scope: perfect-block parry (stuns the attacker), a three-phase sword swing animation, a rotating minimap, physical gold/XP pickups that burst from corpses and magnet to the player, and the full XP → level-up → boon-choice system with rarities all shipped ahead of schedule. See §5 for the per-phase record.
+
+**Original goal (kept for the record):** one full loop with graybox visuals. Everything below was deliberately minimal but built on the real architecture from §3 so nothing got thrown away — which is exactly what happened.
 
 ### Demo scope
 
@@ -45,9 +47,9 @@ Trade-off accepted: less compile-time safety and weaker refactoring tools than C
 3. Three runs in, the power increase is obviously felt (kill speed, survivability).
 4. 60 fps with 50+ live enemies on a mid-range machine.
 
-### Explicitly *not* in the demo
+### Explicitly *not* in the demo (then)
 
-Bosses, XP/level-ups, second weapon, spells, sound design, real models/animations, menus beyond death screen, prestige. All are Phase 2+ and the architecture leaves room for each.
+Bosses, XP/level-ups, second weapon, spells, sound design, real models/animations, menus beyond death screen, prestige. Of these, **XP/level-ups shipped in Phase 2** and **bosses + the first spell are in flight in Phase 3**; the rest remain Phase 4+.
 
 ---
 
@@ -59,7 +61,7 @@ Guiding rule: **behavior lives in scripts/scenes, numbers and content live in `R
 
 | Autoload | Responsibility |
 |---|---|
-| `EventBus` | Global signals only, no logic: `EnemyKilled(EnemyData, position)`, `PlayerDamaged`, `PlayerDied`, `CurrencyChanged(id, amount)`, `RunStarted`, `RunEnded(RunStats)`. Decouples HUD, spawner, progression from each other |
+| `EventBus` | Global signals only, no logic. The list has grown past the original five — it now covers the run lifecycle (`run_started`, `run_ended`), combat (`enemy_killed`, `player_damaged`, `player_died`, `attack_blocked`, `perfect_block`), economy (`currency_changed`, `pickup_collected(kind, value)`), and progression (`xp_changed`, `level_up`). See `autoload/event_bus.gd` for the canonical list; the rule stands: signals only, no state |
 | `GameManager` | Top-level state machine: `Menu → InRun → DeathScreen → (shop) → InRun`. Owns scene transitions |
 | `MetaProgression` | Persistent state: currency balances (a `Dictionary[StringName, int]` keyed by currency id — this is the prestige hook), purchased upgrade levels, save/load to `user://`. Exposes `get_stat_modifiers()` consumed by the player on spawn |
 
@@ -69,28 +71,29 @@ Small reusable nodes attached to any actor:
 
 - **`HealthComponent`** — `Max`, `Current`, `TakeDamage(AttackInfo)`, signals `Damaged`, `Died`. Identical on player and monsters.
 - **`HitboxComponent`** (Area3D) — carries an `AttackInfo` when active; **`HurtboxComponent`** (Area3D) — receives it, routes through the owner's mitigation (block check, armor later) into `HealthComponent`.
-- **`AttackInfo`** (lightweight `RefCounted` class with `class_name`) — `source`, `damage`, `damage_type`, `knockback_dir/force`. Every damage event in the game flows through this one pipeline, so adding crits, elemental types, lifesteal, or damage numbers later is a change in one place.
+- **`AttackInfo`** (lightweight `RefCounted` class with `class_name`) — currently `source` + `damage` (damage types/knockback are still future fields). Every damage event flows through this one pipeline — melee, enemy punches, and spitter projectiles alike — which is how blocking, thorns, and damage numbers all hooked in without touching callers. Full pipeline documented in **[docs/COMBAT.md](docs/COMBAT.md)**.
 
 ### 3.3 Stats system (the most important extensibility piece)
 
-- **`StatBlock`** — dictionary of `StatId → base value` (MoveSpeed, MaxHealth, Damage, AttackSpeed, BlockAngle, …) plus a modifier list.
-- **`StatModifier`** — `{ StatId, Flat | PercentAdd | PercentMult, value, source }`. Resolution order: base → sum flats → sum additive % → product of multiplicative %.
-- Upgrades, in-run boons, weapon bonuses, and future prestige multipliers are *all just modifier sources*. Nothing else in the game hardcodes a stat formula.
+- **`StatBlock`** — dictionary of stat id → base value plus a modifier list, with per-stat caching. Canonical ids live in `core/stats.gd` (`max_health`, `damage`, `attack_speed`, `move_speed` so far).
+- **`StatModifier`** — `{ stat, Flat | PercentAdd | PercentMult, value }` as a `Resource`, so `.tres` files can embed them. Resolution order: base → sum flats → ×(1 + sum additive %) → ×∏(1 + multiplicative %).
+- Upgrades, in-run boons, weapon bonuses, and future prestige multipliers are *all just modifier sources*. Nothing else in the game hardcodes a stat formula. This bet paid off: the entire boon rarity system is "duplicate the modifier, multiply its value" (see [docs/BOONS.md](docs/BOONS.md)).
 
 ### 3.4 Data resources (content as `.tres` files)
 
-- **`EnemyData`** — display name, base stats, scene to instance, gold/XP reward, spawn weight, tags (`boss`, `ranged`, …).
-- **`WeaponData`** — damage, swing time, reach/arc, scene for the viewmodel. Weapon behavior = a `Weapon` base class (`try_attack()`, `try_block()`); sword-and-board is the first subclass, spells later implement the same interface (a spell is a weapon with a cast time and a projectile/AoE payload).
-- **`UpgradeData`** — id, name, description, currency id + cost curve, `StatModifier[]` granted per level, max level (0 = infinite), optional prerequisite id. The death-screen shop is 100% generated from a folder of these.
-- **`WaveTable` / `DifficultyCurve`** — spawn interval over time, weighted enemy pool per time band, scheduled events (`t=120s: spawn boss X`). The spawner reads this; new content = new rows, and bosses are just scheduled entries pointing at an `EnemyData` with the `boss` tag.
+- **`EnemyData`** — display name, scene, base stats, attack timing (`windup_time`, `recover_time`, `attack_range`), gold/XP reward, spawn weight, `min_elapsed` time gate, tags (`boss`, …). Four enemy types exist as pure data files. Full reference: **[docs/ENEMIES.md](docs/ENEMIES.md)**.
+- **`WeaponData`** — damage, swing time. Weapon behavior = a `Weapon` base class (`try_attack()`, `set_blocking()`, `notify_block_success()`); sword-and-board is the first subclass, spells implement the same interface (Phase 3, in progress).
+- **`UpgradeData`** — id, name, description, base cost + geometric cost growth, `StatModifier[]` granted per level, max level (0 = infinite). The death-screen shop is 100% generated from `data/upgrades/registry.tres`.
+- **`BoonData` / `BoonRegistry`** *(new since the original plan)* — run-scoped level-up rewards. Same `StatModifier` machinery as upgrades, only the lifetime differs; unique boons grant ability flags instead. Full reference: **[docs/BOONS.md](docs/BOONS.md)**.
+- **`WaveTable`** — spawn interval ramp, HP/damage/reward growth per minute, alive-cap ramp, weighted + time-gated enemy pool, and scheduled one-shot events (bosses — Phase 3, in progress). The spawner reads this; new content = new rows.
 
 ### 3.5 Run Director (per-run scene node)
 
-Owns the in-run loop: elapsed time, difficulty scalar `t`, reads the `WaveTable`, spawns enemies (ring outside camera, live-count cap), applies time-based HP/damage multipliers to spawned `EnemyData`, fires scheduled boss events, accumulates `RunStats` (kills, gold, time survived) for the death screen.
+Owns the in-run loop: elapsed time, spawner pacing, XP/level bookkeeping (level-ups fire the boon choice), and the death → stats handoff to `GameManager`. Kill and gold tallies count *collected pickups*, not kills — rewards are physical drops now (§4). Stats are still a plain `Dictionary` (`time`, `kills`, `gold`); a real `RunStats` class remains future work.
 
 ### 3.6 Enemy AI
 
-Demo: straight-chase steering + a tiny state machine (`Chase → Windup → Attack → Recover`) directly on the enemy script. Structured so states are methods on a base `Enemy` class — ranged/boss enemies override behavior, not the plumbing. NavigationAgent3D only if/when arenas gain obstacles. If live counts ever threaten frame time, the escape hatch is moving steering into a single manager iterating a list (data-oriented), which the component split keeps easy.
+Shipped as designed, plus one state: `Chase → Windup → Attack → Recover`, with **`Stunned`** added for the perfect-block reward. States are methods on `EnemyBase` — the ranged Spitter overrides `_chase()` (kiting) and `_begin_attack()` (projectile) and inherits everything else, which validated the "override behavior, not plumbing" bet. Attacks are telegraphed (windup color shift + fist cock-back, then a punch lunge). Details and authoring guide: **[docs/ENEMIES.md](docs/ENEMIES.md)**. NavigationAgent3D still deferred until arenas gain obstacles; the data-oriented steering escape hatch remains unused and available.
 
 ### 3.7 Scene/folder layout
 
@@ -98,33 +101,38 @@ Demo: straight-chase steering + a tiny state machine (`Chase → Windup → Atta
 res://
   autoload/        event_bus.gd, game_manager.gd, meta_progression.gd
   components/      HealthComponent, Hitbox/HurtboxComponent
-  core/            StatBlock, StatModifier, AttackInfo
+  core/            StatBlock, StatModifier, Stats (id registry), AttackInfo,
+				   EnemyData, WeaponData, UpgradeData(+Registry),
+				   BoonData(+Registry), WaveTable, DamageNumber
   data/
-	enemies/       *.tres (EnemyData)
-	weapons/       *.tres (WeaponData)
-	upgrades/      *.tres (UpgradeData)
-	waves/         *.tres (WaveTable)
+	enemies/       *.tres (EnemyData) — chaser, sprinter, brute, spitter, …
+	weapons/       sword.tres
+	upgrades/      *.tres + registry.tres (drives the death-screen shop)
+	boons/         *.tres + registry.tres (drives the level-up screen)
+	waves/         default.tres (WaveTable)
   actors/
 	player/        Player.tscn + controller, camera rig, weapon mount
-	enemies/       EnemyBase.tscn, ChaserEnemy.tscn
+	enemies/       enemy_base.gd, ChaserEnemy/Sprinter/Brute/SpitterEnemy.tscn,
+				   Projectile.tscn
+	pickups/       Pickup.tscn (gold/XP drops)
   weapons/         weapon.gd, SwordAndShield.tscn
   systems/         run_director.gd, spawner.gd
-  ui/              HUD.tscn, DeathScreen.tscn, UpgradeShop.tscn
+  ui/              HUD.tscn (incl. minimap), DeathScreen.tscn, BoonScreen.tscn
   levels/          Arena.tscn
+  docs/            BOONS.md, COMBAT.md, ENEMIES.md (system sub-plans)
 ```
 
 ---
 
 ## 4. Progression & Balance Dimensions
 
-**Demo:** single currency (gold) → permanent upgrades on death. Simple, proves the loop.
+**Shipped: the dual-track economy, with a twist the original plan didn't have — rewards are physical objects.**
 
-**Phase 2 — dual-track progression** (this is where playstyle choice emerges):
+- **Gold** (persistent): spent on permanent meta upgrades at the death screen (`data/upgrades/`, geometric cost growth ~×1.4/level), and doubles as an *in-run* sink (boon rerolls) and *in-run* source (boon skips).
+- **XP** (per-run): fills the HUD bar; threshold is `20 + 15×level`. Each level-up pauses the run and offers 3 boons with rolled rarities (Common ×1.0 → Legendary ×3.5) — the Vampire Survivors moment, working as intended. Full design: **[docs/BOONS.md](docs/BOONS.md)**.
+- **Both drop as pickups, not HUD increments.** Enemies explode into up to 8 gold + 8 XP pieces that burst ballistically, bounce, then magnet to the player. Rewards are granted on *collection*, not on kill — leaving loot on the ground when overwhelmed is a real cost, and diving into a pack to vacuum a fountain is a real risk. Drop values scale with run time (`WaveTable.reward_growth_per_min`, +30%/min) so late-run kills stay worth collecting.
 
-- **Gold** (persistent): dropped per kill, spent on *permanent* meta upgrades between runs.
-- **XP** (per-run): fills a bar; each in-run level-up pauses briefly and offers a choice of 3 temporary boons (this run only) — the Vampire Survivors moment.
-
-Balance levers this creates: risky play (fighting bosses/packs) can reward more XP for a stronger *current* run, while safe farming maximizes gold for *permanent* growth. Upgrades can later specialize into builds (block-counter tank vs attack-speed glass cannon vs spell caster) because everything is `StatModifier`s on a shared `StatBlock`.
+Balance levers this creates: risky play rewards a stronger *current* run (XP boons, loot diving), safe farming maximizes *permanent* growth (gold), and the skip-vs-take boon decision converts unwanted level-ups into meta progress. Builds can specialize (block-counter tank vs attack-speed glass cannon vs spell caster) because everything is `StatModifier`s on a shared `StatBlock` — the unique-boon ability flags (dash/thorns/vampire) are the first non-stat build differentiators.
 
 **Prestige (design for, don't build):** the hooks already exist — currencies are keyed by id in `MetaProgression`, so prestige is: add a `prestige_shards` currency earned from a reset condition, a "reset gold + upgrades" operation, and a prestige upgrade folder whose modifiers apply globally. No system rewrites required.
 
@@ -132,20 +140,21 @@ Balance levers this creates: risky play (fighting bosses/packs) can reward more 
 
 ## 5. Phased Roadmap
 
-| Phase | Content | Exit criteria |
+| Phase | Status | What shipped / what's left |
 |---|---|---|
-| **0. Setup** | Folder skeleton, autoloads registered, input map (`move_*`, `look`, `attack`, `block`, `sprint`), GDScript strictness warnings (`untyped_declaration` etc.) set to error in project settings | Empty arena runs clean with zero warnings |
-| **1. Demo** | Everything in §2 | Acceptance criteria in §2 met |
-| **2. Depth** | XP + in-run boon choices, 2–3 new enemy types (fast/tanky/ranged) via `EnemyData`, hit feedback pass (damage numbers, screen shake, SFX) | A run has meaningful in-run decisions |
-| **3. Bosses & arsenal** | First boss (scheduled `WaveTable` event, unique attack pattern), second weapon, first 1–2 spells on the `Weapon` interface, weapon/spell unlocks as upgrades | Boss fight at ~3 min is a run highlight |
-| **4. Meta & polish** | Main menu, settings, upgrade tree UI (replacing flat shop), balance pass on curves, art/audio pass | Shippable demo build |
-| **5+ (parked)** | Prestige layer, multiple arenas, achievements | — |
+| **0. Setup** | ✅ Done | Folder skeleton, autoloads, input map (incl. a later `dash` action), `untyped_declaration` as error. |
+| **1. Demo** | ✅ Done | Full loop per §2 — FPS controller, sword/shield with three-phase swing, chaser enemy with telegraphed attacks, ring spawner, gold economy, death-screen shop, JSON save. Plus unplanned extras: perfect-block parry, block feedback pass. |
+| **2. Depth** | ✅ Done (SFX deferred) | XP + boon choices with rarities and unique ability boons; three new enemy types (Sprinter/Brute/Spitter) as pure `EnemyData`; hit feedback (damage numbers, trauma camera shake, hit-pop, damage vignette); rotating minimap; physical gold/XP pickups. **SFX was cut from this phase — no audio assets exist yet; it moves to the Phase 4 audio pass.** |
+| **3. Bosses & arsenal** | 🔨 In progress | First boss via scheduled `WaveTable` events + boss health bar; first spell (Firebolt) unlocked through an ability-granting field on `UpgradeData`. Second weapon still queued. |
+| **4. Meta & polish** | Not started | Main menu, settings, upgrade tree UI (replacing flat shop), balance pass on curves, art/**audio** pass (now owns the deferred SFX work). |
+| **5+ (parked)** | — | Prestige layer, multiple arenas, achievements. |
 
 ---
 
 ## 6. Risks / open questions
 
-- **Melee feel in first person is the make-or-break.** Budget real time in Phase 1 for swing timing, hit pause, and reach tuning — a survivor-like where hitting things feels mushy fails regardless of systems quality.
+- **Melee feel in first person is the make-or-break.** Substantially addressed: the swing went through several iterations (bezier arc → shoulder-orbit rigid arm → three-phase windup/sweep/backswing, base swing slowed to 0.7s) and hits land with damage numbers, scale-pop, and camera shake. Still no hit-pause or SFX — the feel ceiling is audio-shaped now; revisit after the Phase 4 audio pass. Mechanics: [docs/COMBAT.md](docs/COMBAT.md).
 - **Renderer:** project is on GL Compatibility — with GDScript that's the right default, since it's the only renderer that reaches web and low-end hardware, which is exactly the platform flexibility being prioritized. Revisit Forward+ in Phase 4 only if the visual target demands it *and* web is off the table by then.
-- **GDScript horde performance:** the 50-enemy demo target is safe, but if enemy counts grow past ~200, per-node scripting may bottleneck before anything else does. The escalation path in §1/§3.6 (typed scripts → manager-iterated steering → PhysicsServer3D) is the plan; profile before escalating.
-- **Block design:** resolved — hold-to-block negates frontal damage, and raising the block within 0.2s of a hit is a *perfect block* that stuns the attacker (1.5s), rewarding timing. Stamina costs remain an option if blocking proves too dominant.
+- **GDScript horde performance:** holding. The alive cap ramps 15 → 60 (`WaveTable`), well under the ~200 danger zone, and pickups were deliberately built without physics bodies so hundreds of coins stay cheap. If counts grow past ~200, the escalation path in §1/§3.6 (typed scripts → manager-iterated steering → PhysicsServer3D) is the plan; profile before escalating.
+- **Block design:** shipped as resolved — hold-to-block negates frontal (60° half-angle) damage, and raising the block within 0.2s of a hit is a *perfect block* that stuns the attacker 1.5s. Thorns (unique boon) stacks damage reflection on top. Stamina costs remain an option if blocking proves too dominant — watch this once the boss lands, since stun-locking a boss with parry timing may need a boss-side override (`stun()` is already overridable).
+- **Boon economy tuning (new):** reroll doubling (10 → 20 → 40 …) and skip payouts (15 + 5×level gold) are first-guess numbers; skip could become the dominant strategy for meta-focused players. Track gold-per-run from skips vs drops. Levers listed in [docs/BOONS.md](docs/BOONS.md).
