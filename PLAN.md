@@ -64,6 +64,8 @@ Guiding rule: **behavior lives in scripts/scenes, numbers and content live in `R
 | `EventBus` | Global signals only, no logic. The list has grown past the original five — it now covers the run lifecycle (`run_started`, `run_ended`), combat (`enemy_killed`, `player_damaged`, `player_died`, `attack_blocked`, `perfect_block`), economy (`currency_changed`, `pickup_collected(kind, value)`), and progression (`xp_changed`, `level_up`). See `autoload/event_bus.gd` for the canonical list; the rule stands: signals only, no state |
 | `GameManager` | Top-level state machine: `Menu → InRun → DeathScreen → (shop) → InRun`. Owns scene transitions |
 | `MetaProgression` | Persistent state: currency balances (a `Dictionary[StringName, int]` keyed by currency id — this is the prestige hook), purchased upgrade levels, save/load to `user://`. Exposes `get_stat_modifiers()` consumed by the player on spawn |
+| `AudioManager` *(Phase 4)* | Owns the SFX bus and two player pools (flat + positional). All sounds are **procedurally synthesized at startup** by `SfxFactory` (`core/sfx_factory.gd`) — no audio assets, web export stays asset-free. Global cues (kills, blocks, pickups, level-ups, bosses) attach via EventBus; actor-local moments (swings, casts, impacts) call `play()`/`play_at()` directly. Per-id rate limiting stops coin fountains stacking 16 blips into one frame |
+| `Settings` *(Phase 4)* | User options persisted to `user://settings.json` (separate from the save): mouse sensitivity, FOV, screen shake, master/SFX volume, fullscreen. `apply()` pushes to the engine and emits `changed`; the player re-reads live. Declared after AudioManager so the SFX bus exists before volumes apply |
 
 ### 3.2 Component scenes (composition over inheritance)
 
@@ -83,7 +85,7 @@ Small reusable nodes attached to any actor:
 
 - **`EnemyData`** — display name, scene, base stats, attack timing (`windup_time`, `recover_time`, `attack_range`), gold/XP reward, spawn weight, `min_elapsed` time gate, tags (`boss`, …). Four enemy types exist as pure data files. Full reference: **[docs/ENEMIES.md](docs/ENEMIES.md)**.
 - **`WeaponData` / `WeaponRegistry`** — id, damage, swing time, `can_block`, scene path, unlock ability. Weapon behavior = a `Weapon` base class (`try_attack()`, `set_blocking()`, `set_stowed()`, `notify_block_success()`); Sword & Shield and the Warhammer are the two subclasses. **Loadout:** one weapon per run, picked on the death screen from `data/weapons/registry.tres`; unlocks are ability-granting `UpgradeData` like spells; the choice persists in the save (`MetaProgression.selected_weapon`) and the player instances the scene into its weapon mount on spawn. Details: [docs/COMBAT.md](docs/COMBAT.md).
-- **`UpgradeData`** — id, name, description, base cost + geometric cost growth, `StatModifier[]` granted per level, max level (0 = infinite). The death-screen shop is 100% generated from `data/upgrades/registry.tres`.
+- **`UpgradeData`** — id, name, description, base cost + geometric cost growth, `StatModifier[]` granted per level, max level (0 = infinite), plus tree placement (Phase 4): `branch` (&"might" / &"vigor" / &"arcana") and an optional `requires_upgrade` + `requires_level` gate. The death-screen shop renders one column per branch, 100% generated from `data/upgrades/registry.tres`.
 - **`BoonData` / `BoonRegistry`** *(new since the original plan)* — run-scoped level-up rewards. Same `StatModifier` machinery as upgrades, only the lifetime differs; unique boons grant ability flags instead. Full reference: **[docs/BOONS.md](docs/BOONS.md)**.
 - **`WaveTable`** — spawn interval ramp, HP/damage/reward growth per minute, alive-cap ramp, weighted + time-gated enemy pool, and scheduled one-shot events (bosses — Phase 3, in progress). The spawner reads this; new content = new rows.
 
@@ -99,11 +101,12 @@ Shipped as designed, plus one state: `Chase → Windup → Attack → Recover`, 
 
 ```
 res://
-  autoload/        event_bus.gd, game_manager.gd, meta_progression.gd
+  autoload/        event_bus.gd, game_manager.gd, meta_progression.gd,
+				   audio_manager.gd, settings.gd
   components/      HealthComponent, Hitbox/HurtboxComponent
   core/            StatBlock, StatModifier, Stats (id registry), AttackInfo,
 				   EnemyData, WeaponData, UpgradeData(+Registry),
-				   BoonData(+Registry), WaveTable, DamageNumber
+				   BoonData(+Registry), WaveTable, DamageNumber, SfxFactory
   data/
 	enemies/       *.tres (EnemyData) — chaser, sprinter, brute, spitter, …
 	weapons/       sword.tres, warhammer.tres + registry.tres (loadout pool)
@@ -117,7 +120,8 @@ res://
 	pickups/       Pickup.tscn (gold/XP drops)
   weapons/         weapon.gd, SwordAndShield.tscn, Warhammer.tscn, Fireball.tscn
   systems/         run_director.gd, spawner.gd
-  ui/              HUD.tscn (incl. minimap), DeathScreen.tscn, BoonScreen.tscn
+  ui/              HUD.tscn (incl. minimap), DeathScreen.tscn, BoonScreen.tscn,
+				   MainMenu.tscn (boot scene), PauseMenu.tscn, SettingsPanel.tscn
   levels/          Arena.tscn
   docs/            BOONS.md, COMBAT.md, ENEMIES.md (system sub-plans)
 ```
@@ -147,14 +151,14 @@ Balance levers this creates: risky play rewards a stronger *current* run (XP boo
 | **2. Depth** | ✅ Done (SFX deferred) | XP + boon choices with rarities and unique ability boons; three new enemy types (Sprinter/Brute/Spitter) as pure `EnemyData`; hit feedback (damage numbers, trauma camera shake, hit-pop, damage vignette); rotating minimap; physical gold/XP pickups. **SFX was cut from this phase — no audio assets exist yet; it moves to the Phase 4 audio pass.** |
 | **3. Bosses & arsenal** | ✅ Done | **Juggernaut boss** via scheduled `WaveTable` events (telegraphed wall-to-wall charge that phases through the player and plows minions aside; parry cancels it) with boss HP bar + spawn banner; **hit knockback** on every enemy attack (`AttackInfo.knockback`, per-enemy strength); **Fireball** — 0.8s committed charge (sword/shield stow, both hands busy) → AoE explosion — unlocked via ability-granting `UpgradeData`; **dash reworked** into a fixed-distance intangible blink; skill cooldown HUD; **weapon loadout** — one weapon per run, picked on the death screen, unlocked via the same ability-upgrade path; **Warhammer** — slow two-handed slam with a ground-AoE shockwave and shove, `can_block = false` (the shield is the price); **Frost Nova** — instant defensive AoE (E) that chills enemy *movement* to ×0.35 for 3.5s, never attack telegraphs. |
 | **3.5 Depth & chaos** *(unplanned)* | ✅ Done | **Controls:** dash moved to Shift (sprint removed — dash is the mobility tool), jump on Space. **Build-specific boons:** `BoonData` gained `requires_weapon`/`requires_any_ability` gating; new stats (`spell_cooldown`, `cast_time`, `fireball_aoe`, `fireball_charges`, `hammer_aoe`); 10 new boons — sword (thorns now gated here + Duelist's Focus parry window), hammer (Wide Tremor, Aftershock), spells (Quick Mind, Fast Hands, Greater Blast, Twin Flame, Scorched Earth burning ground, Echo Nova, Glacial Wave). **Lethality:** base HP 100→80, Vitality upgrade halved to +10, enemy damage up ~1.5–1.8×, damage growth +25%→+40%/min — a fresh player dies in ~4 hits; Bulwark picks are the counterplay. **Chaos:** sprinters 8.5 speed, spitters fire ~2× as often, all telegraphs ~25% snappier, spawn interval 1.8→0.25s, alive cap 24→90, and repeating **SWARM events** (`WaveEvent.repeat_every`): 12 sprinters every 75s, 16 chasers every 150s. **Follow-ups:** Scorched Earth reworked to burn the blast point (zone denial, not a trail); blocking became a **guard meter** (3s hold, hits cost extra, perfect blocks free, break = full-refill lockout); warhammer gained **Seismic Slam** (RMB): long overhead windup → forward line shockwave via `Weapon.try_secondary`. |
-| **4. Meta & polish** | Not started | Main menu, settings, upgrade tree UI (replacing flat shop), balance pass on curves, art/**audio** pass (now owns the deferred SFX work). |
+| **4. Meta & polish** | ◐ Core shipped (2026-07-03) | **Shipped:** main menu (now the boot scene; Quit hidden on web) + pause menu on Esc (resume / settings / abandon run — abandon banks gold and routes to the normal death-screen handoff) + shared settings panel; `Settings` autoload (sensitivity, FOV, shake, volumes, fullscreen → `user://settings.json`); **full SFX pass with zero assets** — ~21 sounds synthesized at startup (`SfxFactory`: tone sweeps + filtered noise + envelopes), wired via EventBus + direct calls (swings per-weapon, slams, parry vs block, guard break, coin/XP blips, level-up stinger, boss horn, swarm alarm, UI clicks); **upgrade tree UI** — shop rebuilt as three prerequisite-gated branches (Might: Damage → Ferocity → Warhammer; Vigor: Vitality → Swiftness; Arcana: Fireball → Frost Nova). **Left:** balance pass on curves (blocked on playtest of this build), art pass, music. |
 | **5+ (parked)** | — | Prestige layer, multiple arenas, achievements. |
 
 ---
 
 ## 6. Risks / open questions
 
-- **Melee feel in first person is the make-or-break.** Substantially addressed: the swing went through several iterations (bezier arc → shoulder-orbit rigid arm → three-phase windup/sweep/backswing, base swing slowed to 0.7s) and hits land with damage numbers, scale-pop, and camera shake. Still no hit-pause or SFX — the feel ceiling is audio-shaped now; revisit after the Phase 4 audio pass. Mechanics: [docs/COMBAT.md](docs/COMBAT.md).
+- **Melee feel in first person is the make-or-break.** Substantially addressed: the swing went through several iterations (bezier arc → shoulder-orbit rigid arm → three-phase windup/sweep/backswing, base swing slowed to 0.7s) and hits land with damage numbers, scale-pop, camera shake, and (Phase 4) synthesized SFX — whoosh on swing, thud on connect, distinct parry ping. Remaining levers if feel still falls short: hit-pause, and replacing the synth sounds with recorded assets in the art pass. Mechanics: [docs/COMBAT.md](docs/COMBAT.md).
 - **Renderer:** project is on GL Compatibility — with GDScript that's the right default, since it's the only renderer that reaches web and low-end hardware, which is exactly the platform flexibility being prioritized. Revisit Forward+ in Phase 4 only if the visual target demands it *and* web is off the table by then.
 - **GDScript horde performance:** holding. The alive cap ramps 15 → 60 (`WaveTable`), well under the ~200 danger zone, and pickups were deliberately built without physics bodies so hundreds of coins stay cheap. If counts grow past ~200, the escalation path in §1/§3.6 (typed scripts → manager-iterated steering → PhysicsServer3D) is the plan; profile before escalating.
 - **Block design:** the "stamina cost if blocking proves too dominant" option got exercised (2026-07-03) — indefinite corner-turtling was dominant, so blocking is now a **guard meter**: 3s of hold time, −0.5s per blocked hit, perfect blocks free, and an empty meter breaks the block until it fully refills (~3s exposed). The parry window is untouched. Watch: if guard breaks feel unfair in swarms, raise `GUARD_HIT_COST`'s perfect-block exemption visibility (feedback), not the meter size, first.

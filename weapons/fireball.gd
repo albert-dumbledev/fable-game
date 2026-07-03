@@ -76,6 +76,7 @@ func _explode() -> void:
 				Vector3(global_position.x, 0.05, global_position.z),
 				AttackInfo.new(_info.source, _info.damage * BURN_DAMAGE_MULT),
 				_radius * BURN_RADIUS_MULT)
+	AudioManager.play_at(&"explosion", global_position)
 	BlastVfx.spawn(get_tree().current_scene, global_position, _radius,
 			Color(1.0, 0.5, 0.1, 0.7), 1.0, BLAST_DURATION)
 	# Nearby blasts rattle the camera a little.

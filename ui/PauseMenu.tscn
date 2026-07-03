@@ -1,0 +1,48 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/pause_menu.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://ui/SettingsPanel.tscn" id="2_settings"]
+
+[node name="PauseMenu" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_script")
+
+[node name="Root" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Dim" type="ColorRect" parent="Root"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.55)
+
+[node name="Center" type="CenterContainer" parent="Root"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Box" type="VBoxContainer" parent="Root/Center"]
+custom_minimum_size = Vector2(340, 0)
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Root/Center/Box"]
+theme_override_font_sizes/font_size = 44
+horizontal_alignment = 1
+text = "PAUSED"
+
+[node name="Spacer" type="Control" parent="Root/Center/Box"]
+custom_minimum_size = Vector2(0, 10)
+
+[node name="ResumeButton" type="Button" parent="Root/Center/Box"]
+theme_override_font_sizes/font_size = 20
+text = "Resume"
+
+[node name="SettingsButton" type="Button" parent="Root/Center/Box"]
+theme_override_font_sizes/font_size = 20
+text = "Settings"
+
+[node name="AbandonButton" type="Button" parent="Root/Center/Box"]
+theme_override_font_sizes/font_size = 20
+text = "Abandon Run"
+
+[node name="SettingsPanel" parent="Root" instance=ExtResource("2_settings")]
+visible = false

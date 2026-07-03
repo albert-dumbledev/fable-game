@@ -15,4 +15,7 @@ id = &"attack_speed_up"
 display_name = "Ferocity"
 description = "+10% attack speed"
 base_cost = 15
+branch = &"might"
+requires_upgrade = &"damage_up"
+requires_level = 2
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])

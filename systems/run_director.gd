@@ -21,6 +21,7 @@ var _next_event_at: PackedFloat64Array = []
 
 func _ready() -> void:
 	GameManager.state = GameManager.State.IN_RUN
+	add_to_group(&"run_director")
 	EventBus.enemy_killed.connect(_on_enemy_killed)
 	EventBus.pickup_collected.connect(_on_pickup_collected)
 	EventBus.player_died.connect(_on_player_died)
@@ -99,3 +100,14 @@ func _on_player_died() -> void:
 	# Deferred: player_died fires mid-physics-frame; changing scene immediately
 	# would yank nodes out of the tree while they still get processed this frame.
 	GameManager.end_run.call_deferred({"time": elapsed, "kills": kills, "gold": gold_earned})
+
+
+## Quit from the pause menu: bank progress and take the same handoff as
+## dying (stats + shop), minus the death itself.
+func abandon_run() -> void:
+	if not _run_active:
+		return
+	_run_active = false
+	MetaProgression.save_game()
+	GameManager.end_run.call_deferred(
+			{"time": elapsed, "kills": kills, "gold": gold_earned, "abandoned": true})

@@ -85,6 +85,8 @@ var _knockback := Vector3.ZERO
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	camera.fov = Settings.fov
+	Settings.changed.connect(_on_settings_changed)
 	# 80: a fresh run should feel 4-5 early hits from death; in-run health
 	# boons (Bulwark) are the intended survivability investment.
 	stats.set_base(Stats.MAX_HEALTH, 80.0)
@@ -121,16 +123,13 @@ func _mount_weapon(data: WeaponData) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Esc (pause) belongs to the PauseMenu, not the player.
 	var motion := event as InputEventMouseMotion
 	if motion != null and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		rotate_y(-motion.relative.x * MOUSE_SENSITIVITY)
-		camera_rig.rotate_x(-motion.relative.y * MOUSE_SENSITIVITY)
+		var sensitivity := MOUSE_SENSITIVITY * Settings.mouse_sensitivity
+		rotate_y(-motion.relative.x * sensitivity)
+		camera_rig.rotate_x(-motion.relative.y * sensitivity)
 		camera_rig.rotation.x = clampf(camera_rig.rotation.x, -PITCH_LIMIT, PITCH_LIMIT)
-	if event.is_action_pressed("ui_cancel"):
-		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		else:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _physics_process(delta: float) -> void:
@@ -257,7 +256,7 @@ func _process(delta: float) -> void:
 	# node so the viewmodel shakes with the view.
 	if _shake > 0.0:
 		_shake = maxf(_shake - delta * 1.8, 0.0)
-		var strength := _shake * _shake * 0.1
+		var strength := _shake * _shake * 0.1 * Settings.screen_shake
 		camera.position = Vector3(
 			randf_range(-strength, strength), randf_range(-strength, strength), 0.0)
 	elif camera.position != Vector3.ZERO:
@@ -266,6 +265,13 @@ func _process(delta: float) -> void:
 
 func add_shake(amount: float) -> void:
 	_shake = minf(_shake + amount, 1.0)
+
+
+## FOV applies live from the settings panel; skip mid-dash so the punch
+## tween finishes on its own values.
+func _on_settings_changed() -> void:
+	if _dash_time <= 0.0:
+		camera.fov = Settings.fov
 
 
 ## Applies a run-scoped level-up boon, with modifier values scaled by the
@@ -295,14 +301,15 @@ func _begin_dash(direction: Vector3) -> void:
 	_dash_time = DASH_DURATION
 	_dash_cooldown = DASH_COOLDOWN
 	_knockback = Vector3.ZERO
+	AudioManager.play(&"dash")
 	# Intangible: pass through enemies (walls still stop the dash) and
 	# turn the hurtbox dark so nothing — melee or projectile — connects.
 	collision_mask = DASH_COLLISION_MASK
 	hurtbox.set_deferred(&"monitorable", false)
 	# FOV punch sells the burst.
 	var tween := create_tween()
-	tween.tween_property(camera, "fov", 84.0, DASH_DURATION * 0.6)
-	tween.tween_property(camera, "fov", 75.0, 0.18)
+	tween.tween_property(camera, "fov", Settings.fov + 9.0, DASH_DURATION * 0.6)
+	tween.tween_property(camera, "fov", Settings.fov, 0.18)
 
 
 func _end_dash() -> void:
@@ -344,6 +351,7 @@ func _finish_cast() -> void:
 	_fireball_charges -= 1
 	if _cast_cooldown <= 0.0:
 		_cast_cooldown = _spell_cooldown(FIREBALL_COOLDOWN)
+	AudioManager.play(&"fireball_shoot")
 	var ball := FIREBALL_SCENE.instantiate() as Fireball
 	var dir := -camera.global_transform.basis.z
 	ball.setup(
@@ -384,6 +392,7 @@ func _do_nova(damage_mult: float, slow_mult: float, slow_time: float) -> void:
 			enemy.apply_shove(offset.normalized() * NOVA_PUSH_FORCE)
 	BlastVfx.spawn(get_tree().current_scene, global_position, FROST_NOVA_RADIUS,
 			FROST_NOVA_COLOR, 0.35, 0.4)
+	AudioManager.play(&"frost_nova")
 	add_shake(0.2)
 
 
@@ -398,6 +407,7 @@ func _drain_guard(amount: float) -> void:
 	if _guard <= 0.0 and not _guard_broken:
 		_guard_broken = true
 		weapon.set_blocking(false)
+		AudioManager.play(&"guard_break")
 		add_shake(0.3)
 
 

@@ -256,6 +256,7 @@ func _tween_fist(target: Vector3, duration: float) -> void:
 
 
 func _on_damaged(info: AttackInfo) -> void:
+	AudioManager.play_at(&"hit", global_position)
 	mesh.scale = Vector3.ONE * 1.18
 	var tween := create_tween()
 	tween.tween_property(mesh, "scale", Vector3.ONE, 0.12)

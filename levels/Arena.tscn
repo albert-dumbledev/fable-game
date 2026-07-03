@@ -1,8 +1,9 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="PackedScene" path="res://actors/player/Player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://ui/HUD.tscn" id="2_hud"]
 [ext_resource type="PackedScene" path="res://ui/BoonScreen.tscn" id="6_boons"]
+[ext_resource type="PackedScene" path="res://ui/PauseMenu.tscn" id="7_pause"]
 [ext_resource type="Script" path="res://systems/run_director.gd" id="3_director"]
 [ext_resource type="Script" path="res://systems/spawner.gd" id="4_spawner"]
 [ext_resource type="Resource" path="res://data/waves/default.tres" id="5_waves"]
@@ -112,3 +113,5 @@ wave_table = ExtResource("5_waves")
 [node name="HUD" parent="." instance=ExtResource("2_hud")]
 
 [node name="BoonScreen" parent="." instance=ExtResource("6_boons")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("7_pause")]

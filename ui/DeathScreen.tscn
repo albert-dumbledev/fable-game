@@ -1,53 +1,75 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://bxcq7l0elh4rw"]
 
-[ext_resource type="Script" path="res://ui/death_screen.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://dc5853u1tlt01" path="res://ui/death_screen.gd" id="1_script"]
 
-[node name="DeathScreen" type="Control"]
+[node name="DeathScreen" type="Control" unique_id=1589037668]
+layout_mode = 3
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=360268773]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0.07, 0.07, 0.09, 1)
 
-[node name="Center" type="CenterContainer" parent="."]
+[node name="Center" type="CenterContainer" parent="." unique_id=845381770]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="Box" type="VBoxContainer" parent="Center"]
-custom_minimum_size = Vector2(560, 0)
+[node name="Box" type="VBoxContainer" parent="Center" unique_id=59001089]
+custom_minimum_size = Vector2(920, 0)
+layout_mode = 2
 theme_override_constants/separation = 14
 
-[node name="Title" type="Label" parent="Center/Box"]
-theme_override_font_sizes/font_size = 52
+[node name="Title" type="Label" parent="Center/Box" unique_id=2089490356]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.2, 0.2, 1)
-horizontal_alignment = 1
+theme_override_font_sizes/font_size = 52
 text = "YOU DIED"
-
-[node name="StatsLabel" type="Label" parent="Center/Box"]
-theme_override_font_sizes/font_size = 20
 horizontal_alignment = 1
-text = "Survived 00:00"
 
-[node name="GoldLabel" type="Label" parent="Center/Box"]
+[node name="Buttons" type="HBoxContainer" parent="Center/Box" unique_id=698455439]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="NextRunButton" type="Button" parent="Center/Box/Buttons" unique_id=1009868403]
+layout_mode = 2
 theme_override_font_sizes/font_size = 24
+text = "Next Run"
+
+[node name="MenuButton" type="Button" parent="Center/Box/Buttons" unique_id=919618777]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Main Menu"
+
+[node name="StatsLabel" type="Label" parent="Center/Box" unique_id=2019443262]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Survived 00:00"
 horizontal_alignment = 1
+
+[node name="GoldLabel" type="Label" parent="Center/Box" unique_id=416545134]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Gold: 0"
-
-[node name="LoadoutLabel" type="Label" parent="Center/Box"]
-theme_override_font_sizes/font_size = 18
 horizontal_alignment = 1
-text = "Loadout"
 
-[node name="Loadout" type="HBoxContainer" parent="Center/Box"]
+[node name="LoadoutLabel" type="Label" parent="Center/Box" unique_id=107292555]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Loadout"
+horizontal_alignment = 1
+
+[node name="Loadout" type="HBoxContainer" parent="Center/Box" unique_id=1427777103]
+layout_mode = 2
 theme_override_constants/separation = 10
 alignment = 1
 
-[node name="Upgrades" type="VBoxContainer" parent="Center/Box"]
-theme_override_constants/separation = 8
-
-[node name="NextRunButton" type="Button" parent="Center/Box"]
-theme_override_font_sizes/font_size = 24
-text = "Next Run"
+[node name="Branches" type="HBoxContainer" parent="Center/Box" unique_id=1161454430]
+layout_mode = 2
+theme_override_constants/separation = 20

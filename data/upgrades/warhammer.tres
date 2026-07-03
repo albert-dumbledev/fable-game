@@ -10,3 +10,6 @@ description = "Unlock a second weapon for your loadout"
 base_cost = 250
 max_level = 1
 grants_ability = &"weapon_warhammer"
+branch = &"might"
+requires_upgrade = &"attack_speed_up"
+requires_level = 1

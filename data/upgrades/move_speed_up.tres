@@ -15,4 +15,7 @@ id = &"move_speed_up"
 display_name = "Swiftness"
 description = "+5% move speed"
 base_cost = 15
+branch = &"vigor"
+requires_upgrade = &"health_up"
+requires_level = 2
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])

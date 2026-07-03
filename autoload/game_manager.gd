@@ -6,9 +6,16 @@ enum State { MENU, IN_RUN, DEATH_SCREEN }
 
 const ARENA_SCENE: String = "res://levels/Arena.tscn"
 const DEATH_SCREEN_SCENE: String = "res://ui/DeathScreen.tscn"
+const MAIN_MENU_SCENE: String = "res://ui/MainMenu.tscn"
 
 var state: State = State.MENU
 var last_run_stats: Dictionary = {}
+
+
+func go_to_menu() -> void:
+	state = State.MENU
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file(MAIN_MENU_SCENE)
 
 
 func start_run() -> void:

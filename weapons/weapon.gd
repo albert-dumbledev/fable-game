@@ -35,6 +35,7 @@ func try_attack() -> void:
 		return
 	var duration := weapon_data.swing_time / maxf(0.1, stats.get_stat(Stats.ATTACK_SPEED))
 	_cooldown = duration
+	AudioManager.play(_swing_sound())
 	_do_attack(duration)
 
 
@@ -76,6 +77,11 @@ func set_stowed(value: bool) -> void:
 ## Override: perform the attack. `duration` is the attack-speed-scaled swing time.
 func _do_attack(_duration: float) -> void:
 	pass
+
+
+## Override: the sound try_attack fires (swings differ per weapon).
+func _swing_sound() -> StringName:
+	return &"swing"
 
 
 ## Override: the RMB secondary. Set `_secondary_cooldown` when it fires.

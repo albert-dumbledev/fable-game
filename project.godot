@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="fable-fps"
-run/main_scene="res://levels/Arena.tscn"
+run/main_scene="res://ui/MainMenu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
@@ -20,6 +20,8 @@ config/icon="res://icon.svg"
 EventBus="*res://autoload/event_bus.gd"
 GameManager="*res://autoload/game_manager.gd"
 MetaProgression="*res://autoload/meta_progression.gd"
+AudioManager="*res://autoload/audio_manager.gd"
+Settings="*res://autoload/settings.gd"
 
 [debug]
 

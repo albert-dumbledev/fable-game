@@ -14,6 +14,13 @@ extends Resource
 ## Ability flag granted to the player while owned (e.g. &"firebolt").
 ## Pair with max_level = 1 for one-time unlocks.
 @export var grants_ability: StringName = &""
+## Which shop branch this sits in (&"might", &"vigor", &"arcana"). The
+## death-screen tree renders one column per branch, in registry order.
+@export var branch: StringName = &"might"
+## Tree gate: locked until the named upgrade reaches requires_level.
+## Empty = a branch root, always available.
+@export var requires_upgrade: StringName = &""
+@export var requires_level := 1
 
 
 func cost_at(level: int) -> int:

@@ -10,3 +10,6 @@ description = "Unlock spell - cast with E"
 base_cost = 150
 max_level = 1
 grants_ability = &"frost_nova"
+branch = &"arcana"
+requires_upgrade = &"firebolt"
+requires_level = 1

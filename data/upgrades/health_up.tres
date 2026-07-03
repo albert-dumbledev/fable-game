@@ -13,4 +13,5 @@ script = ExtResource("1_script")
 id = &"health_up"
 display_name = "Vitality"
 description = "+10 max health"
+branch = &"vigor"
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])

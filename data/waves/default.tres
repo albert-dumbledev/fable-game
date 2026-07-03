@@ -1,19 +1,18 @@
-[gd_resource type="Resource" script_class="WaveTable" load_steps=13 format=3]
+[gd_resource type="Resource" script_class="WaveTable" format=3 uid="uid://bo7y51xnohge7"]
 
-[ext_resource type="Script" path="res://core/wave_table.gd" id="1_script"]
-[ext_resource type="Script" path="res://core/enemy_data.gd" id="2_type"]
+[ext_resource type="Script" uid="uid://jnm7otobgpaa" path="res://core/wave_table.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://b7careyj8tn88" path="res://core/enemy_data.gd" id="2_type"]
 [ext_resource type="Resource" path="res://data/enemies/chaser.tres" id="3_chaser"]
 [ext_resource type="Resource" path="res://data/enemies/sprinter.tres" id="4_sprinter"]
 [ext_resource type="Resource" path="res://data/enemies/brute.tres" id="5_brute"]
 [ext_resource type="Resource" path="res://data/enemies/spitter.tres" id="6_spitter"]
-[ext_resource type="Script" path="res://core/wave_event.gd" id="7_event"]
+[ext_resource type="Script" uid="uid://cs5y5yhlxd13f" path="res://core/wave_event.gd" id="7_event"]
 [ext_resource type="Resource" path="res://data/enemies/juggernaut.tres" id="8_boss"]
 
 [sub_resource type="Resource" id="Resource_boss1"]
 script = ExtResource("7_event")
 time = 150.0
 enemy = ExtResource("8_boss")
-count = 1
 announcement = "THE JUGGERNAUT APPROACHES"
 
 [sub_resource type="Resource" id="Resource_boss2"]
@@ -46,9 +45,7 @@ events = Array[ExtResource("7_event")]([SubResource("Resource_boss1"), SubResour
 start_interval = 1.8
 min_interval = 0.25
 interval_ramp_time = 210.0
-hp_growth_per_min = 0.5
 dmg_growth_per_min = 0.4
-reward_growth_per_min = 0.3
 max_alive_start = 24
 max_alive_end = 90
 max_alive_ramp_time = 270.0

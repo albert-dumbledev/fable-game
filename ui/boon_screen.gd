@@ -165,6 +165,7 @@ func _roll_rarity() -> Dictionary:
 
 
 func _on_pick(offer: Offer) -> void:
+	AudioManager.play(&"boon")
 	var player := get_tree().get_first_node_in_group(&"player") as Player
 	if player != null:
 		player.apply_boon(offer.boon, offer.mult)
@@ -176,6 +177,7 @@ func _on_pick(offer: Offer) -> void:
 func _on_reroll() -> void:
 	if not MetaProgression.try_spend(&"gold", _reroll_cost):
 		return
+	AudioManager.play(&"click")
 	_reroll_cost *= 2
 	_populate()
 

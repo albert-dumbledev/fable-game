@@ -39,6 +39,10 @@ const WAVE_RAISED_ROT := Vector3(95.0, 0.0, 0.0)
 var _swing_tween: Tween
 
 
+func _swing_sound() -> StringName:
+	return &"hammer_swing"
+
+
 func _ready() -> void:
 	hammer_pivot.position = REST_POS
 	hammer_pivot.rotation_degrees = REST_ROT
@@ -109,6 +113,7 @@ func _wave_impact(damage: float) -> void:
 	forward = forward.normalized()
 	var origin := wielder.global_position + forward * 1.2
 	origin.y = 0.1
+	AudioManager.play(&"hammer_slam")
 	GroundShockwave.spawn(get_tree().current_scene, origin,
 			AttackInfo.new(wielder, damage), forward, stats.get_stat(Stats.HAMMER_AOE))
 	BlastVfx.spawn(get_tree().current_scene, origin, 1.6, SHOCKWAVE_COLOR, 0.15, 0.2)
@@ -130,6 +135,7 @@ func _impact(damage: float) -> void:
 	forward = forward.normalized()
 	var point := wielder.global_position + forward * IMPACT_DISTANCE
 	var aoe := stats.get_stat(Stats.HAMMER_AOE)
+	AudioManager.play(&"hammer_slam")
 	_slam(point, damage, aoe, SHOVE_FORCE)
 	var player := wielder as Player
 	if player != null:
