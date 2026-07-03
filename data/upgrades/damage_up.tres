@@ -12,5 +12,5 @@ value = 2.0
 script = ExtResource("1_script")
 id = &"damage_up"
 display_name = "Damage"
-description = "+2 sword damage"
+description = "+2 weapon damage"
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])

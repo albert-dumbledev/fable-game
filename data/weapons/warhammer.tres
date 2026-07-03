@@ -6,7 +6,7 @@
 script = ExtResource("1_script")
 id = &"warhammer"
 display_name = "Warhammer"
-description = "Two-handed slam that shatters whole packs - no shield, so keep moving"
+description = ""
 damage = 26.0
 swing_time = 1.4
 can_block = false

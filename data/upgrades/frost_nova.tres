@@ -6,7 +6,7 @@
 script = ExtResource("1_script")
 id = &"frost_nova"
 display_name = "Frost Nova"
-description = "Unlock Frost Nova (E): an instant icy burst that chills everything around you to a crawl"
+description = "Unlock spell - cast with E"
 base_cost = 150
 max_level = 1
 grants_ability = &"frost_nova"

@@ -6,7 +6,7 @@
 script = ExtResource("1_script")
 id = &"warhammer_unlock"
 display_name = "Warhammer"
-description = "Unlock the Warhammer for your loadout: a slow two-handed slam with a ground shockwave - trades the shield for raw crowd damage"
+description = "Unlock a second weapon for your loadout"
 base_cost = 250
 max_level = 1
 grants_ability = &"weapon_warhammer"

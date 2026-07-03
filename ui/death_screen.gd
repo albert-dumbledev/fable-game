@@ -38,6 +38,9 @@ func _refresh() -> void:
 		var label := Label.new()
 		label.text = "%s  (Lv %d)  —  %s" % [upgrade.display_name, level, upgrade.description]
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Wrap instead of widening the row: long text must never push the
+		# buy button off-screen.
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(label)
 		if upgrade.max_level > 0 and level >= upgrade.max_level:
 			var maxed := Label.new()
