@@ -3,12 +3,17 @@ extends Node3D
 ## Base class for anything the player attacks with. Spells later implement
 ## the same interface (a spell is a weapon with a cast time and a payload).
 
+## Where the viewmodel tucks while stowed (both hands busy casting).
+const STOW_OFFSET := Vector3(0.0, -0.55, 0.3)
+
 @export var weapon_data: WeaponData
 
 var stats: StatBlock
 var is_blocking := false
+var is_stowed := false
 
 var _cooldown := 0.0
+var _stow_tween: Tween
 
 
 func setup(stat_block: StatBlock) -> void:
@@ -20,7 +25,7 @@ func _process(delta: float) -> void:
 
 
 func try_attack() -> void:
-	if _cooldown > 0.0 or stats == null or weapon_data == null:
+	if is_stowed or _cooldown > 0.0 or stats == null or weapon_data == null:
 		return
 	var duration := weapon_data.swing_time / maxf(0.1, stats.get_stat(Stats.ATTACK_SPEED))
 	_cooldown = duration
@@ -28,10 +33,27 @@ func try_attack() -> void:
 
 
 func set_blocking(value: bool) -> void:
+	if is_stowed and value:
+		return
 	if is_blocking == value:
 		return
 	is_blocking = value
 	_on_blocking_changed()
+
+
+## Tucks the whole viewmodel down out of frame (casting uses both hands).
+func set_stowed(value: bool) -> void:
+	if is_stowed == value:
+		return
+	is_stowed = value
+	if is_stowed:
+		set_blocking(false)
+	if _stow_tween != null:
+		_stow_tween.kill()
+	_stow_tween = create_tween()
+	_stow_tween.tween_property(
+		self, "position", STOW_OFFSET if is_stowed else Vector3.ZERO, 0.18
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 ## Override: perform the attack. `duration` is the attack-speed-scaled swing time.

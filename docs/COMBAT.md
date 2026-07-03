@@ -12,7 +12,7 @@ AttackInfo(source, damage)
   → HealthComponent.take_damage(final_info)      # signals: health_changed, damaged, died
 ```
 
-- **`AttackInfo`** (`core/attack_info.gd`) — `RefCounted` with `source: Node3D` + `damage: float`. Crits, damage types, knockback are future fields here, nowhere else.
+- **`AttackInfo`** (`core/attack_info.gd`) — `RefCounted` with `source: Node3D`, `damage: float`, `knockback: float` (impulse strength; direction is always away from `source`). Crits and damage types remain future fields here, nowhere else.
 - **`HitboxComponent`** (`components/hitbox_component.gd`) — armed with an `AttackInfo` for a duration; each hurtbox is hit **at most once per activation**. Monitoring stays on permanently: targets already overlapping at activation are swept via `get_overlapping_areas()`, which toggling `monitoring` would miss. Don't "optimize" that.
 - **`HurtboxComponent`** (`components/hurtbox_component.gd`) — routes into an exported `HealthComponent`, but first calls the scene root's `mitigate_hit(info) -> AttackInfo` if defined. Returning `null` cancels the hit entirely. This duck-typed hook is where the player's shield lives; armor/resistances go here too.
 - **`Projectile`** (`actors/enemies/projectile.gd`) — straight-line mover that calls `receive_hit` directly, so shields work against spit unchanged.
@@ -26,6 +26,21 @@ AttackInfo(source, damage)
 Feedback split: `EventBus.attack_blocked` vs `EventBus.perfect_block`; the shield flashes white vs gold, kicks inward vs punches outward (`sword_and_shield.gd::notify_block_success`), and the HUD vignette tints white vs gold. Thorns (unique boon) hooks blocked melee hits here — 15 damage back through the attacker's hurtbox.
 
 The stun can land **synchronously inside** `hitbox.activate()` (enemy punches into a raised shield on frame one) — enemy attack code checks its state after activating for exactly this reason.
+
+## Knockback and shoves
+
+Two parallel impulse systems, both "set once, decay on top of normal movement":
+
+- **Player knockback** (`player.gd`) — a landed hit shoves the player away from `info.source` at `info.knockback` strength (per-enemy in `EnemyData`: sprinter 3 → juggernaut 12, boss charge 18) with a small vertical pop; decays at 25/s. **Blocked hits impart nothing** — the shield is also a positioning tool. Dashing clears any active knockback.
+- **Enemy shove** (`EnemyBase.apply_shove(impulse)`) — damage-free physical fling, decaying at 18/s, riding on top of AI movement in any state. Used by the boss charge (plowing minions aside) and the fireball explosion.
+
+## Dash (unique boon; `player.gd`)
+
+Fixed **6m blink over 0.12s** — traveled, not teleported, so walls still stop it. Fully intangible during: enemy collision dropped from the mask, hurtbox `monitorable = false` (melee hitboxes *and* projectiles pass through without being consumed), plus a `mitigate_hit` guard for the re-enable boundary frame. 2s cooldown carries the balance. FOV punch 75→84→75 sells it. Dash stays available mid-fireball-charge — the deliberate escape valve.
+
+## Fireball (spell unlock; `player.gd` + `weapons/fireball.gd`)
+
+Q starts a **0.8s committed charge**: the sword/shield viewmodel stows (`Weapon.set_stowed` — both hands busy, no attacking or blocking), an orb grows in front of the camera, then the fireball auto-releases toward the crosshair; 3s cooldown from release. The projectile (speed 18) **explodes on any contact** — enemy hurtbox, world, or 4s lifetime: every enemy within **4m** takes `30 + 1.5× damage stat` through its hurtbox (numbers/drops as usual) and is shoved 10 away from the blast; expanding emissive sphere scaled to the true damage radius; camera shake within 9m. The 1.5× stat scaling (vs sword's 1.0×) is the start of the caster-build axis.
 
 ## Sword swing (`weapons/sword_and_shield.gd`)
 
@@ -64,3 +79,7 @@ Modifier sources, in spawn order: player base values (100 HP, 6.0 speed, 0 dmg, 
 | Swing phase proportions, arc endpoints, shoulder | consts + `_do_attack` in `sword_and_shield.gd` |
 | Shake decay/intensity | `player.gd::_process`, `add_shake` calls |
 | Enemy hit-window length | `ATTACK_ACTIVE_TIME` in `enemy_base.gd` |
+| Per-enemy knockback strength | `knockback` in each `data/enemies/*.tres` |
+| Dash distance/duration/cooldown | `DASH_*` consts atop `player.gd` |
+| Fireball charge/cooldown/damage | `FIREBALL_*` consts atop `player.gd` |
+| Explosion radius/shove | consts atop `weapons/fireball.gd` |

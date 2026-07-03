@@ -19,7 +19,7 @@ Design rule from PLAN.md §3 held: **a new enemy is a `.tres` file + (usually) a
 
 ## EnemyData (`core/enemy_data.gd`) and the four types
 
-Fields: `display_name`, `scene`, `max_health`, `move_speed`, `damage`, `attack_range`, `windup_time`, `recover_time`, `gold_reward`, `xp_reward`, `spawn_weight`, `min_elapsed` (time gate, seconds), `tags`.
+Fields: `display_name`, `scene`, `max_health`, `move_speed`, `damage`, `attack_range`, `windup_time`, `recover_time`, `knockback` (impulse shoving the player on a landed hit), `gold_reward`, `xp_reward`, `spawn_weight`, `min_elapsed` (time gate, seconds), `tags`.
 
 | | Chaser | Sprinter | Brute | Spitter |
 |---|---|---|---|---|
@@ -29,6 +29,7 @@ Fields: `display_name`, `scene`, `max_health`, `move_speed`, `damage`, `attack_r
 | Damage | 10 | 6 | 22 | 8 |
 | Range | 1.8 | 1.6 | 2.2 | **9.0 (ranged)** |
 | Windup / recover | 0.4 / 0.8 | 0.3 / 0.6 | 0.7 / 1.2 | 0.6 / 1.4 |
+| Knockback | 5 | 3 | 9 | 2 |
 | Gold / XP | 5 / 4 | 4 / 3 | 15 / 10 | 8 / 6 |
 | Spawn weight | 1.0 | 0.8 | 0.35 | 0.5 |
 
@@ -47,7 +48,17 @@ Roles: Chaser is the baseline; Sprinter forces backpedal discipline (fast, fragi
 | Alive cap | lerp `start → end` over ramp | 15 → 60 over 300s |
 | Pool pick | weight-roll among entries with `elapsed ≥ min_elapsed` | — |
 
-Multipliers are baked per-enemy at spawn via `enemy.setup(data, hp_mult, dmg_mult, reward_mult)` — `EnemyData` resources are never mutated. Damage growth is deliberately half of HP growth: runs end by attrition and being swarmed, not one-shots. `spawn_enemy()` is public so scheduled `WaveTable` events (bosses — **Phase 3, in progress**) reuse ring placement and scaling.
+Multipliers are baked per-enemy at spawn via `enemy.setup(data, hp_mult, dmg_mult, reward_mult)` — `EnemyData` resources are never mutated. Damage growth is deliberately half of HP growth: runs end by attrition and being swarmed, not one-shots. `spawn_enemy()` is public so scheduled `WaveTable` events reuse ring placement and scaling.
+
+## Wave events & the Juggernaut boss
+
+`WaveTable.events` is an `Array[WaveEvent]` (`time`, `enemy`, `count`, `announcement`), fired once each by `RunDirector` in time order, **bypassing the alive cap**. An event whose enemy is tagged `boss` also emits `EventBus.boss_spawned` — the HUD binds a name + health bar to it; announcements show a fading banner. Default table: one Juggernaut at **150s**, two at **360s**.
+
+**Juggernaut** (`boss_enemy.gd` extends EnemyBase; `juggernaut.tres`): 500 HP base (× wave HP mult at spawn), 4.6m tall, melee slam with 3.4 reach / 0.6 windup / 0.6 recover / knockback 12. Signature: every **5.5s** it telegraphs (yellow tween + fist cock, 0.7s) then **charges** at 24 u/s for 1.5s — effectively wall to wall:
+
+- During the rush its collision mask drops to **world-only**: it phases through the player (the live hitbox at 1.5× damage + knockback 18 does the work) and through minions, flinging any minion within 2.8m sideways out of its path via `EnemyBase.apply_shove` (damage-free decaying impulse — also used by the fireball explosion).
+- Counterplay is skill-expressive twice over: a **perfect block cancels the charge** outright (overridden `stun()` → `_end_charge()`) and stuns it; **dash** blinks through it untouched.
+- Ends on wall impact, timeout, or parry; mask restores in `_end_charge()` in all cases.
 
 ## Death → pickups (`actors/pickups/pickup.gd`)
 
@@ -65,7 +76,7 @@ Pickup lifecycle (manual motion, no physics body — hundreds stay cheap):
 2. **Scene:** duplicate `ChaserEnemy.tscn` (mesh/material/collision are the usual edits). Must keep the `Health`, `Hurtbox`, `AttackHitbox`, `Mesh`, `FistPivot` nodes `enemy_base.gd` expects.
 3. **Behavior (only if needed):** subclass `EnemyBase`, override state methods (`_chase`, `_begin_attack`, `stun`, …) — never the `_physics_process` plumbing. Spitter is the template.
 4. **Register:** add the `.tres` to the `enemies` array in `data/waves/default.tres`. Spawner, scaling, minimap, drops, telegraphs all come free.
-5. Boss-type enemies: `spawn_weight 0.0` + a scheduled `WaveTable` event instead of the pool (Phase 3 pattern), tag `boss`.
+5. Boss-type enemies: `spawn_weight 0.0` + a scheduled `WaveTable` event instead of the pool, tag `boss` (the HUD bar/banner then come free). The Juggernaut is the template.
 
 ## Future direction
 

@@ -238,7 +238,7 @@ func _end_dash() -> void:
 func _begin_cast() -> void:
 	_charging = true
 	_charge_time = 0.0
-	weapon.set_blocking(false)
+	weapon.set_stowed(true)
 	# Growing orb in front of the camera telegraphs the charge.
 	_charge_orb = MeshInstance3D.new()
 	var sphere := SphereMesh.new()
@@ -258,6 +258,7 @@ func _begin_cast() -> void:
 
 func _finish_cast() -> void:
 	_charging = false
+	weapon.set_stowed(false)
 	if _charge_orb != null:
 		_charge_orb.queue_free()
 		_charge_orb = null
