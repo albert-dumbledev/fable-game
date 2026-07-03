@@ -22,9 +22,11 @@ const DASH_COLLISION_MASK := 1
 const THORNS_DAMAGE := 15.0
 const VAMPIRE_HEAL := 2.0
 const KNOCKBACK_DECAY := 25.0
-const FIREBOLT_SCENE := preload("res://weapons/FireBolt.tscn")
-const FIREBOLT_BASE_DAMAGE := 20.0
-const FIREBOLT_COOLDOWN := 2.5
+const FIREBALL_SCENE := preload("res://weapons/Fireball.tscn")
+const FIREBALL_BASE_DAMAGE := 30.0
+const FIREBALL_COOLDOWN := 3.0
+## Casting locks out the sword and shield while the orb charges.
+const FIREBALL_CHARGE_TIME := 0.8
 
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
@@ -43,6 +45,9 @@ var _dash_time := 0.0
 var _dash_cooldown := 0.0
 var _dash_dir := Vector3.ZERO
 var _cast_cooldown := 0.0
+var _charging := false
+var _charge_time := 0.0
+var _charge_orb: MeshInstance3D
 var _knockback := Vector3.ZERO
 
 
@@ -80,18 +85,27 @@ func _physics_process(delta: float) -> void:
 		return
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
-	var block_held := Input.is_action_pressed("block")
-	if block_held and not weapon.is_blocking:
-		_block_started_ms = Time.get_ticks_msec()
-	weapon.set_blocking(block_held)
-	if Input.is_action_pressed("attack"):
-		weapon.try_attack()
-
-	# Firebolt (spell unlock): fired from the camera on Q.
 	_cast_cooldown = maxf(0.0, _cast_cooldown - delta)
-	if has_ability(&"firebolt") and Input.is_action_just_pressed("cast") \
-			and _cast_cooldown <= 0.0:
-		_cast_firebolt()
+	if _charging:
+		# Committed cast: sword and shield are locked out while the orb
+		# charges, then the fireball releases automatically.
+		weapon.set_blocking(false)
+		_charge_time += delta
+		if _charge_orb != null:
+			var t := clampf(_charge_time / FIREBALL_CHARGE_TIME, 0.0, 1.0)
+			_charge_orb.scale = Vector3.ONE * lerpf(0.4, 1.8, t)
+		if _charge_time >= FIREBALL_CHARGE_TIME:
+			_finish_cast()
+	else:
+		var block_held := Input.is_action_pressed("block")
+		if block_held and not weapon.is_blocking:
+			_block_started_ms = Time.get_ticks_msec()
+		weapon.set_blocking(block_held)
+		if Input.is_action_pressed("attack"):
+			weapon.try_attack()
+		if has_ability(&"firebolt") and Input.is_action_just_pressed("cast") \
+				and _cast_cooldown <= 0.0:
+			_begin_cast()
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
@@ -221,13 +235,39 @@ func _end_dash() -> void:
 	velocity.z *= 0.2
 
 
-func _cast_firebolt() -> void:
-	_cast_cooldown = FIREBOLT_COOLDOWN
-	var bolt := FIREBOLT_SCENE.instantiate() as Projectile
+func _begin_cast() -> void:
+	_charging = true
+	_charge_time = 0.0
+	weapon.set_blocking(false)
+	# Growing orb in front of the camera telegraphs the charge.
+	_charge_orb = MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.12
+	sphere.height = 0.24
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(1.0, 0.5, 0.1)
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.45, 0.1)
+	material.emission_energy_multiplier = 2.5
+	sphere.material = material
+	_charge_orb.mesh = sphere
+	camera.add_child(_charge_orb)
+	_charge_orb.position = Vector3(0.0, -0.18, -0.7)
+	_charge_orb.scale = Vector3.ONE * 0.4
+
+
+func _finish_cast() -> void:
+	_charging = false
+	if _charge_orb != null:
+		_charge_orb.queue_free()
+		_charge_orb = null
+	_cast_cooldown = FIREBALL_COOLDOWN
+	var ball := FIREBALL_SCENE.instantiate() as Fireball
 	var dir := -camera.global_transform.basis.z
-	bolt.setup(AttackInfo.new(self, FIREBOLT_BASE_DAMAGE + stats.get_stat(Stats.DAMAGE)), dir)
-	get_tree().current_scene.add_child(bolt)
-	bolt.global_position = camera.global_position + dir * 0.6
+	ball.setup(
+		AttackInfo.new(self, FIREBALL_BASE_DAMAGE + stats.get_stat(Stats.DAMAGE) * 1.5), dir)
+	get_tree().current_scene.add_child(ball)
+	ball.global_position = camera.global_position + dir * 0.8
 
 
 func get_cooldown_remaining(id: StringName) -> float:
@@ -244,7 +284,7 @@ func get_cooldown_max(id: StringName) -> float:
 		&"dash":
 			return DASH_COOLDOWN
 		&"firebolt":
-			return FIREBOLT_COOLDOWN
+			return FIREBALL_COOLDOWN
 	return 0.0
 
 

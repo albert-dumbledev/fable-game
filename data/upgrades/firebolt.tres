@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1_script")
 id = &"firebolt"
-display_name = "Firebolt"
-description = "Unlock the Firebolt spell (Q): a fast bolt that scales with damage"
+display_name = "Fireball"
+description = "Unlock Fireball (Q): charge up, then blast an area - sword and shield are locked while charging"
 base_cost = 150
 max_level = 1
 grants_ability = &"firebolt"
