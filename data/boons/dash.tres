@@ -6,7 +6,7 @@
 script = ExtResource("1_script")
 id = &"dash"
 display_name = "Phantom Step"
-description = "Unlock DASH (Space): blink 6m instantly, untouchable while dashing (2s cooldown)"
+description = "Unlock DASH (Shift): blink 6m instantly, untouchable while dashing (2s cooldown)"
 weight = 0.35
 unique = true
 grants_ability = &"dash"

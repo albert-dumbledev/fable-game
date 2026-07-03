@@ -1,13 +1,13 @@
 class_name Player
 extends CharacterBody3D
-## First-person controller: mouse look, WASD, sprint, attack, block.
+## First-person controller: mouse look, WASD, jump, attack, block.
 ## Stats come from base values plus MetaProgression's purchased upgrades.
 
 const MOUSE_SENSITIVITY := 0.002
 const PITCH_LIMIT := deg_to_rad(89.0)
 const BLOCK_HALF_ANGLE_DEG := 60.0
 const BLOCK_SPEED_MULT := 0.5
-const SPRINT_MULT := 1.4
+const JUMP_VELOCITY := 4.8
 ## Raising the block within this window before a hit lands is a perfect
 ## block: the attack is negated and the attacker is stunned.
 const PERFECT_BLOCK_WINDOW := 0.2
@@ -137,6 +137,9 @@ func _physics_process(delta: float) -> void:
 				and _nova_cooldown <= 0.0:
 			_cast_frost_nova()
 
+	if Input.is_action_just_pressed("jump") and is_on_floor():
+		velocity.y = JUMP_VELOCITY
+
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
 
@@ -158,8 +161,6 @@ func _physics_process(delta: float) -> void:
 	var speed := stats.get_stat(Stats.MOVE_SPEED)
 	if weapon.is_blocking:
 		speed *= BLOCK_SPEED_MULT
-	elif Input.is_action_pressed("sprint"):
-		speed *= SPRINT_MULT
 	if direction != Vector3.ZERO:
 		velocity.x = direction.x * speed
 		velocity.z = direction.z * speed

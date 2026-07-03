@@ -15,7 +15,7 @@ extends CanvasLayer
 
 ## Skills that show a cooldown slot once the player owns the ability.
 const SKILLS: Array[Dictionary] = [
-	{"id": &"dash", "key": "SPACE", "name": "Dash"},
+	{"id": &"dash", "key": "SHIFT", "name": "Dash"},
 	{"id": &"firebolt", "key": "Q", "name": "Fireball"},
 	{"id": &"frost_nova", "key": "E", "name": "Frost Nova"},
 ]
