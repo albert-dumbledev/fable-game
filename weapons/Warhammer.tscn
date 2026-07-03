@@ -1,0 +1,37 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://weapons/warhammer.gd" id="1_script"]
+[ext_resource type="Resource" path="res://data/weapons/warhammer.tres" id="2_data"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_handle"]
+albedo_color = Color(0.4, 0.28, 0.16, 1)
+roughness = 0.9
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_handle"]
+top_radius = 0.035
+bottom_radius = 0.035
+height = 1.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_head"]
+albedo_color = Color(0.55, 0.57, 0.62, 1)
+metallic = 0.7
+roughness = 0.45
+
+[sub_resource type="BoxMesh" id="BoxMesh_head"]
+size = Vector3(0.3, 0.22, 0.26)
+
+[node name="Warhammer" type="Node3D"]
+script = ExtResource("1_script")
+weapon_data = ExtResource("2_data")
+
+[node name="HammerPivot" type="Node3D" parent="."]
+
+[node name="HandleMesh" type="MeshInstance3D" parent="HammerPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.45)
+mesh = SubResource("CylinderMesh_handle")
+surface_material_override/0 = SubResource("StandardMaterial3D_handle")
+
+[node name="HeadMesh" type="MeshInstance3D" parent="HammerPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1)
+mesh = SubResource("BoxMesh_head")
+surface_material_override/0 = SubResource("StandardMaterial3D_head")

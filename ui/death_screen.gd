@@ -4,6 +4,8 @@ extends Control
 
 @onready var stats_label: Label = $Center/Box/StatsLabel
 @onready var gold_label: Label = $Center/Box/GoldLabel
+@onready var loadout_label: Label = $Center/Box/LoadoutLabel
+@onready var loadout_box: HBoxContainer = $Center/Box/Loadout
 @onready var upgrades_box: VBoxContainer = $Center/Box/Upgrades
 @onready var next_run_button: Button = $Center/Box/NextRunButton
 
@@ -25,6 +27,7 @@ func _ready() -> void:
 func _refresh() -> void:
 	var gold := MetaProgression.get_currency(&"gold")
 	gold_label.text = "Gold: %d" % gold
+	_refresh_loadout()
 	for child: Node in upgrades_box.get_children():
 		child.queue_free()
 	if MetaProgression.registry == null:
@@ -48,6 +51,35 @@ func _refresh() -> void:
 			buy.pressed.connect(_on_buy.bind(upgrade))
 			row.add_child(buy)
 		upgrades_box.add_child(row)
+
+
+## Loadout picker: one button per unlocked weapon, the equipped one pressed
+## and disabled. Hidden entirely until a second weapon is unlocked.
+func _refresh_loadout() -> void:
+	for child: Node in loadout_box.get_children():
+		child.queue_free()
+	var weapons := MetaProgression.get_unlocked_weapons()
+	var visible_row := weapons.size() > 1
+	loadout_label.visible = visible_row
+	loadout_box.visible = visible_row
+	if not visible_row:
+		return
+	var selected := MetaProgression.get_selected_weapon()
+	for weapon: WeaponData in weapons:
+		var button := Button.new()
+		button.text = weapon.display_name
+		button.tooltip_text = weapon.description
+		button.toggle_mode = true
+		button.button_pressed = weapon == selected
+		button.disabled = weapon == selected
+		button.pressed.connect(_on_weapon_selected.bind(weapon))
+		loadout_box.add_child(button)
+
+
+func _on_weapon_selected(weapon: WeaponData) -> void:
+	MetaProgression.select_weapon(weapon.id)
+	MetaProgression.save_game()
+	_refresh()
 
 
 func _on_buy(upgrade: UpgradeData) -> void:

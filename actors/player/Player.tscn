@@ -1,9 +1,8 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://actors/player/player.gd" id="1_script"]
 [ext_resource type="Script" path="res://components/health_component.gd" id="2_health"]
 [ext_resource type="Script" path="res://components/hurtbox_component.gd" id="3_hurtbox"]
-[ext_resource type="PackedScene" path="res://weapons/SwordAndShield.tscn" id="4_weapon"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.4
@@ -40,5 +39,3 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
 
 [node name="WeaponMount" type="Node3D" parent="CameraRig/Camera3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, -0.55)
-
-[node name="SwordAndShield" parent="CameraRig/Camera3D/WeaponMount" instance=ExtResource("4_weapon")]

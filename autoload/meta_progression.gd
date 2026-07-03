@@ -5,16 +5,24 @@ extends Node
 
 const SAVE_PATH: String = "user://save.json"
 const REGISTRY_PATH: String = "res://data/upgrades/registry.tres"
+const WEAPON_REGISTRY_PATH: String = "res://data/weapons/registry.tres"
+const DEFAULT_WEAPON: StringName = &"sword_and_shield"
 
 var currencies: Dictionary[StringName, int] = {}
 var upgrade_levels: Dictionary[StringName, int] = {}
 var registry: UpgradeRegistry
+var weapon_registry: WeaponRegistry
+## Loadout: the weapon the player spawns with, chosen pre-run. Persisted.
+var selected_weapon: StringName = DEFAULT_WEAPON
 
 
 func _ready() -> void:
 	registry = load(REGISTRY_PATH) as UpgradeRegistry
 	if registry == null:
 		push_error("Failed to load upgrade registry: %s" % REGISTRY_PATH)
+	weapon_registry = load(WEAPON_REGISTRY_PATH) as WeaponRegistry
+	if weapon_registry == null:
+		push_error("Failed to load weapon registry: %s" % WEAPON_REGISTRY_PATH)
 	load_game()
 
 
@@ -39,6 +47,39 @@ func get_stat_modifiers() -> Array[StatModifier]:
 		for i: int in level:
 			modifiers.append_array(upgrade.modifiers)
 	return modifiers
+
+
+## Unlocked = no gate, or the gating ability flag is owned (weapon unlocks
+## are ability-granting upgrades, same as spells).
+func is_weapon_unlocked(weapon: WeaponData) -> bool:
+	return weapon.unlock_ability == &"" \
+			or get_granted_abilities().has(weapon.unlock_ability)
+
+
+func get_unlocked_weapons() -> Array[WeaponData]:
+	var unlocked: Array[WeaponData] = []
+	if weapon_registry == null:
+		return unlocked
+	for weapon: WeaponData in weapon_registry.weapons:
+		if is_weapon_unlocked(weapon):
+			unlocked.append(weapon)
+	return unlocked
+
+
+func select_weapon(id: StringName) -> void:
+	selected_weapon = id
+
+
+## The loadout choice, validated: falls back to the first unlocked weapon if
+## the saved id is unknown or (e.g. via an edited save) no longer unlocked.
+func get_selected_weapon() -> WeaponData:
+	var fallback: WeaponData = null
+	for weapon: WeaponData in get_unlocked_weapons():
+		if fallback == null:
+			fallback = weapon
+		if weapon.id == selected_weapon:
+			return weapon
+	return fallback
 
 
 func get_currency(id: StringName) -> int:
@@ -70,6 +111,7 @@ func save_game() -> void:
 	var data: Dictionary = {
 		"currencies": _to_string_keys(currencies),
 		"upgrade_levels": _to_string_keys(upgrade_levels),
+		"selected_weapon": String(selected_weapon),
 	}
 	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -92,6 +134,9 @@ func load_game() -> void:
 	var data: Dictionary = parsed
 	currencies = _to_int_values(data.get("currencies", {}))
 	upgrade_levels = _to_int_values(data.get("upgrade_levels", {}))
+	var weapon_id: Variant = data.get("selected_weapon", String(DEFAULT_WEAPON))
+	if weapon_id is String:
+		selected_weapon = StringName(weapon_id)
 
 
 ## JSON keys must be String and numbers come back as float; convert both ways.

@@ -17,6 +17,7 @@ extends CanvasLayer
 const SKILLS: Array[Dictionary] = [
 	{"id": &"dash", "key": "SPACE", "name": "Dash"},
 	{"id": &"firebolt", "key": "Q", "name": "Fireball"},
+	{"id": &"frost_nova", "key": "E", "name": "Frost Nova"},
 ]
 
 var _elapsed := 0.0

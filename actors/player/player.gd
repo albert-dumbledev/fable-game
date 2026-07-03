@@ -27,12 +27,23 @@ const FIREBALL_BASE_DAMAGE := 30.0
 const FIREBALL_COOLDOWN := 3.0
 ## Casting locks out the sword and shield while the orb charges.
 const FIREBALL_CHARGE_TIME := 0.8
+## Frost Nova: instant icy burst around the player — no charge, no stow —
+## that chills everything caught to a crawl. The defensive panic button.
+const FROST_NOVA_RADIUS := 6.0
+const FROST_NOVA_DAMAGE := 8.0
+const FROST_NOVA_SLOW_MULT := 0.35
+const FROST_NOVA_SLOW_TIME := 3.5
+const FROST_NOVA_COOLDOWN := 8.0
+const FROST_NOVA_COLOR := Color(0.55, 0.85, 1.0, 0.6)
 
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
 @onready var health: HealthComponent = $Health
 @onready var hurtbox: HurtboxComponent = $Hurtbox
-@onready var weapon: Weapon = $CameraRig/Camera3D/WeaponMount/SwordAndShield
+@onready var weapon_mount: Node3D = $CameraRig/Camera3D/WeaponMount
+
+## Instanced from the loadout choice (MetaProgression.get_selected_weapon).
+var weapon: Weapon
 
 var stats := StatBlock.new()
 
@@ -45,6 +56,7 @@ var _dash_time := 0.0
 var _dash_cooldown := 0.0
 var _dash_dir := Vector3.ZERO
 var _cast_cooldown := 0.0
+var _nova_cooldown := 0.0
 var _charging := false
 var _charge_time := 0.0
 var _charge_orb: MeshInstance3D
@@ -62,9 +74,23 @@ func _ready() -> void:
 	health.set_max_health(stats.get_stat(Stats.MAX_HEALTH), true)
 	health.damaged.connect(_on_damaged)
 	health.died.connect(_on_died)
-	weapon.setup(stats)
+	_mount_weapon(MetaProgression.get_selected_weapon())
 	for ability: StringName in MetaProgression.get_granted_abilities():
 		grant_ability(ability)
+
+
+func _mount_weapon(data: WeaponData) -> void:
+	if data == null or data.scene_path == "":
+		push_error("No usable weapon selected; loadout is broken.")
+		return
+	var packed := load(data.scene_path) as PackedScene
+	if packed == null:
+		push_error("Failed to load weapon scene: %s" % data.scene_path)
+		return
+	weapon = packed.instantiate() as Weapon
+	weapon.weapon_data = data
+	weapon_mount.add_child(weapon)
+	weapon.setup(stats, self)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -86,6 +112,7 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
 	_cast_cooldown = maxf(0.0, _cast_cooldown - delta)
+	_nova_cooldown = maxf(0.0, _nova_cooldown - delta)
 	if _charging:
 		# Committed cast: sword and shield are locked out while the orb
 		# charges, then the fireball releases automatically.
@@ -106,6 +133,9 @@ func _physics_process(delta: float) -> void:
 		if has_ability(&"firebolt") and Input.is_action_just_pressed("cast") \
 				and _cast_cooldown <= 0.0:
 			_begin_cast()
+		if has_ability(&"frost_nova") and Input.is_action_just_pressed("cast_2") \
+				and _nova_cooldown <= 0.0:
+			_cast_frost_nova()
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
@@ -271,12 +301,34 @@ func _finish_cast() -> void:
 	ball.global_position = camera.global_position + dir * 0.8
 
 
+func _cast_frost_nova() -> void:
+	_nova_cooldown = FROST_NOVA_COOLDOWN
+	var damage := FROST_NOVA_DAMAGE + stats.get_stat(Stats.DAMAGE) * 0.4
+	for node: Node in get_tree().get_nodes_in_group(&"enemies"):
+		var enemy := node as EnemyBase
+		if enemy == null or not enemy.is_inside_tree():
+			continue
+		var offset := enemy.global_position - global_position
+		offset.y = 0.0
+		if offset.length() > FROST_NOVA_RADIUS:
+			continue
+		var enemy_hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
+		if enemy_hurtbox != null:
+			enemy_hurtbox.receive_hit(AttackInfo.new(self, damage))
+		enemy.apply_slow(FROST_NOVA_SLOW_MULT, FROST_NOVA_SLOW_TIME)
+	BlastVfx.spawn(get_tree().current_scene, global_position, FROST_NOVA_RADIUS,
+			FROST_NOVA_COLOR, 0.35, 0.4)
+	add_shake(0.2)
+
+
 func get_cooldown_remaining(id: StringName) -> float:
 	match id:
 		&"dash":
 			return _dash_cooldown
 		&"firebolt":
 			return _cast_cooldown
+		&"frost_nova":
+			return _nova_cooldown
 	return 0.0
 
 
@@ -286,6 +338,8 @@ func get_cooldown_max(id: StringName) -> float:
 			return DASH_COOLDOWN
 		&"firebolt":
 			return FIREBALL_COOLDOWN
+		&"frost_nova":
+			return FROST_NOVA_COOLDOWN
 	return 0.0
 
 

@@ -49,7 +49,7 @@ Trade-off accepted: less compile-time safety and weaker refactoring tools than C
 
 ### Explicitly *not* in the demo (then)
 
-Bosses, XP/level-ups, second weapon, spells, sound design, real models/animations, menus beyond death screen, prestige. Of these, **XP/level-ups shipped in Phase 2** and **bosses + the first spell are in flight in Phase 3**; the rest remain Phase 4+.
+Bosses, XP/level-ups, second weapon, spells, sound design, real models/animations, menus beyond death screen, prestige. Of these, **XP/level-ups shipped in Phase 2** and **bosses, the second weapon, and two spells shipped in Phase 3**; the rest remain Phase 4+.
 
 ---
 
@@ -82,7 +82,7 @@ Small reusable nodes attached to any actor:
 ### 3.4 Data resources (content as `.tres` files)
 
 - **`EnemyData`** — display name, scene, base stats, attack timing (`windup_time`, `recover_time`, `attack_range`), gold/XP reward, spawn weight, `min_elapsed` time gate, tags (`boss`, …). Four enemy types exist as pure data files. Full reference: **[docs/ENEMIES.md](docs/ENEMIES.md)**.
-- **`WeaponData`** — damage, swing time. Weapon behavior = a `Weapon` base class (`try_attack()`, `set_blocking()`, `notify_block_success()`); sword-and-board is the first subclass, spells implement the same interface (Phase 3, in progress).
+- **`WeaponData` / `WeaponRegistry`** — id, damage, swing time, `can_block`, scene path, unlock ability. Weapon behavior = a `Weapon` base class (`try_attack()`, `set_blocking()`, `set_stowed()`, `notify_block_success()`); Sword & Shield and the Warhammer are the two subclasses. **Loadout:** one weapon per run, picked on the death screen from `data/weapons/registry.tres`; unlocks are ability-granting `UpgradeData` like spells; the choice persists in the save (`MetaProgression.selected_weapon`) and the player instances the scene into its weapon mount on spawn. Details: [docs/COMBAT.md](docs/COMBAT.md).
 - **`UpgradeData`** — id, name, description, base cost + geometric cost growth, `StatModifier[]` granted per level, max level (0 = infinite). The death-screen shop is 100% generated from `data/upgrades/registry.tres`.
 - **`BoonData` / `BoonRegistry`** *(new since the original plan)* — run-scoped level-up rewards. Same `StatModifier` machinery as upgrades, only the lifetime differs; unique boons grant ability flags instead. Full reference: **[docs/BOONS.md](docs/BOONS.md)**.
 - **`WaveTable`** — spawn interval ramp, HP/damage/reward growth per minute, alive-cap ramp, weighted + time-gated enemy pool, and scheduled one-shot events (bosses — Phase 3, in progress). The spawner reads this; new content = new rows.
@@ -106,7 +106,7 @@ res://
 				   BoonData(+Registry), WaveTable, DamageNumber
   data/
 	enemies/       *.tres (EnemyData) — chaser, sprinter, brute, spitter, …
-	weapons/       sword.tres
+	weapons/       sword.tres, warhammer.tres + registry.tres (loadout pool)
 	upgrades/      *.tres + registry.tres (drives the death-screen shop)
 	boons/         *.tres + registry.tres (drives the level-up screen)
 	waves/         default.tres (WaveTable)
@@ -115,7 +115,7 @@ res://
 	enemies/       enemy_base.gd, ChaserEnemy/Sprinter/Brute/SpitterEnemy.tscn,
 				   Projectile.tscn
 	pickups/       Pickup.tscn (gold/XP drops)
-  weapons/         weapon.gd, SwordAndShield.tscn
+  weapons/         weapon.gd, SwordAndShield.tscn, Warhammer.tscn, Fireball.tscn
   systems/         run_director.gd, spawner.gd
   ui/              HUD.tscn (incl. minimap), DeathScreen.tscn, BoonScreen.tscn
   levels/          Arena.tscn
@@ -145,7 +145,7 @@ Balance levers this creates: risky play rewards a stronger *current* run (XP boo
 | **0. Setup** | ✅ Done | Folder skeleton, autoloads, input map (incl. a later `dash` action), `untyped_declaration` as error. |
 | **1. Demo** | ✅ Done | Full loop per §2 — FPS controller, sword/shield with three-phase swing, chaser enemy with telegraphed attacks, ring spawner, gold economy, death-screen shop, JSON save. Plus unplanned extras: perfect-block parry, block feedback pass. |
 | **2. Depth** | ✅ Done (SFX deferred) | XP + boon choices with rarities and unique ability boons; three new enemy types (Sprinter/Brute/Spitter) as pure `EnemyData`; hit feedback (damage numbers, trauma camera shake, hit-pop, damage vignette); rotating minimap; physical gold/XP pickups. **SFX was cut from this phase — no audio assets exist yet; it moves to the Phase 4 audio pass.** |
-| **3. Bosses & arsenal** | 🔨 In progress | Shipped: **Juggernaut boss** via scheduled `WaveTable` events (telegraphed wall-to-wall charge that phases through the player and plows minions aside; parry cancels it) with boss HP bar + spawn banner; **hit knockback** on every enemy attack (`AttackInfo.knockback`, per-enemy strength); **Fireball** — 0.8s committed charge (sword/shield stow, both hands busy) → AoE explosion — unlocked via ability-granting `UpgradeData`; **dash reworked** into a fixed-distance intangible blink; skill cooldown HUD. Left: second weapon (needs a loadout concept), 1–2 more spells. |
+| **3. Bosses & arsenal** | ✅ Done | **Juggernaut boss** via scheduled `WaveTable` events (telegraphed wall-to-wall charge that phases through the player and plows minions aside; parry cancels it) with boss HP bar + spawn banner; **hit knockback** on every enemy attack (`AttackInfo.knockback`, per-enemy strength); **Fireball** — 0.8s committed charge (sword/shield stow, both hands busy) → AoE explosion — unlocked via ability-granting `UpgradeData`; **dash reworked** into a fixed-distance intangible blink; skill cooldown HUD; **weapon loadout** — one weapon per run, picked on the death screen, unlocked via the same ability-upgrade path; **Warhammer** — slow two-handed slam with a ground-AoE shockwave and shove, `can_block = false` (the shield is the price); **Frost Nova** — instant defensive AoE (E) that chills enemy *movement* to ×0.35 for 3.5s, never attack telegraphs. |
 | **4. Meta & polish** | Not started | Main menu, settings, upgrade tree UI (replacing flat shop), balance pass on curves, art/**audio** pass (now owns the deferred SFX work). |
 | **5+ (parked)** | — | Prestige layer, multiple arenas, achievements. |
 
@@ -158,3 +158,4 @@ Balance levers this creates: risky play rewards a stronger *current* run (XP boo
 - **GDScript horde performance:** holding. The alive cap ramps 15 → 60 (`WaveTable`), well under the ~200 danger zone, and pickups were deliberately built without physics bodies so hundreds of coins stay cheap. If counts grow past ~200, the escalation path in §1/§3.6 (typed scripts → manager-iterated steering → PhysicsServer3D) is the plan; profile before escalating.
 - **Block design:** shipped as resolved — hold-to-block negates frontal (60° half-angle) damage, and raising the block within 0.2s of a hit is a *perfect block* that stuns the attacker 1.5s. Thorns (unique boon) stacks damage reflection on top. Stamina costs remain an option if blocking proves too dominant — watch this once the boss lands, since stun-locking a boss with parry timing may need a boss-side override (`stun()` is already overridable).
 - **Boon economy tuning (new):** reroll doubling (10 → 20 → 40 …) and skip payouts (15 + 5×level gold) are first-guess numbers; skip could become the dominant strategy for meta-focused players. Track gold-per-run from skips vs drops. Levers listed in [docs/BOONS.md](docs/BOONS.md).
+- **Warhammer balance (new):** all numbers are first guesses (26 dmg / 1.4s swing / 2.4m full + 4.2m splash). Two watch items: with no block, parry-centric boons (thorns) are dead picks for hammer runs — fine if the loadout is a real identity choice, bad if it makes half the boon pool feel wasted; and slam AoE + Frost Nova may trivialize packs that the sword has to respect. A full playtest across both loadouts is the next step before any new content.

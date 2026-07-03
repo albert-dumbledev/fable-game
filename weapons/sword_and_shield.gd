@@ -51,7 +51,7 @@ func _ready() -> void:
 
 func _do_attack(duration: float) -> void:
 	var damage := weapon_data.damage + stats.get_stat(Stats.DAMAGE)
-	var info := AttackInfo.new(owner as Node3D, damage)
+	var info := AttackInfo.new(wielder, damage)
 	_swing_flip = not _swing_flip
 	var side := 1.0 if _swing_flip else -1.0
 	# Rigid arm-swing: the sword orbits the virtual SHOULDER. `dir` is the

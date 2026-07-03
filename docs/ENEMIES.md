@@ -17,6 +17,8 @@ Design rule from PLAN.md §3 held: **a new enemy is a `.tres` file + (usually) a
 
 `stun(duration)` is called duck-typed from `Player.mitigate_hit` and **can land synchronously inside `hitbox.activate()`** — `_begin_attack` re-checks its state after activating before lunging. Bosses should override `stun()` (resistance/diminishing returns) rather than the parry code. The minimap reads `enemy.state` directly: orange blip = winding up/attacking, blue = stunned.
 
+**Slows (Frost Nova):** `apply_slow(mult, duration)` scales *movement only* — chase, kiting, and attack lunges — never windup/recover timings, so telegraphs stay readable. All steering must route through `move_speed()` (variant `_chase()` overrides included) or it silently ignores slows. Reapplying overwrites the previous slow; the icy tint rides on `_resting_color()` so it never fights the windup/stun color tweens. The boss's committed charge deliberately ignores slows (it's `CHARGE_SPEED`, not `move_speed()`-based).
+
 ## EnemyData (`core/enemy_data.gd`) and the four types
 
 Fields: `display_name`, `scene`, `max_health`, `move_speed`, `damage`, `attack_range`, `windup_time`, `recover_time`, `knockback` (impulse shoving the player on a landed hit), `gold_reward`, `xp_reward`, `spawn_weight`, `min_elapsed` (time gate, seconds), `tags`.

@@ -17,9 +17,15 @@ AttackInfo(source, damage)
 - **`HurtboxComponent`** (`components/hurtbox_component.gd`) — routes into an exported `HealthComponent`, but first calls the scene root's `mitigate_hit(info) -> AttackInfo` if defined. Returning `null` cancels the hit entirely. This duck-typed hook is where the player's shield lives; armor/resistances go here too.
 - **`Projectile`** (`actors/enemies/projectile.gd`) — straight-line mover that calls `receive_hit` directly, so shields work against spit unchanged.
 
+## Weapons and the loadout (`core/weapon_data.gd`, `weapons/weapon.gd`)
+
+The player picks **one weapon per run** on the death screen (hidden until a second weapon is unlocked). Weapons live in `data/weapons/registry.tres` (`WeaponRegistry`); each `WeaponData` carries `id`, `damage`, `swing_time`, `can_block`, `scene_path` (a path string, not a `PackedScene`, to avoid a .tres↔.tscn load cycle), and `unlock_ability` — weapon unlocks are ability-granting `UpgradeData`, exactly like spell unlocks. `MetaProgression.selected_weapon` persists in the save; `get_selected_weapon()` falls back to the first unlocked weapon if the id is unknown or no longer unlocked.
+
+The player instantiates the chosen scene into `WeaponMount` at runtime (`_mount_weapon`), which means scene `owner` is never set — weapons carry an explicit **`wielder`** (set via `setup(stats, wielder)`) and every `AttackInfo` sources from it. `Weapon.set_blocking` refuses to raise when `can_block` is false, so two-handed weapons need no player-side special-casing.
+
 ## Block and perfect block (`player.gd`)
 
-`mitigate_hit` blocks a hit when **all** hold: block held (RMB), valid `info.source`, and the attacker within **60°** (`BLOCK_HALF_ANGLE_DEG`) of player forward, flat-plane. Blocked damage is fully negated. Blocking costs mobility: **×0.5 move speed** (`BLOCK_SPEED_MULT`).
+`mitigate_hit` blocks a hit when **all** hold: block held (RMB), valid `info.source`, and the attacker within **60°** (`BLOCK_HALF_ANGLE_DEG`) of player forward, flat-plane. Blocked damage is fully negated. Blocking costs mobility: **×0.5 move speed** (`BLOCK_SPEED_MULT`). Only weapons with `can_block = true` can raise a block at all — the warhammer's whole trade is giving this up.
 
 **Perfect block:** the player timestamps every block *raise* (`_block_started_ms`). If a hit arrives within **`PERFECT_BLOCK_WINDOW = 0.2s`** of the raise, the attack is negated *and* the attacker is stunned for **`PERFECT_BLOCK_STUN = 1.5s`** via a duck-typed `stun(duration)` call (see docs/ENEMIES.md — bosses can override). Holding block permanently never parries; you must re-raise with timing.
 
@@ -37,6 +43,14 @@ Two parallel impulse systems, both "set once, decay on top of normal movement":
 ## Dash (unique boon; `player.gd`)
 
 Fixed **6m blink over 0.12s** — traveled, not teleported, so walls still stop it. Fully intangible during: enemy collision dropped from the mask, hurtbox `monitorable = false` (melee hitboxes *and* projectiles pass through without being consumed), plus a `mitigate_hit` guard for the re-enable boundary frame. 2s cooldown carries the balance. FOV punch 75→84→75 sells it. Dash stays available mid-fireball-charge — the deliberate escape valve.
+
+## Warhammer (loadout weapon; `weapons/warhammer.gd`)
+
+Two-handed slam, `swing_time 1.4s`, `damage 26` + damage stat. **No shield, no block** (`can_block = false`) — dash and Frost Nova are the defense. The swing is three tween phases like the sword (40% telegraph haul-up / 15% crash / 45% recover), but damage is **not a hitbox sweep**: at the crash moment, a ground AoE lands `IMPACT_DISTANCE 2.2m` in front of the player — full damage within `INNER_RADIUS 2.4m` of the impact point, `×0.4` splash out to `OUTER_RADIUS 4.2m`, and a radial 9-impulse shove for everything caught (same `apply_shove` the fireball uses). All damage flows through hurtboxes as usual. Flattened blast ring + 0.5 camera shake sell the hit.
+
+## Frost Nova (spell unlock; `player.gd`)
+
+E casts an **instant** AoE — no charge, no weapon stow; the defensive counterpart to fireball's committed offense. Every enemy within **6m** takes `8 + 0.4× damage stat` and is slowed to **×0.35 move speed for 3.5s** (`EnemyBase.apply_slow` — movement only, never attack timings; see docs/ENEMIES.md). 8s cooldown. Flattened icy blast sphere + enemies tint blue while chilled.
 
 ## Fireball (spell unlock; `player.gd` + `weapons/fireball.gd`)
 
@@ -65,6 +79,7 @@ Modifier sources, in spawn order: player base values (100 HP, 6.0 speed, 0 dmg, 
 ## Feedback layer
 
 - **Damage numbers** (`core/damage_number.gd`) — static `DamageNumber.spawn(parent, pos, amount)`; code-built `Label3D`, billboard, no-depth-test, floats up 0.9 and fades in ~0.55s. Fire-and-forget; enemies call it in `_on_damaged`.
+- **Blast VFX** (`core/blast_vfx.gd`) — static `BlastVfx.spawn(parent, pos, radius, color, flatten, duration)`; the one expanding-sphere used by fireball explosions (sphere), hammer shockwaves (ground ring), and frost nova (squashed dome). Scale it to the true damage radius so the visual never lies.
 - **Trauma camera shake** (`player.gd`) — `add_shake(amount)` accumulates trauma (cap 1.0), decays at 1.8/s, applied as **quadratic** jitter on the camera node so the viewmodel shakes with the view. Taking a hit adds 0.4.
 - **Hit pop** — enemies scale to 1.18 and tween back in 0.12s on damage.
 - **HUD vignette** (`ui/hud.gd`) — red flash on damage, white on block, gold on perfect block.
@@ -75,7 +90,9 @@ Modifier sources, in spawn order: player base values (100 HP, 6.0 speed, 0 dmg, 
 | Knob | Where |
 |---|---|
 | Block cone, block speed penalty, parry window/stun | consts atop `player.gd` |
-| Swing time / damage | `data/weapons/sword.tres` |
+| Swing time / damage | `data/weapons/sword.tres`, `data/weapons/warhammer.tres` |
+| Hammer impact point/radii/splash/shove | consts atop `weapons/warhammer.gd` |
+| Frost nova radius/slow/cooldown | `FROST_NOVA_*` consts atop `player.gd` |
 | Swing phase proportions, arc endpoints, shoulder | consts + `_do_attack` in `sword_and_shield.gd` |
 | Shake decay/intensity | `player.gd::_process`, `add_shake` calls |
 | Enemy hit-window length | `ATTACK_ACTIVE_TIME` in `enemy_base.gd` |

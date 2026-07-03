@@ -9,6 +9,9 @@ const STOW_OFFSET := Vector3(0.0, -0.55, 0.3)
 @export var weapon_data: WeaponData
 
 var stats: StatBlock
+## Who swings this weapon (the AttackInfo source). Explicit because weapons
+## are instanced into the mount at runtime, so scene `owner` is never set.
+var wielder: Node3D
 var is_blocking := false
 var is_stowed := false
 
@@ -16,8 +19,9 @@ var _cooldown := 0.0
 var _stow_tween: Tween
 
 
-func setup(stat_block: StatBlock) -> void:
+func setup(stat_block: StatBlock, wielder_node: Node3D) -> void:
 	stats = stat_block
+	wielder = wielder_node
 
 
 func _process(delta: float) -> void:
@@ -33,7 +37,7 @@ func try_attack() -> void:
 
 
 func set_blocking(value: bool) -> void:
-	if is_stowed and value:
+	if value and (is_stowed or weapon_data == null or not weapon_data.can_block):
 		return
 	if is_blocking == value:
 		return

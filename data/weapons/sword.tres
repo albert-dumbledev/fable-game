@@ -4,6 +4,11 @@
 
 [resource]
 script = ExtResource("1_script")
+id = &"sword_and_shield"
 display_name = "Sword & Shield"
+description = "Balanced melee with a raiseable shield - block, parry, counter"
 damage = 10.0
 swing_time = 0.7
+can_block = true
+scene_path = "res://weapons/SwordAndShield.tscn"
+unlock_ability = &""

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/weapon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"warhammer"
+display_name = "Warhammer"
+description = "Two-handed slam that shatters whole packs - no shield, so keep moving"
+damage = 26.0
+swing_time = 1.4
+can_block = false
+scene_path = "res://weapons/Warhammer.tscn"
+unlock_ability = &"weapon_warhammer"

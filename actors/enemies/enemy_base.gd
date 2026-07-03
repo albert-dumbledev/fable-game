@@ -12,6 +12,7 @@ const MAX_PICKUP_PIECES := 8
 const ATTACK_ACTIVE_TIME := 0.25
 const WINDUP_COLOR := Color(1.0, 0.55, 0.35)
 const STUN_COLOR := Color(0.55, 0.7, 1.0)
+const SLOW_COLOR := Color(0.55, 0.85, 1.0)
 const STUN_TILT_DEG := 14.0
 const FIST_REST := Vector3(0.35, 1.05, -0.35)
 const FIST_WINDUP := FIST_REST + Vector3(0.05, 0.05, 0.35)
@@ -39,6 +40,8 @@ var _fist_tween: Tween
 var _color_tween: Tween
 var _stun_duration := 0.0
 var _shove := Vector3.ZERO
+var _slow_mult := 1.0
+var _slow_time := 0.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -81,6 +84,11 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 	_state_time += delta
+	if _slow_time > 0.0:
+		_slow_time -= delta
+		if _slow_time <= 0.0:
+			_slow_mult = 1.0
+			_refresh_resting_color()
 	if state != State.STUNNED:
 		_face_target()
 	match state:
@@ -117,6 +125,22 @@ func apply_shove(impulse: Vector3) -> void:
 	_shove = impulse
 
 
+## Chill (frost nova): scales all movement — chasing, kiting, lunges — but
+## not attack timings. Reapplying overwrites the previous slow.
+func apply_slow(mult: float, duration: float) -> void:
+	if state == State.DEAD:
+		return
+	_slow_mult = mult
+	_slow_time = duration
+	_refresh_resting_color()
+
+
+## data.move_speed with the current slow applied. All steering — base and
+## variant overrides — must route through this.
+func move_speed() -> float:
+	return data.move_speed * _slow_mult
+
+
 func _chase() -> void:
 	var to_target := _target.global_position - global_position
 	to_target.y = 0.0
@@ -124,8 +148,8 @@ func _chase() -> void:
 		_begin_windup()
 		return
 	var direction := to_target.normalized()
-	velocity.x = direction.x * data.move_speed
-	velocity.z = direction.z * data.move_speed
+	velocity.x = direction.x * move_speed()
+	velocity.z = direction.z * move_speed()
 
 
 func _hold_still() -> void:
@@ -157,7 +181,7 @@ func _begin_attack() -> void:
 	_set_state(State.ATTACK)
 	if _material != null:
 		_kill_color_tween()
-		_material.albedo_color = _base_color
+		_material.albedo_color = _resting_color()
 	hitbox.activate(
 		AttackInfo.new(self, data.damage * _dmg_mult, data.knockback), ATTACK_ACTIVE_TIME)
 	# A perfect block inside activate() can stun us synchronously — if so,
@@ -169,8 +193,8 @@ func _begin_attack() -> void:
 	var dir := _target.global_position - global_position
 	dir.y = 0.0
 	dir = dir.normalized()
-	velocity.x = dir.x * data.move_speed * LUNGE_SPEED_MULT
-	velocity.z = dir.z * data.move_speed * LUNGE_SPEED_MULT
+	velocity.x = dir.x * move_speed() * LUNGE_SPEED_MULT
+	velocity.z = dir.z * move_speed() * LUNGE_SPEED_MULT
 
 
 ## Perfect-block reward: freeze in place, visibly dazed, attack cancelled.
@@ -194,10 +218,22 @@ func stun(duration: float) -> void:
 
 func _end_stun() -> void:
 	if _material != null:
-		_material.albedo_color = _base_color
+		_material.albedo_color = _resting_color()
 	var tween := create_tween()
 	tween.tween_property(mesh, "rotation_degrees:z", 0.0, 0.15)
 	_set_state(State.CHASE)
+
+
+## Albedo for states that don't own the color: base, tinted icy while slowed.
+func _resting_color() -> Color:
+	return _base_color.lerp(SLOW_COLOR, 0.65) if _slow_time > 0.0 else _base_color
+
+
+## Retint now — unless windup/stun owns the color; those reset on their own.
+func _refresh_resting_color() -> void:
+	if _material == null or state == State.WINDUP or state == State.STUNNED:
+		return
+	_material.albedo_color = _resting_color()
 
 
 func _kill_color_tween() -> void:

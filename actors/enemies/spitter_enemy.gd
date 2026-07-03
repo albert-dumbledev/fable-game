@@ -14,15 +14,15 @@ func _chase() -> void:
 	var dist := to_target.length()
 	if dist < RETREAT_RANGE:
 		var away := -to_target.normalized()
-		velocity.x = away.x * data.move_speed
-		velocity.z = away.z * data.move_speed
+		velocity.x = away.x * move_speed()
+		velocity.z = away.z * move_speed()
 		return
 	if dist <= data.attack_range:
 		_begin_windup()
 		return
 	var toward := to_target.normalized()
-	velocity.x = toward.x * data.move_speed
-	velocity.z = toward.z * data.move_speed
+	velocity.x = toward.x * move_speed()
+	velocity.z = toward.z * move_speed()
 
 
 func _begin_attack() -> void:

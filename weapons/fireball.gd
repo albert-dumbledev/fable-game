@@ -63,37 +63,10 @@ func _explode() -> void:
 		offset.y = 0.0
 		if offset.length() > 0.01:
 			enemy.apply_shove(offset.normalized() * EXPLOSION_SHOVE)
-	_spawn_blast()
+	BlastVfx.spawn(get_tree().current_scene, global_position, EXPLOSION_RADIUS,
+			Color(1.0, 0.5, 0.1, 0.7), 1.0, BLAST_DURATION)
 	# Nearby blasts rattle the camera a little.
 	var player := get_tree().get_first_node_in_group(&"player") as Player
 	if player != null and player.global_position.distance_to(global_position) < 9.0:
 		player.add_shake(0.3)
 	queue_free()
-
-
-func _spawn_blast() -> void:
-	var parent := get_tree().current_scene
-	if parent == null:
-		return
-	var blast := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 1.0
-	sphere.height = 2.0
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(1.0, 0.5, 0.1, 0.7)
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.emission_enabled = true
-	material.emission = Color(1.0, 0.45, 0.1)
-	material.emission_energy_multiplier = 3.0
-	sphere.material = material
-	blast.mesh = sphere
-	parent.add_child(blast)
-	blast.global_position = global_position
-	blast.scale = Vector3.ONE * 0.3
-	var tween := blast.create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(blast, "scale", Vector3.ONE * EXPLOSION_RADIUS, 0.22) \
-		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(material, "albedo_color:a", 0.0, BLAST_DURATION)
-	tween.chain().tween_callback(blast.queue_free)

@@ -36,6 +36,15 @@ theme_override_font_sizes/font_size = 24
 horizontal_alignment = 1
 text = "Gold: 0"
 
+[node name="LoadoutLabel" type="Label" parent="Center/Box"]
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text = "Loadout"
+
+[node name="Loadout" type="HBoxContainer" parent="Center/Box"]
+theme_override_constants/separation = 10
+alignment = 1
+
 [node name="Upgrades" type="VBoxContainer" parent="Center/Box"]
 theme_override_constants/separation = 8
 
