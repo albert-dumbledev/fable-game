@@ -4,10 +4,14 @@ extends Node3D
 ## bounces to rest, then magnets to the player once they come near.
 ## No physics body — manual motion keeps hundreds of these cheap.
 
-const MAGNET_RADIUS := 4.5
+const MAGNET_RADIUS := 2.5
 const MAGNET_SPEED := 13.0
 const MAGNET_ACCEL := 50.0
 const COLLECT_RADIUS := 0.85
+## No magnet/collection until the burst has had time to play out —
+## melee kills drop loot right on top of the player, and without this
+## grace period the fountain gets vacuumed on frame one.
+const MAGNET_DELAY := 0.6
 const LIFETIME := 30.0
 const GRAVITY := 18.0
 const REST_Y := 0.3
@@ -44,7 +48,8 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 		return
 	rotate_y(SPIN_SPEED * delta)
-	if _target != null and is_instance_valid(_target) and _target.is_inside_tree():
+	if _age >= MAGNET_DELAY and _target != null and is_instance_valid(_target) \
+			and _target.is_inside_tree():
 		var to_player := _target.global_position + Vector3(0.0, 0.9, 0.0) - global_position
 		var dist := to_player.length()
 		if dist <= COLLECT_RADIUS:

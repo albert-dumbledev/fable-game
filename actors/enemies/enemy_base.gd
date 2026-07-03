@@ -7,7 +7,7 @@ extends CharacterBody3D
 enum State { CHASE, WINDUP, ATTACK, RECOVER, STUNNED, DEAD }
 
 const PICKUP_SCENE := preload("res://actors/pickups/Pickup.tscn")
-const MAX_PICKUP_PIECES := 5
+const MAX_PICKUP_PIECES := 8
 
 const ATTACK_ACTIVE_TIME := 0.25
 const WINDUP_COLOR := Color(1.0, 0.55, 0.35)
@@ -247,9 +247,9 @@ func _spawn_pickups(kind: StringName, total: int) -> void:
 		var pickup := PICKUP_SCENE.instantiate() as Pickup
 		var angle := randf() * TAU
 		var burst := Vector3(
-			cos(angle) * randf_range(1.5, 3.5),
-			randf_range(4.5, 7.5),
-			sin(angle) * randf_range(1.5, 3.5))
+			cos(angle) * randf_range(3.0, 6.5),
+			randf_range(7.0, 11.0),
+			sin(angle) * randf_range(3.0, 6.5))
 		pickup.setup(kind, piece_value, burst)
 		parent.add_child(pickup)
 		pickup.global_position = global_position + Vector3(0.0, 1.2, 0.0)
