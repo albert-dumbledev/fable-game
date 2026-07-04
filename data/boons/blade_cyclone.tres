@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"blade_cyclone"
+display_name = "Blade Cyclone"
+description = "Riposte swings strike in a full circle around you"
+weight = 0.3
+unique = true
+grants_ability = &"riposte_sweep"
+requires_weapon = &"sword_and_shield"

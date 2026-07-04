@@ -32,6 +32,7 @@ const FIST_WINDUP := FIST_REST + Vector3(0.05, 0.05, 0.35)
 const FIST_PUNCH := FIST_REST + Vector3(-0.15, -0.1, -0.95)
 const LUNGE_SPEED_MULT := 1.8
 const SHOVE_DECAY := 18.0
+const VULNERABLE_MULT := 1.35
 
 @onready var health: HealthComponent = $Health
 @onready var hurtbox: HurtboxComponent = $Hurtbox
@@ -55,6 +56,7 @@ var _eyes: Array[MeshInstance3D] = []
 var _eye_material: StandardMaterial3D
 var _eye_tween: Tween
 var _stun_duration := 0.0
+var _vulnerable_until := 0.0  ## ticks_msec deadline for Expose Weakness; 0 = not vulnerable.
 var _shove := Vector3.ZERO
 var _slow_mult := 1.0
 var _slow_time := 0.0
@@ -159,6 +161,24 @@ func _physics_process(delta: float) -> void:
 ## Physically fling this enemy (no damage). Impulse decays over ~a second.
 func apply_shove(impulse: Vector3) -> void:
 	_shove = impulse
+
+
+## Expose Weakness (sword unique boon): the enemy takes VULNERABLE_MULT damage
+## from all sources until `duration` seconds elapse (set to the stun window).
+func mark_vulnerable(duration: float) -> void:
+	if state == State.DEAD:
+		return
+	_vulnerable_until = float(Time.get_ticks_msec()) + duration * 1000.0
+
+
+## Routes every incoming hit; scales damage while the Expose Weakness window is
+## open. Returns a fresh AttackInfo so the shared swing info is never mutated.
+func mitigate_hit(info: AttackInfo) -> AttackInfo:
+	if _vulnerable_until <= 0.0 or float(Time.get_ticks_msec()) > _vulnerable_until:
+		return info
+	var scaled := AttackInfo.new(info.source, info.damage * VULNERABLE_MULT, info.knockback)
+	scaled.hit_sound = info.hit_sound
+	return scaled
 
 
 ## Chill (frost nova): scales all movement — chasing, kiting, lunges — but

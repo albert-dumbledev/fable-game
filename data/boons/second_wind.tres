@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"second_wind"
+display_name = "Second Wind"
+description = "Perfect blocks heal 4 HP and refund half a second of guard"
+weight = 0.3
+unique = true
+grants_ability = &"parry_heal"
+requires_weapon = &"sword_and_shield"

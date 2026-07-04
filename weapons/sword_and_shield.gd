@@ -23,6 +23,8 @@ const SHIELD_BLOCK_POS := Vector3(-0.08, 0.08, -0.12)
 const SHIELD_BLOCK_ROT := Vector3.ZERO
 ## Real-time freeze frame per swing connect (coalesced by FreezeFrame).
 const HIT_PAUSE := 0.03
+## Blade Cyclone (unique boon): radial strike radius for a riposte swing.
+const SWEEP_RADIUS := 2.8
 
 @onready var hitbox: HitboxComponent = $Hitbox
 @onready var sword_pivot: Node3D = $SwordPivot
@@ -93,6 +95,7 @@ func _do_attack(duration: float) -> void:
 	if riposte > 0.0:
 		damage *= 1.0 + riposte
 		_flash_riposte(duration)
+	var sweep := riposte > 0.0 and player != null and player.has_ability(&"riposte_sweep")
 	var info := AttackInfo.new(wielder, damage)
 	info.hit_sound = &"melee_hit"
 	_swing_flip = not _swing_flip
@@ -124,8 +127,12 @@ func _do_attack(duration: float) -> void:
 	_swing_tween.tween_property(sword_pivot, "quaternion", windup_quat, duration * 0.25) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	# 2) Attack: fast sweep through the whole arc. The damage window opens
-	# here so hits land with the visible cut, not the windup.
-	_swing_tween.chain().tween_callback(hitbox.activate.bind(info, duration * 0.35))
+	# here so hits land with the visible cut, not the windup. Blade Cyclone
+	# replaces the arc hitbox with a full-circle pass for a riposte swing.
+	if sweep:
+		_swing_tween.chain().tween_callback(_sweep_hit.bind(info))
+	else:
+		_swing_tween.chain().tween_callback(hitbox.activate.bind(info, duration * 0.35))
 	_swing_tween.tween_method(
 		func(t: float) -> void:
 			var dir := dir_windup.rotated(axis, total_sweep * t)
@@ -195,3 +202,24 @@ func _flash_riposte(duration: float) -> void:
 	_blade_material.emission_energy_multiplier = 6.0
 	_riposte_tween = create_tween()
 	_riposte_tween.tween_property(_blade_material, "emission_energy_multiplier", 0.0, duration * 0.6)
+
+
+## Blade Cyclone: a full-circle strike for a riposte swing. Hits every enemy in
+## SWEEP_RADIUS once with the (already riposte-buffed) swing info, replacing the
+## arc hitbox for that swing so nothing is hit twice.
+func _sweep_hit(info: AttackInfo) -> void:
+	if wielder == null:
+		return
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
+			continue
+		var offset := enemy.global_position - wielder.global_position
+		offset.y = 0.0
+		if offset.length() > SWEEP_RADIUS:
+			continue
+		var enemy_hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
+		if enemy_hurtbox != null:
+			enemy_hurtbox.receive_hit(info)
+	BlastVfx.spawn(get_tree().current_scene,
+			wielder.global_position + Vector3(0.0, 0.1, 0.0), SWEEP_RADIUS,
+			Color(1.0, 0.85, 0.3, 0.4), 0.12, 0.3)

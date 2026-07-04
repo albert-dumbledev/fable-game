@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+[ext_resource type="Script" path="res://core/stat_modifier.gd" id="2_mod"]
+
+[sub_resource type="Resource" id="Resource_mod"]
+script = ExtResource("2_mod")
+stat = &"riposte_damage"
+kind = 1
+value = 0.4
+
+[resource]
+script = ExtResource("1_script")
+id = &"ruthless_riposte"
+display_name = "Ruthless Riposte"
+description = "+40% riposte damage"
+weight = 0.5
+modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])
+requires_weapon = &"sword_and_shield"

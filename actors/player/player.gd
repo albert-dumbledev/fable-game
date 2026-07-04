@@ -66,6 +66,14 @@ const NOVA_ECHO_SLOW_MULT := 0.6
 const NOVA_ECHO_SLOW_TIME := 2.0
 ## Glacial Wave (unique boon): novas also shove everything caught.
 const NOVA_PUSH_FORCE := 12.0
+## Retribution (parry_nova): perfect-block pulse.
+const PARRY_NOVA_RADIUS := 3.0
+const PARRY_NOVA_DAMAGE_MULT := 0.5
+const PARRY_NOVA_SHOVE := 8.0
+const PARRY_NOVA_COLOR := Color(1.0, 0.85, 0.3, 0.55)
+## Second Wind (parry_heal): perfect-block sustain.
+const PARRY_HEAL_AMOUNT := 4.0
+const PARRY_GUARD_REFUND := 0.5
 
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
@@ -281,9 +289,16 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 				EventBus.perfect_block.emit()
 				FreezeFrame.hit_pause(PARRY_HIT_PAUSE)
 				_prime_riposte()
+				var stun_dur := PERFECT_BLOCK_STUN * stats.get_stat(Stats.PARRY_STUN)
 				if info.source.has_method(&"stun"):
-					info.source.call(&"stun",
-							PERFECT_BLOCK_STUN * stats.get_stat(Stats.PARRY_STUN))
+					info.source.call(&"stun", stun_dur)
+				if has_ability(&"exposing_parry") and info.source is EnemyBase:
+					(info.source as EnemyBase).mark_vulnerable(stun_dur)
+				if has_ability(&"parry_nova"):
+					_parry_nova()
+				if has_ability(&"parry_heal"):
+					health.heal(PARRY_HEAL_AMOUNT)
+					_guard = minf(GUARD_MAX, _guard + PARRY_GUARD_REFUND)
 			else:
 				EventBus.attack_blocked.emit()
 				_drain_guard(GUARD_HIT_COST)
@@ -470,6 +485,30 @@ func _do_nova(damage_mult: float, slow_mult: float, slow_time: float) -> void:
 			Color(0.7, 0.9, 1.0, 0.35), 0.04, 1.1)
 	AudioManager.play(&"frost_nova")
 	add_shake(0.2)
+
+
+## Retribution: a radial pulse on a perfect block — 50% weapon damage and a
+## shove to everything in PARRY_NOVA_RADIUS. Reuses the frost-nova pattern.
+func _parry_nova() -> void:
+	if weapon == null or weapon.weapon_data == null:
+		return
+	var damage := (weapon.weapon_data.damage + stats.get_stat(Stats.DAMAGE)) \
+			* PARRY_NOVA_DAMAGE_MULT
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
+			continue
+		var offset := enemy.global_position - global_position
+		offset.y = 0.0
+		if offset.length() > PARRY_NOVA_RADIUS:
+			continue
+		var enemy_hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
+		if enemy_hurtbox != null:
+			enemy_hurtbox.receive_hit(AttackInfo.new(self, damage))
+		if offset.length() > 0.01:
+			enemy.apply_shove(offset.normalized() * PARRY_NOVA_SHOVE)
+	BlastVfx.spawn(get_tree().current_scene, global_position, PARRY_NOVA_RADIUS,
+			PARRY_NOVA_COLOR, 0.3, 0.35)
+	add_shake(0.15)
 
 
 ## Spell cooldowns scale with the spell_cooldown stat (clamped so stacked
