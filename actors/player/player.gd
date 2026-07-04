@@ -64,6 +64,9 @@ var weapon: Weapon
 var stats := StatBlock.new()
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+var _yaw := 0.0
+var _pitch := 0.0
+var _eye_offset := Vector3.ZERO
 var _dead := false
 var _block_started_ms := -10000
 var _guard := GUARD_MAX
@@ -86,6 +89,14 @@ var _knockback := Vector3.ZERO
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	camera.fov = Settings.fov
+	# Mouse look can't live on the physics-interpolated body: per-frame
+	# rotations would get smoothed and trail the mouse. The rig is detached,
+	# rotated instantly each frame, and follows the body's interpolated
+	# position; the body itself only syncs its yaw at physics ticks.
+	_eye_offset = camera_rig.position
+	camera_rig.top_level = true
+	camera_rig.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_update_camera_rig()
 	Settings.changed.connect(_on_settings_changed)
 	# 80: a fresh run should feel 4-5 early hits from death; in-run health
 	# boons (Bulwark) are the intended survivability investment.
@@ -127,14 +138,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	var motion := event as InputEventMouseMotion
 	if motion != null and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var sensitivity := MOUSE_SENSITIVITY * Settings.mouse_sensitivity
-		rotate_y(-motion.relative.x * sensitivity)
-		camera_rig.rotate_x(-motion.relative.y * sensitivity)
-		camera_rig.rotation.x = clampf(camera_rig.rotation.x, -PITCH_LIMIT, PITCH_LIMIT)
+		_yaw -= motion.relative.x * sensitivity
+		_pitch = clampf(_pitch - motion.relative.y * sensitivity, -PITCH_LIMIT, PITCH_LIMIT)
 
 
 func _physics_process(delta: float) -> void:
 	if _dead:
 		return
+	# Movement basis and block-facing math read the body's yaw, so keep it
+	# in step with the view once per tick.
+	rotation.y = _yaw
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
 	# Fireball charges refill one at a time through the cooldown.
@@ -252,6 +265,7 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 
 
 func _process(delta: float) -> void:
+	_update_camera_rig()
 	# Trauma-style camera shake: quadratic falloff, jitter on the camera
 	# node so the viewmodel shakes with the view.
 	if _shake > 0.0:
@@ -261,6 +275,14 @@ func _process(delta: float) -> void:
 			randf_range(-strength, strength), randf_range(-strength, strength), 0.0)
 	elif camera.position != Vector3.ZERO:
 		camera.position = Vector3.ZERO
+
+
+## The rig renders at the body's interpolated position (smooth even when
+## render and physics rates diverge) with this frame's look angles applied
+## raw, so aiming never lags the mouse.
+func _update_camera_rig() -> void:
+	camera_rig.global_position = get_global_transform_interpolated().origin + _eye_offset
+	camera_rig.rotation = Vector3(_pitch, _yaw, 0.0)
 
 
 func add_shake(amount: float) -> void:
