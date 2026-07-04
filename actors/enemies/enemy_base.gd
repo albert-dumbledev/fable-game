@@ -33,6 +33,10 @@ const FIST_PUNCH := FIST_REST + Vector3(-0.15, -0.1, -0.95)
 const LUNGE_SPEED_MULT := 1.8
 const SHOVE_DECAY := 18.0
 const VULNERABLE_MULT := 1.35
+## Bone Breaker: a shove carrying wall damage that lands the enemy on a wall
+## deals it once, if the shove is still strong enough to count as a slam.
+const WALL_IMPACT_MIN_SPEED := 5.0
+const WALL_IMPACT_STUN := 0.4
 
 @onready var health: HealthComponent = $Health
 @onready var hurtbox: HurtboxComponent = $Hurtbox
@@ -58,6 +62,9 @@ var _eye_tween: Tween
 var _stun_duration := 0.0
 var _vulnerable_until := 0.0  ## ticks_msec deadline for Expose Weakness; 0 = not vulnerable.
 var _shove := Vector3.ZERO
+## Bone Breaker payload riding the current shove (0 = none), and its source.
+var _shove_wall_damage := 0.0
+var _shove_source: Node3D
 var _slow_mult := 1.0
 var _slow_time := 0.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
@@ -156,11 +163,30 @@ func _physics_process(delta: float) -> void:
 		velocity.z += _shove.z
 		_shove = _shove.move_toward(Vector3.ZERO, SHOVE_DECAY * delta)
 	move_and_slide()
+	if _shove_wall_damage > 0.0 and _shove.length() > WALL_IMPACT_MIN_SPEED \
+			and is_on_wall():
+		_wall_impact()
 
 
 ## Physically fling this enemy (no damage). Impulse decays over ~a second.
-func apply_shove(impulse: Vector3) -> void:
+## Bone Breaker rides a wall-damage payload on the shove: if the enemy slams
+## into a wall while the impulse is still strong, it takes wall_damage once.
+func apply_shove(impulse: Vector3, wall_damage: float = 0.0, source: Node3D = null) -> void:
 	_shove = impulse
+	_shove_wall_damage = wall_damage
+	_shove_source = source
+
+
+## Bone Breaker: the enemy slammed into a wall mid-shove — take the payload
+## once (through the hurtbox so vulnerability/drops apply) and stagger, then
+## clear the payload so it fires at most once per shove.
+func _wall_impact() -> void:
+	var dmg := _shove_wall_damage
+	_shove_wall_damage = 0.0
+	if hurtbox != null:
+		hurtbox.receive_hit(AttackInfo.new(_shove_source, dmg))
+	if state != State.STUNNED and state != State.DEAD:
+		stun(WALL_IMPACT_STUN)
 
 
 ## Expose Weakness (sword unique boon): the enemy takes VULNERABLE_MULT damage

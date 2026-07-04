@@ -26,6 +26,9 @@ const AFTERSHOCK_SHOVE_MULT := 0.6
 ## Implosion (unique boon): slam pulls the pack inward and briefly staggers
 ## them. Shorter than the swing so you must start the follow-up slam mid-pull.
 const PULL_STUN := 0.5
+## Bone Breaker (unique boon): fraction of slam damage dealt when a shoved
+## enemy slams into a wall.
+const BONE_BREAKER_MULT := 0.3
 ## Seismic Slam (RMB): a long committed overhead windup, then a slam that
 ## sends a GroundShockwave forward in a straight line.
 const WAVE_WINDUP := 1.1
@@ -120,8 +123,12 @@ func _wave_impact(damage: float) -> void:
 	var origin := wielder.global_position + forward * 1.2
 	origin.y = 0.1
 	AudioManager.play(&"hammer_slam")
+	var wave_shove := GroundShockwave.SHOVE * stats.get_stat(Stats.HAMMER_SHOVE)
+	var wave_player := wielder as Player
+	var wave_drag := wave_player != null and wave_player.has_ability(&"wave_drag")
 	GroundShockwave.spawn(get_tree().current_scene, origin,
-			AttackInfo.new(wielder, damage), forward, stats.get_stat(Stats.HAMMER_AOE))
+			AttackInfo.new(wielder, damage), forward, stats.get_stat(Stats.HAMMER_AOE),
+			wave_shove, wave_drag)
 	BlastVfx.spawn(get_tree().current_scene, origin, 1.6, SHOCKWAVE_COLOR, 0.15, 0.2)
 	var player := wielder as Player
 	if player != null:
@@ -168,6 +175,8 @@ func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> int:
 	var hit_count := 0
 	var player := wielder as Player
 	var pull := player != null and player.has_ability(&"slam_pull")
+	var wall_damage := damage * BONE_BREAKER_MULT \
+			if player != null and player.has_ability(&"shove_impact") else 0.0
 	for enemy: EnemyBase in EnemyBase.alive.duplicate():
 		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
 			continue
@@ -188,7 +197,7 @@ func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> int:
 			hit_count += 1
 		if dist > 0.01:
 			var push := offset.normalized() * shove
-			enemy.apply_shove(-push if pull else push)
+			enemy.apply_shove(-push if pull else push, wall_damage, wielder)
 		# Gather-stun: a freshly pulled pack is briefly staggered so it
 		# can't wind up on you. Guarded against re-stun so Aftershock's
 		# second pull can't stun-lock (Implosion + Aftershock).
