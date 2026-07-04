@@ -282,24 +282,42 @@ func _on_died() -> void:
 
 ## Explode the reward outward as collectable pieces.
 func _spawn_pickups(kind: StringName, total: int) -> void:
+	_spawn_pickup_pieces(kind, total, MAX_PICKUP_PIECES)
+
+
+## Split `total` reward into up to `pieces_cap` pickups and burst them out.
+## `speed_mult` scales the launch (horizontal fully, vertical half-way so
+## fountains spread wide without leaving orbit); `ring` spaces the pieces
+## evenly around the circle for deliberate boss fountains. `lifetime` and
+## `magnet_radius` override the pickup defaults when > 0.
+func _spawn_pickup_pieces(kind: StringName, total: int, pieces_cap: int,
+		speed_mult: float = 1.0, ring: bool = false,
+		lifetime: float = 0.0, magnet_radius: float = 0.0) -> void:
 	if total <= 0:
 		return
 	var parent := get_tree().current_scene
 	if parent == null:
 		return
-	var pieces := clampi(total, 1, MAX_PICKUP_PIECES)
+	var pieces := clampi(total, 1, pieces_cap)
 	var base_value := int(floor(float(total) / float(pieces)))
 	var remainder := total - base_value * pieces
+	var vertical_mult := (1.0 + speed_mult) * 0.5
 	for i: int in pieces:
 		var piece_value := base_value + (1 if i < remainder else 0)
 		if piece_value <= 0:
 			continue
 		var pickup := PICKUP_SCENE.instantiate() as Pickup
 		var angle := randf() * TAU
+		if ring:
+			angle = (float(i) + randf_range(-0.3, 0.3)) * TAU / float(pieces)
 		var burst := Vector3(
-			cos(angle) * randf_range(3.0, 6.5),
-			randf_range(7.0, 11.0),
-			sin(angle) * randf_range(3.0, 6.5))
+			cos(angle) * randf_range(3.0, 6.5) * speed_mult,
+			randf_range(7.0, 11.0) * vertical_mult,
+			sin(angle) * randf_range(3.0, 6.5) * speed_mult)
 		pickup.setup(kind, piece_value, burst)
+		if lifetime > 0.0:
+			pickup.lifetime = lifetime
+		if magnet_radius > 0.0:
+			pickup.magnet_radius = magnet_radius
 		parent.add_child(pickup)
 		pickup.global_position = global_position + Vector3(0.0, 1.2, 0.0)

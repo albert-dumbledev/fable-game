@@ -45,7 +45,7 @@ It teleports competently but doesn't *rush*. Changes:
 
 No mechanical changes: distance, duration, cooldown, i-frames all stay.
 
-### 2. Boss deaths explode with waves of loot
+### 2. Boss deaths explode with waves of loot — ✅ shipped 2026-07-04
 
 Today: the Juggernaut dies exactly like a chaser — shrink to 5% in 0.22s, ≤8 gold
 + ≤8 XP pieces (`enemy_base.gd::_on_died`, `MAX_PICKUP_PIECES`). 100 gold in 8

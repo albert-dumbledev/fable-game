@@ -20,6 +20,10 @@ const ARENA_HALF := 19.0
 
 var kind: StringName = &"gold"
 var value := 1
+## Overridable per pickup: boss loot lives longer and magnets from further
+## away so a fountain earned mid-swarm isn't stranded.
+var lifetime := LIFETIME
+var magnet_radius := MAGNET_RADIUS
 
 var _velocity := Vector3.ZERO
 var _age := 0.0
@@ -44,7 +48,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_age += delta
-	if _age >= LIFETIME:
+	if _age >= lifetime:
 		queue_free()
 		return
 	rotate_y(SPIN_SPEED * delta)
@@ -56,7 +60,7 @@ func _physics_process(delta: float) -> void:
 			EventBus.pickup_collected.emit(kind, value)
 			queue_free()
 			return
-		if dist <= MAGNET_RADIUS:
+		if dist <= magnet_radius:
 			_velocity = _velocity.move_toward(to_player / dist * MAGNET_SPEED, MAGNET_ACCEL * delta)
 			global_position += _velocity * delta
 			return

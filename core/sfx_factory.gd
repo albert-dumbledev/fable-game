@@ -34,6 +34,7 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"frost_nova"] = _frost_nova()
 	sounds[&"dash"] = _dash()
 	sounds[&"boss_horn"] = _boss_horn()
+	sounds[&"boss_death"] = _boss_death()
 	sounds[&"alarm"] = _alarm()
 	sounds[&"click"] = _click()
 	sounds[&"player_death"] = _player_death()
@@ -213,6 +214,20 @@ static func _boss_horn() -> AudioStreamWAV:
 	out = _overlay(out, _env(_tone(0.9, 65.7, 66.8, 0.5, SAW), 0.2, 1.1), 0.0)
 	out = _overlay(out, _env(_tone(0.85, 97.5, 98.5, 0.4, SAW), 0.22, 1.1), 0.02)
 	return _to_wav(out, 0.7)
+
+
+## Boss death: a huge slow detonation — blast front into a deep sub drop,
+## a long rumble tail, and a sagging low horn so it reads as a creature
+## dying, not just a bomb. Everything lives well under the pitch ceiling;
+## it's the longest, darkest sound in the game by design.
+static func _boss_death() -> AudioStreamWAV:
+	var blast := _env(_noise(0.5, 2500.0, 60.0, 1.0), 0.004, 1.4)
+	var sub := _env(_tone(1.1, 70.0, 22.0, 1.0, SINE), 0.008, 1.1)
+	var rumble := _env(_noise(1.3, 140.0, 35.0, 0.7), 0.02, 1.0)
+	var horn := _env(_tone(0.9, 98.0, 49.0, 0.45, SAW), 0.05, 1.2)
+	var out := _overlay(blast, sub, 0.0)
+	out = _overlay(out, rumble, 0.05)
+	return _to_wav(_overlay(out, horn, 0.1), 0.95)
 
 
 ## Wave/swarm announcement: two alternating alarm tones.

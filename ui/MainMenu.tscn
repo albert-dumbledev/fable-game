@@ -1,67 +1,87 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://b35hxn4rjm3fw"]
 
-[ext_resource type="Script" path="res://ui/main_menu.gd" id="1_script"]
-[ext_resource type="PackedScene" path="res://ui/SettingsPanel.tscn" id="2_settings"]
+[ext_resource type="Script" uid="uid://51c04fdtl0dx" path="res://ui/main_menu.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://cegex1qy26lcq" path="res://ui/SettingsPanel.tscn" id="2_settings"]
 
-[node name="MainMenu" type="Control"]
+[node name="MainMenu" type="Control" unique_id=1285789167]
+layout_mode = 3
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=618487479]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0.055, 0.055, 0.075, 1)
 
-[node name="Center" type="CenterContainer" parent="."]
+[node name="Center" type="CenterContainer" parent="." unique_id=1446621687]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="Box" type="VBoxContainer" parent="Center"]
+[node name="Box" type="VBoxContainer" parent="Center" unique_id=1074841216]
 custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Title" type="Label" parent="Center/Box"]
+[node name="Title" type="Label" parent="Center/Box" unique_id=1342091851]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.78, 0.5, 1)
 theme_override_font_sizes/font_size = 84
-theme_override_colors/font_color = Color(0.92, 0.78, 0.5, 1)
-horizontal_alignment = 1
 text = "FABLE"
+horizontal_alignment = 1
 
-[node name="Subtitle" type="Label" parent="Center/Box"]
-theme_override_font_sizes/font_size = 16
+[node name="Subtitle" type="Label" parent="Center/Box" unique_id=1580863967]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.6, 0.65, 1)
-horizontal_alignment = 1
+theme_override_font_sizes/font_size = 16
 text = "a first-person survivor"
-
-[node name="Spacer" type="Control" parent="Center/Box"]
-custom_minimum_size = Vector2(0, 18)
-
-[node name="GoldLabel" type="Label" parent="Center/Box"]
-theme_override_font_sizes/font_size = 18
-theme_override_colors/font_color = Color(0.92, 0.78, 0.5, 1)
 horizontal_alignment = 1
-text = "Gold: 0"
 
-[node name="PlayButton" type="Button" parent="Center/Box"]
+[node name="Spacer" type="Control" parent="Center/Box" unique_id=364005380]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+
+[node name="GoldLabel" type="Label" parent="Center/Box" unique_id=502661846]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.78, 0.5, 1)
+theme_override_font_sizes/font_size = 18
+text = "Gold: 0"
+horizontal_alignment = 1
+
+[node name="PlayButton" type="Button" parent="Center/Box" unique_id=191581709]
+layout_mode = 2
 theme_override_font_sizes/font_size = 26
 text = "Enter the Arena"
 
-[node name="SettingsButton" type="Button" parent="Center/Box"]
+[node name="SettingsButton" type="Button" parent="Center/Box" unique_id=27772846]
+layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "Settings"
 
-[node name="QuitButton" type="Button" parent="Center/Box"]
+[node name="QuitButton" type="Button" parent="Center/Box" unique_id=1230640166]
+layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "Quit"
 
-[node name="Spacer2" type="Control" parent="Center/Box"]
+[node name="Spacer2" type="Control" parent="Center/Box" unique_id=1502798260]
 custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
 
-[node name="HintLabel" type="Label" parent="Center/Box"]
-theme_override_font_sizes/font_size = 13
+[node name="HintLabel" type="Label" parent="Center/Box" unique_id=1434288957]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.45, 0.45, 0.5, 1)
-horizontal_alignment = 1
+theme_override_font_sizes/font_size = 13
 text = "WASD move · Space jump · Shift dash · LMB attack · RMB block / slam · Q + E spells · Esc pause"
+horizontal_alignment = 1
 
-[node name="SettingsPanel" parent="." instance=ExtResource("2_settings")]
+[node name="SettingsPanel" parent="." unique_id=413161622 instance=ExtResource("2_settings")]
 visible = false
+layout_mode = 0
+anchors_preset = 0
+anchor_right = 0.0
+anchor_bottom = 0.0

@@ -22,7 +22,7 @@ const SHIELD_REST_ROT := Vector3(-30.0, 35.0, 10.0)
 const SHIELD_BLOCK_POS := Vector3(-0.08, 0.08, -0.12)
 const SHIELD_BLOCK_ROT := Vector3.ZERO
 ## Real-time freeze frame per swing connect (coalesced by FreezeFrame).
-const HIT_PAUSE := 0.04
+const HIT_PAUSE := 0.03
 
 @onready var hitbox: HitboxComponent = $Hitbox
 @onready var sword_pivot: Node3D = $SwordPivot

@@ -34,7 +34,7 @@ const WAVE_RAISED_POS := Vector3(0.05, 0.45, 0.2)
 const WAVE_RAISED_ROT := Vector3(95.0, 0.0, 0.0)
 ## Real-time freeze frame when the slam actually catches something —
 ## longer than the sword's: this is the heavy weapon.
-const HIT_PAUSE := 0.07
+const HIT_PAUSE := 0.05
 
 @onready var hammer_pivot: Node3D = $HammerPivot
 @onready var handle_mesh: MeshInstance3D = $HammerPivot/HandleMesh
