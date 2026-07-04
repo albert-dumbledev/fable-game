@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="PackedScene" path="res://actors/player/Player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://ui/HUD.tscn" id="2_hud"]
@@ -9,6 +9,7 @@
 [ext_resource type="Resource" path="res://data/waves/default.tres" id="5_waves"]
 [ext_resource type="Shader" path="res://levels/floor.gdshader" id="8_floor_shader"]
 [ext_resource type="Script" path="res://levels/arena_decor.gd" id="9_decor"]
+[ext_resource type="Script" path="res://core/environment_settings.gd" id="10_env_settings"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_floor"]
 shader = ExtResource("8_floor_shader")
@@ -118,6 +119,8 @@ shadow_enabled = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_arena")
+script = ExtResource("10_env_settings")
+sun = NodePath("../Sun")
 
 [node name="Decor" type="Node3D" parent="."]
 script = ExtResource("9_decor")

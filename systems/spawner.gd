@@ -20,7 +20,7 @@ func tick(elapsed: float, delta: float) -> void:
 	if _spawn_timer > 0.0:
 		return
 	_spawn_timer = wave_table.spawn_interval_at(elapsed)
-	if get_tree().get_nodes_in_group(&"enemies").size() >= wave_table.max_alive_at(elapsed):
+	if EnemyBase.alive.size() >= wave_table.max_alive_at(elapsed):
 		return
 	_spawn(elapsed)
 

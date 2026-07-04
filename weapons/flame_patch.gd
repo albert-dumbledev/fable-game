@@ -29,9 +29,6 @@ static func spawn(parent: Node, position: Vector3, info: AttackInfo,
 
 func _ready() -> void:
 	var mesh := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 1.0
-	sphere.height = 2.0
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(1.0, 0.45, 0.1, 0.5)
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -39,8 +36,8 @@ func _ready() -> void:
 	material.emission_enabled = true
 	material.emission = Color(1.0, 0.4, 0.05)
 	material.emission_energy_multiplier = 2.0
-	sphere.material = material
-	mesh.mesh = sphere
+	mesh.mesh = VfxPool.unit_sphere()
+	mesh.material_override = material
 	add_child(mesh)
 	mesh.scale = Vector3(_radius, 0.18, _radius)
 	# Flicker sells fire without particles.
@@ -49,7 +46,7 @@ func _ready() -> void:
 	tween.tween_property(mesh, "scale:y", 0.18, 0.12)
 	# Ember sparks drifting up off the patch rim.
 	var embers := CPUParticles3D.new()
-	embers.amount = 14
+	embers.amount = maxi(1, roundi(14.0 * Settings.vfx_density))
 	embers.lifetime = 0.9
 	embers.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
 	embers.emission_ring_axis = Vector3.UP
@@ -91,9 +88,8 @@ func _physics_process(delta: float) -> void:
 	if _tick > 0.0:
 		return
 	_tick = TICK_INTERVAL
-	for node: Node in get_tree().get_nodes_in_group(&"enemies"):
-		var enemy := node as EnemyBase
-		if enemy == null or not enemy.is_inside_tree():
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
 			continue
 		var offset := enemy.global_position - global_position
 		offset.y = 0.0

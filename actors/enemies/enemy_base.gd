@@ -6,6 +6,12 @@ extends CharacterBody3D
 
 enum State { CHASE, WINDUP, ATTACK, RECOVER, STUNNED, DEAD }
 
+## Every living enemy, maintained alongside the "enemies" group. AoE weapons,
+## the spawner, and the minimap iterate this instead of group queries (which
+## allocate and scan every call — noticeable on web with 60 enemies alive).
+## Sites that can kill mid-loop iterate a duplicate() snapshot.
+static var alive: Array[EnemyBase] = []
+
 const PICKUP_SCENE := preload("res://actors/pickups/Pickup.tscn")
 const MAX_PICKUP_PIECES := 8
 
@@ -59,6 +65,7 @@ func setup(enemy_data: EnemyData, hp_mult: float, dmg_mult: float,
 
 func _ready() -> void:
 	add_to_group(&"enemies")
+	alive.append(self)
 	if data == null:
 		push_error("EnemyBase spawned without EnemyData; call setup() first.")
 		data = EnemyData.new()
@@ -85,6 +92,11 @@ func _ready() -> void:
 		_eye_material.emission_energy_multiplier = 0.0
 		for eye: MeshInstance3D in _eyes:
 			eye.material_override = _eye_material
+
+
+func _exit_tree() -> void:
+	# Safety net for frees that skip _on_died (scene teardown).
+	alive.erase(self)
 
 
 func _physics_process(delta: float) -> void:
@@ -308,6 +320,7 @@ func _on_damaged(info: AttackInfo) -> void:
 func _on_died() -> void:
 	_set_state(State.DEAD)
 	remove_from_group(&"enemies")
+	alive.erase(self)
 	collision_layer = 0
 	hitbox.deactivate()
 	hurtbox.set_deferred(&"monitorable", false)

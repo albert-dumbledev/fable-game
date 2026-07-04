@@ -162,9 +162,8 @@ func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> int:
 	var inner := INNER_RADIUS * aoe_mult
 	var outer := OUTER_RADIUS * aoe_mult
 	var hit_count := 0
-	for node: Node in get_tree().get_nodes_in_group(&"enemies"):
-		var enemy := node as EnemyBase
-		if enemy == null or not enemy.is_inside_tree():
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
 			continue
 		var offset := enemy.global_position - point
 		offset.y = 0.0

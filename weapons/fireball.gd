@@ -35,7 +35,7 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	# Ember trail: world-space particles shed behind the flight path.
 	var trail := CPUParticles3D.new()
-	trail.amount = 26
+	trail.amount = maxi(1, roundi(26.0 * Settings.vfx_density))
 	trail.lifetime = 0.45
 	trail.local_coords = false
 	trail.direction = Vector3.UP
@@ -84,9 +84,8 @@ func _explode() -> void:
 	if _exploded:
 		return
 	_exploded = true
-	for node: Node in get_tree().get_nodes_in_group(&"enemies"):
-		var enemy := node as EnemyBase
-		if enemy == null or not enemy.is_inside_tree():
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
 			continue
 		var offset := enemy.global_position - global_position
 		if offset.length() > _radius:

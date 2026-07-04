@@ -435,9 +435,8 @@ func _nova_echo() -> void:
 
 func _do_nova(damage_mult: float, slow_mult: float, slow_time: float) -> void:
 	var damage := (FROST_NOVA_DAMAGE + stats.get_stat(Stats.DAMAGE) * 0.4) * damage_mult
-	for node: Node in get_tree().get_nodes_in_group(&"enemies"):
-		var enemy := node as EnemyBase
-		if enemy == null or not enemy.is_inside_tree():
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
 			continue
 		var offset := enemy.global_position - global_position
 		offset.y = 0.0

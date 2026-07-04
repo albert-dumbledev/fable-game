@@ -26,6 +26,7 @@ GameManager="*res://autoload/game_manager.gd"
 MetaProgression="*res://autoload/meta_progression.gd"
 AudioManager="*res://autoload/audio_manager.gd"
 Settings="*res://autoload/settings.gd"
+VfxPoolHost="*res://core/vfx_pool.gd"
 
 [debug]
 
@@ -121,3 +122,5 @@ common/physics_interpolation=true
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+lights_and_shadows/directional_shadow/size.web=2048
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality.web=1

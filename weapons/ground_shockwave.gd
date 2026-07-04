@@ -31,9 +31,6 @@ static func spawn(parent: Node, position: Vector3, info: AttackInfo,
 
 func _ready() -> void:
 	var mesh := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 1.0
-	sphere.height = 2.0
 	var material := StandardMaterial3D.new()
 	material.albedo_color = COLOR
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -41,8 +38,8 @@ func _ready() -> void:
 	material.emission_enabled = true
 	material.emission = Color(COLOR.r, COLOR.g, COLOR.b)
 	material.emission_energy_multiplier = 2.5
-	sphere.material = material
-	mesh.mesh = sphere
+	mesh.mesh = VfxPool.unit_sphere()
+	mesh.material_override = material
 	add_child(mesh)
 	mesh.scale = Vector3(_radius, 0.35, _radius)
 	# Rolling churn: the wave pulses as it travels.
@@ -54,9 +51,8 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	global_position += _dir * SPEED * delta
 	_traveled += SPEED * delta
-	for node: Node in get_tree().get_nodes_in_group(&"enemies"):
-		var enemy := node as EnemyBase
-		if enemy == null or not enemy.is_inside_tree():
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
 			continue
 		var id := enemy.get_instance_id()
 		if _hit.get(id, false):

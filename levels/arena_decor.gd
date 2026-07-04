@@ -34,6 +34,17 @@ func _ready() -> void:
 	_build_torches()
 	_build_spires()
 	_build_moon()
+	Settings.changed.connect(_apply_torch_setting)
+	_apply_torch_setting()
+
+
+## Eight per-pixel omni lights are the priciest thing in the arena on the
+## Compatibility renderer; the toggle drops them (and the per-frame flicker
+## writes) while the emissive flame blobs keep the torches readable.
+func _apply_torch_setting() -> void:
+	for light: OmniLight3D in _torch_lights:
+		light.visible = Settings.torch_lights
+	set_process(Settings.torch_lights)
 
 
 ## Torch flicker: two detuned sines per light so the pool of warm light

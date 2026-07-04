@@ -119,9 +119,8 @@ func _end_charge() -> void:
 ## a little forward carry so they tumble along the rush.
 func _shove_minions() -> void:
 	var side := _charge_dir.cross(Vector3.UP)
-	for node: Node in get_tree().get_nodes_in_group(&"enemies"):
-		var minion := node as EnemyBase
-		if minion == null or minion == self or not minion.is_inside_tree():
+	for minion: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(minion) or minion == self or not minion.is_inside_tree():
 			continue
 		var offset := minion.global_position - global_position
 		offset.y = 0.0

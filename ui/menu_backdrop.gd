@@ -13,6 +13,8 @@ const LOOK_TARGET := Vector3(0.0, 1.2, 0.0)
 
 var _camera: Camera3D
 var _angle := 0.0
+var _environment: Environment
+var _sun: DirectionalLight3D
 
 
 func _ready() -> void:
@@ -23,6 +25,19 @@ func _ready() -> void:
 	_camera.fov = 70.0
 	add_child(_camera)
 	_update_camera()
+	Settings.changed.connect(_apply_graphics)
+	_apply_graphics()
+
+
+## The backdrop renders in its own SubViewport, which the root viewport's
+## render scale doesn't reach — mirror the graphics settings here.
+func _apply_graphics() -> void:
+	_environment.glow_enabled = Settings.glow_enabled
+	_sun.shadow_enabled = Settings.shadows_enabled
+	var viewport := get_viewport()
+	if viewport != null:
+		viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		viewport.scaling_3d_scale = Settings.render_scale
 
 
 func _process(delta: float) -> void:
@@ -64,12 +79,14 @@ func _build_environment() -> void:
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = environment
 	add_child(world_environment)
+	_environment = environment
 	var sun := DirectionalLight3D.new()
 	sun.light_color = Color(1.0, 0.72, 0.5)
 	sun.light_energy = 1.3
 	sun.shadow_enabled = true
 	sun.rotation_degrees = Vector3(-28.0, 35.0, 0.0)
 	add_child(sun)
+	_sun = sun
 
 
 ## Floor + walls as meshes only (the decor node brings the rest).

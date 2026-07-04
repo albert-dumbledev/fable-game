@@ -190,3 +190,22 @@ into AudioManager; do it alongside the next audio pass).
 5. §7 polish, then P3 as appetite allows
 
 Each step is independently shippable and testable via the headless smoke-load.
+
+---
+
+## Web performance (2026-07)
+
+The graphics settings (Settings autoload → Graphics section of the settings
+panel) exist primarily for the web export: render scale, shadows, glow,
+torch lights, effect density, damage numbers. Web first-run defaults to the
+**medium** preset; desktop defaults to high. Combat VFX are pooled in
+`core/vfx_pool.gd` — add new fire-and-forget effects there, not as
+per-spawn mesh+material allocations.
+
+Export checklist for the web build:
+
+- **Export with the release template.** A debug-template WASM runs
+  dramatically slower and is the most common cause of "web is laggy".
+  (`index.wasm` size only affects load time, not runtime.)
+- `project.godot` already caps the directional shadow map at 2048 with
+  cheaper filtering via `.web` feature overrides.

@@ -43,6 +43,7 @@ const STREAK_MIN := 3
 const STREAK_WINDOW := 3.0
 
 var _elapsed := 0.0
+var _shown_second := -1
 var _kills := 0
 var _running := true
 var _boss_health: HealthComponent
@@ -97,7 +98,12 @@ func _process(delta: float) -> void:
 	if not _running:
 		return
 	_elapsed += delta
-	timer_label.text = "%02d:%02d" % [int(_elapsed / 60.0), int(fmod(_elapsed, 60.0))]
+	# Rebuilding the string (and relayouting the label) only when the
+	# displayed second actually changes.
+	var second := int(_elapsed)
+	if second != _shown_second:
+		_shown_second = second
+		timer_label.text = "%02d:%02d" % [floori(second / 60.0), second % 60]
 	_update_skill_slots()
 	# Gold ticker: races toward the target, faster the further behind, so
 	# fountains read as a stream rather than a teleporting number.

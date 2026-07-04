@@ -12,8 +12,11 @@ const ENEMY_COLOR := Color(0.9, 0.25, 0.25)
 ## Enemy is winding up or attacking — the "check your back" signal.
 const ENEMY_ATTACKING_COLOR := Color(1.0, 0.62, 0.2)
 const ENEMY_STUNNED_COLOR := Color(0.55, 0.7, 1.0)
+## Blips don't need 60 Hz; redrawing every frame was measurable on web.
+const REDRAW_INTERVAL := 0.05
 
 var _player: Player
+var _redraw_accum := 0.0
 
 
 func _ready() -> void:
@@ -24,8 +27,11 @@ func _bind_player() -> void:
 	_player = get_tree().get_first_node_in_group(&"player") as Player
 
 
-func _process(_delta: float) -> void:
-	queue_redraw()
+func _process(delta: float) -> void:
+	_redraw_accum += delta
+	if _redraw_accum >= REDRAW_INTERVAL:
+		_redraw_accum = 0.0
+		queue_redraw()
 
 
 func _draw() -> void:
@@ -40,9 +46,9 @@ func _draw() -> void:
 	var forward := Vector2(-basis.z.x, -basis.z.z)
 	var origin := Vector2(_player.global_position.x, _player.global_position.z)
 	var scale_factor := radius / WORLD_RANGE
-	for node: Node in get_tree().get_nodes_in_group(&"enemies"):
-		var enemy := node as EnemyBase
-		if enemy == null or not enemy.is_inside_tree():
+	# Read-only pass, so the live list is safe to iterate directly.
+	for enemy: EnemyBase in EnemyBase.alive:
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
 			continue
 		var offset := Vector2(enemy.global_position.x, enemy.global_position.z) - origin
 		# Into view space: x along player right, y along player forward (up).
