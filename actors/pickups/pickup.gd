@@ -22,6 +22,8 @@ const ARENA_HALF := 19.0
 const MAGNET_PULSE_LOW := 0.8
 const MAGNET_PULSE_HIGH := 3.5
 const MAGNET_PULSE_TIME := 0.6
+const UNLOCK_PULSE_LOW := 1.5
+const UNLOCK_PULSE_HIGH := 4.0
 
 ## Every magnet pickup currently alive, so the minimap can ping them without
 ## a group scan.
@@ -29,6 +31,8 @@ static var magnets: Array[Pickup] = []
 
 var kind: StringName = &"gold"
 var value := 1
+## For &"unlock" relics, the flag granted on collect.
+var ability: StringName = &""
 ## Overridable per pickup: boss loot lives longer and magnets from further
 ## away so a fountain earned mid-swarm isn't stranded.
 var lifetime := LIFETIME
@@ -42,6 +46,7 @@ var _target: Node3D
 @onready var xp_mesh: MeshInstance3D = $XpMesh
 @onready var magnet_mesh: MeshInstance3D = $MagnetMesh
 @onready var health_mesh: Node3D = $HealthMesh
+@onready var unlock_mesh: MeshInstance3D = $UnlockMesh
 
 
 ## Call before adding to the tree.
@@ -57,13 +62,19 @@ func _ready() -> void:
 	xp_mesh.visible = kind == &"xp"
 	magnet_mesh.visible = kind == &"magnet"
 	health_mesh.visible = kind == &"health"
+	unlock_mesh.visible = kind == &"unlock"
 	_target = get_tree().get_first_node_in_group(&"player") as Node3D
 	if kind == &"magnet":
 		magnets.append(self)
 		# Walking to it is the decision — it must never home to the player.
 		magnet_radius = 0.0
 		lifetime = 45.0
-		_start_magnet_pulse()
+		_start_pulse(magnet_mesh, MAGNET_PULSE_LOW, MAGNET_PULSE_HIGH)
+	if kind == &"unlock":
+		# A permanent relic: walk to it, and it never expires unclaimed.
+		magnet_radius = 0.0
+		lifetime = INF
+		_start_pulse(unlock_mesh, UNLOCK_PULSE_LOW, UNLOCK_PULSE_HIGH)
 
 
 func _exit_tree() -> void:
@@ -77,18 +88,16 @@ func force_magnet() -> void:
 	_age = maxf(_age, MAGNET_DELAY)
 
 
-func _start_magnet_pulse() -> void:
-	var base_material := magnet_mesh.get_active_material(0)
+func _start_pulse(target_mesh: MeshInstance3D, low: float, high: float) -> void:
+	var base_material := target_mesh.get_active_material(0)
 	if base_material == null:
 		return
 	var material := base_material.duplicate() as StandardMaterial3D
-	magnet_mesh.material_override = material
+	target_mesh.material_override = material
 	var tween := create_tween()
 	tween.set_loops()
-	tween.tween_property(material, "emission_energy_multiplier", MAGNET_PULSE_HIGH,
-			MAGNET_PULSE_TIME)
-	tween.tween_property(material, "emission_energy_multiplier", MAGNET_PULSE_LOW,
-			MAGNET_PULSE_TIME)
+	tween.tween_property(material, "emission_energy_multiplier", high, MAGNET_PULSE_TIME)
+	tween.tween_property(material, "emission_energy_multiplier", low, MAGNET_PULSE_TIME)
 
 
 func _physics_process(delta: float) -> void:
@@ -102,11 +111,14 @@ func _physics_process(delta: float) -> void:
 		var to_player := _target.global_position + Vector3(0.0, 0.9, 0.0) - global_position
 		var dist := to_player.length()
 		if dist <= COLLECT_RADIUS:
-			EventBus.pickup_collected.emit(kind, value)
-			if kind == &"magnet":
-				for pickup: Pickup in get_tree().get_nodes_in_group(&"pickups"):
-					if pickup != self:
-						pickup.force_magnet()
+			if kind == &"unlock":
+				_claim_unlock()
+			else:
+				EventBus.pickup_collected.emit(kind, value)
+				if kind == &"magnet":
+					for pickup: Pickup in get_tree().get_nodes_in_group(&"pickups"):
+						if pickup != self:
+							pickup.force_magnet()
 			queue_free()
 			return
 		if dist <= magnet_radius:
@@ -125,3 +137,22 @@ func _physics_process(delta: float) -> void:
 		_velocity.z *= 0.6
 		if absf(_velocity.y) < 0.8:
 			_velocity = Vector3.ZERO
+
+
+## Claims a weapon-unlock relic: grants the ability (persisted immediately),
+## announces it on the wave banner, and plays a unique stinger.
+func _claim_unlock() -> void:
+	MetaProgression.grant_meta_ability(ability)
+	AudioManager.play(&"unlock_claim")
+	EventBus.wave_announcement.emit("%s CLAIMED — equip it from your loadout" % _unlock_label())
+
+
+## The claimed weapon's display name (upper-cased) for the banner, resolved
+## from the weapon registry by matching unlock_ability; falls back to the flag.
+func _unlock_label() -> String:
+	var weapon_registry := MetaProgression.weapon_registry
+	if weapon_registry != null:
+		for weapon: WeaponData in weapon_registry.weapons:
+			if weapon.unlock_ability == ability:
+				return weapon.display_name.to_upper()
+	return String(ability).to_upper()

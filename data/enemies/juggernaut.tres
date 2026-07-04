@@ -18,3 +18,4 @@ gold_reward = 100
 xp_reward = 60
 spawn_weight = 0.0
 tags = Array[StringName]([&"boss"])
+unlock_drops = Array[StringName]([&"weapon_warhammer"])

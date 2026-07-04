@@ -170,6 +170,7 @@ func _on_died() -> void:
 	for wave: int in LOOT_WAVES:
 		seq.tween_callback(_spawn_loot_wave.bind(wave))
 		seq.tween_interval(LOOT_WAVE_INTERVAL)
+	seq.tween_callback(_spawn_unlock_relic)
 	seq.tween_callback(queue_free)
 
 
@@ -209,3 +210,34 @@ func _wave_share(total: int, wave: int) -> int:
 	@warning_ignore("integer_division")
 	var base := total / LOOT_WAVES
 	return base + (1 if wave < total % LOOT_WAVES else 0)
+
+
+## The first unlock in this boss's list the player doesn't already own, or
+## &"" if they own them all.
+func _next_unlock_drop() -> StringName:
+	var owned := MetaProgression.get_granted_abilities()
+	for ability: StringName in data.unlock_drops:
+		if not owned.has(ability):
+			return ability
+	return &""
+
+
+## Weapon-relic finale: after the loot fountains, drop the next unowned weapon
+## unlock as an oversized relic the player walks over to claim. Nothing drops
+## if they own everything in the list.
+func _spawn_unlock_relic() -> void:
+	if not is_inside_tree():
+		return
+	var ability := _next_unlock_drop()
+	if ability == &"":
+		return
+	var parent := get_tree().current_scene
+	if parent == null:
+		return
+	var relic := PICKUP_SCENE.instantiate() as Pickup
+	relic.ability = ability
+	relic.setup(&"unlock", 1, Vector3(0.0, 6.0, 0.0))
+	parent.add_child(relic)
+	relic.global_position = global_position + Vector3(0.0, 1.2, 0.0)
+	BlastVfx.spawn(parent, global_position + Vector3(0.0, 0.15, 0.0), 4.0,
+			LOOT_RING_COLOR, 0.2, 0.5)

@@ -31,6 +31,7 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"health_pickup"] = _health_pickup()
 	sounds[&"loot_shimmer"] = _loot_shimmer()
 	sounds[&"level_up"] = _level_up()
+	sounds[&"unlock_claim"] = _unlock_claim()
 	sounds[&"boon"] = _boon()
 	sounds[&"fireball_shoot"] = _fireball_shoot()
 	sounds[&"explosion"] = _explosion()
@@ -185,6 +186,17 @@ static func _level_up() -> AudioStreamWAV:
 		var note := _env(_tone(0.32, notes[i], notes[i] * 1.005, 0.5, SINE), 0.005, 1.5)
 		out = _overlay(out, note, 0.09 * i)
 	return _to_wav(out, 0.6)
+
+
+## Weapon unlock claimed: a short low fanfare — a rising two-note power chord
+## (root + fifth) on a warm saw with a bright but brief metallic shimmer over
+## the top, so it reads as an earned reward without climbing into chime pitch.
+static func _unlock_claim() -> AudioStreamWAV:
+	var root := _env(_tone(0.4, 110.0, 130.0, 0.6, SAW), 0.01, 1.2)
+	var fifth := _env(_tone(0.4, 165.0, 195.0, 0.45, SAW), 0.015, 1.2)
+	var out := _overlay(root, fifth, 0.03)
+	var shimmer := _env(_noise(0.15, 3000.0, 1200.0, 0.35), 0.004, 1.8)
+	return _to_wav(_overlay(out, shimmer, 0.05), 0.7)
 
 
 ## Boon picked: two-note confirmation chime.

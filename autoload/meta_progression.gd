@@ -7,6 +7,7 @@ const SAVE_PATH: String = "user://save.json"
 const REGISTRY_PATH: String = "res://data/upgrades/registry.tres"
 const WEAPON_REGISTRY_PATH: String = "res://data/weapons/registry.tres"
 const DEFAULT_WEAPON: StringName = &"sword_and_shield"
+const SAVE_VERSION := 2
 
 var currencies: Dictionary[StringName, int] = {}
 var upgrade_levels: Dictionary[StringName, int] = {}
@@ -14,6 +15,9 @@ var registry: UpgradeRegistry
 var weapon_registry: WeaponRegistry
 ## Loadout: the weapon the player spawns with, chosen pre-run. Persisted.
 var selected_weapon: StringName = DEFAULT_WEAPON
+## Permanent abilities granted by boss drops (weapon unlocks). Persisted
+## separately from shop upgrades; unioned into get_granted_abilities().
+var unlocked_abilities: Array[StringName] = []
 
 
 func _ready() -> void:
@@ -26,15 +30,28 @@ func _ready() -> void:
 	load_game()
 
 
-## Ability flags granted by owned upgrades (spell unlocks etc.).
+## Ability flags granted by owned upgrades (spells) unioned with boss-drop
+## weapon unlocks. This one function is what is_weapon_unlocked, the loadout
+## picker, and boon gating all read.
 func get_granted_abilities() -> Array[StringName]:
 	var abilities: Array[StringName] = []
-	if registry == null:
-		return abilities
-	for upgrade: UpgradeData in registry.upgrades:
-		if upgrade.grants_ability != &"" and get_upgrade_level(upgrade.id) > 0:
-			abilities.append(upgrade.grants_ability)
+	if registry != null:
+		for upgrade: UpgradeData in registry.upgrades:
+			if upgrade.grants_ability != &"" and get_upgrade_level(upgrade.id) > 0:
+				abilities.append(upgrade.grants_ability)
+	for ability: StringName in unlocked_abilities:
+		if not abilities.has(ability):
+			abilities.append(ability)
 	return abilities
+
+
+## Grants a permanent ability from a boss drop and saves immediately — dying
+## seconds after the pickup must not eat the unlock.
+func grant_meta_ability(ability: StringName) -> void:
+	if ability == &"" or unlocked_abilities.has(ability):
+		return
+	unlocked_abilities.append(ability)
+	save_game()
 
 
 ## Every modifier granted by purchased upgrades; applied by the player on spawn.
@@ -109,8 +126,10 @@ func increment_upgrade(id: StringName) -> void:
 
 func save_game() -> void:
 	var data: Dictionary = {
+		"save_version": SAVE_VERSION,
 		"currencies": _to_string_keys(currencies),
 		"upgrade_levels": _to_string_keys(upgrade_levels),
+		"unlocked_abilities": _abilities_to_array(unlocked_abilities),
 		"selected_weapon": String(selected_weapon),
 	}
 	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -134,9 +153,15 @@ func load_game() -> void:
 	var data: Dictionary = parsed
 	currencies = _to_int_values(data.get("currencies", {}))
 	upgrade_levels = _to_int_values(data.get("upgrade_levels", {}))
+	unlocked_abilities = _to_abilities(data.get("unlocked_abilities", []))
 	var weapon_id: Variant = data.get("selected_weapon", String(DEFAULT_WEAPON))
 	if weapon_id is String:
 		selected_weapon = StringName(weapon_id)
+	# Legacy-data migration: keyed on pre-rework upgrade keys and self-erasing,
+	# so it runs once per save and stays correct even after the version bumps
+	# (a save migrated by an earlier milestone still gets later steps).
+	if _migrate_legacy_unlocks():
+		save_game()
 
 
 ## JSON keys must be String and numbers come back as float; convert both ways.
@@ -155,4 +180,41 @@ func _to_int_values(source: Variant) -> Dictionary[StringName, int]:
 	for key: Variant in dict:
 		if key is String and dict[key] is float:
 			result[StringName(key)] = int(dict[key])
+	return result
+
+
+## Weapon unlocks moved from the gold shop to boss drops. Keyed on the legacy
+## upgrade entries and self-erasing. Returns true if anything changed.
+func _migrate_legacy_unlocks() -> bool:
+	var changed := false
+	# Warhammer: a veteran who bought it keeps the weapon (moved to
+	# unlocked_abilities) and is refunded the 250 gold; the boss drop then
+	# gates fresh saves only.
+	if upgrade_levels.has(&"warhammer_unlock"):
+		if upgrade_levels[&"warhammer_unlock"] > 0:
+			if not unlocked_abilities.has(&"weapon_warhammer"):
+				unlocked_abilities.append(&"weapon_warhammer")
+			add_currency(&"gold", 250)
+		upgrade_levels.erase(&"warhammer_unlock")
+		changed = true
+	# NOTE (M5): extend this pass — firebolt/frost_nova -> weapon_staff.
+	return changed
+
+
+## StringName array -> plain String array for JSON.
+func _abilities_to_array(source: Array[StringName]) -> Array:
+	var result: Array = []
+	for ability: StringName in source:
+		result.append(String(ability))
+	return result
+
+
+## JSON array (of String) -> typed StringName array.
+func _to_abilities(source: Variant) -> Array[StringName]:
+	var result: Array[StringName] = []
+	if source is not Array:
+		return result
+	for value: Variant in source:
+		if value is String:
+			result.append(StringName(value))
 	return result

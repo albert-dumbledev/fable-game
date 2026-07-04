@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://actors/pickups/pickup.gd" id="1_script"]
 
@@ -54,6 +54,17 @@ size = Vector3(0.34, 0.12, 0.12)
 material = SubResource("StandardMaterial3D_health")
 size = Vector3(0.12, 0.34, 0.12)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_unlock"]
+albedo_color = Color(1, 0.85, 0.35, 1)
+roughness = 0.25
+emission_enabled = true
+emission = Color(1, 0.85, 0.35, 1)
+emission_energy_multiplier = 2.5
+
+[sub_resource type="PrismMesh" id="PrismMesh_unlock"]
+material = SubResource("StandardMaterial3D_unlock")
+size = Vector3(0.5, 1.0, 0.35)
+
 [node name="Pickup" type="Node3D"]
 script = ExtResource("1_script")
 
@@ -73,3 +84,6 @@ mesh = SubResource("BoxMesh_health_h")
 
 [node name="BarV" type="MeshInstance3D" parent="HealthMesh"]
 mesh = SubResource("BoxMesh_health_v")
+
+[node name="UnlockMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("PrismMesh_unlock")

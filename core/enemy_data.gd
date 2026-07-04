@@ -18,3 +18,6 @@ extends Resource
 ## Run time (seconds) before this enemy can appear in the spawn pool.
 @export var min_elapsed := 0.0
 @export var tags: Array[StringName] = []
+## Ordered ability flags; on boss death the first one the player doesn't own
+## drops as a weapon relic.
+@export var unlock_drops: Array[StringName] = []
