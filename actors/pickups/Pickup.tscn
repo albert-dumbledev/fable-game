@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://actors/pickups/pickup.gd" id="1_script"]
 
@@ -27,6 +27,33 @@ radius = 0.15
 height = 0.3
 material = SubResource("StandardMaterial3D_xp")
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_magnet"]
+albedo_color = Color(0.75, 0.2, 0.95, 1)
+roughness = 0.3
+emission_enabled = true
+emission = Color(0.75, 0.2, 0.95, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="TorusMesh" id="TorusMesh_magnet"]
+material = SubResource("StandardMaterial3D_magnet")
+inner_radius = 0.12
+outer_radius = 0.3
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_health"]
+albedo_color = Color(0.9, 0.15, 0.2, 1)
+roughness = 0.3
+emission_enabled = true
+emission = Color(0.9, 0.15, 0.2, 1)
+emission_energy_multiplier = 1.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_health_h"]
+material = SubResource("StandardMaterial3D_health")
+size = Vector3(0.34, 0.12, 0.12)
+
+[sub_resource type="BoxMesh" id="BoxMesh_health_v"]
+material = SubResource("StandardMaterial3D_health")
+size = Vector3(0.12, 0.34, 0.12)
+
 [node name="Pickup" type="Node3D"]
 script = ExtResource("1_script")
 
@@ -35,3 +62,14 @@ mesh = SubResource("SphereMesh_gold")
 
 [node name="XpMesh" type="MeshInstance3D" parent="."]
 mesh = SubResource("SphereMesh_xp")
+
+[node name="MagnetMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("TorusMesh_magnet")
+
+[node name="HealthMesh" type="Node3D" parent="."]
+
+[node name="BarH" type="MeshInstance3D" parent="HealthMesh"]
+mesh = SubResource("BoxMesh_health_h")
+
+[node name="BarV" type="MeshInstance3D" parent="HealthMesh"]
+mesh = SubResource("BoxMesh_health_v")

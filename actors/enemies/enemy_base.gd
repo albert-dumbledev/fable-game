@@ -14,6 +14,13 @@ static var alive: Array[EnemyBase] = []
 
 const PICKUP_SCENE := preload("res://actors/pickups/Pickup.tscn")
 const MAX_PICKUP_PIECES := 8
+## Rare utility drops: at most one magnet in the arena at a time (checked
+## via Pickup.magnets); health is a straight per-kill roll plus a guaranteed
+## boss-kill drop (see BossEnemy._spawn_loot_wave).
+const MAGNET_DROP_CHANCE := 0.007
+const HEALTH_DROP_CHANCE := 0.02
+const HEALTH_HEAL_PCT := 25
+const MAGNET_LIFETIME := 45.0
 
 const ATTACK_ACTIVE_TIME := 0.25
 const WINDUP_COLOR := Color(1.0, 0.55, 0.35)
@@ -335,6 +342,10 @@ func _on_died() -> void:
 			Color(_base_color.r, _base_color.g, _base_color.b, 0.4), 0.1, 0.25)
 	_spawn_pickups(&"gold", int(round(data.gold_reward * _reward_mult)))
 	_spawn_pickups(&"xp", int(round(data.xp_reward * _reward_mult)))
+	if Pickup.magnets.is_empty() and randf() < MAGNET_DROP_CHANCE:
+		_spawn_single_pickup(&"magnet", 1, MAGNET_LIFETIME)
+	if randf() < HEALTH_DROP_CHANCE:
+		_spawn_single_pickup(&"health", HEALTH_HEAL_PCT, 0.0)
 	var tween := create_tween()
 	tween.tween_property(self, "scale", Vector3.ONE * 0.05, 0.22)
 	tween.tween_callback(queue_free)
@@ -343,6 +354,22 @@ func _on_died() -> void:
 ## Explode the reward outward as collectable pieces.
 func _spawn_pickups(kind: StringName, total: int) -> void:
 	_spawn_pickup_pieces(kind, total, MAX_PICKUP_PIECES)
+
+
+## Spawns exactly one pickup with a gentle upward burst — used for the rare
+## utility drops (magnet, health), which are always a single piece.
+## `lifetime` overrides the pickup default when > 0.
+func _spawn_single_pickup(kind: StringName, value: int, lifetime: float) -> void:
+	var parent := get_tree().current_scene
+	if parent == null:
+		return
+	var pickup := PICKUP_SCENE.instantiate() as Pickup
+	var burst := Vector3(randf_range(-1.5, 1.5), randf_range(6.0, 9.0), randf_range(-1.5, 1.5))
+	pickup.setup(kind, value, burst)
+	if lifetime > 0.0:
+		pickup.lifetime = lifetime
+	parent.add_child(pickup)
+	pickup.global_position = global_position + Vector3(0.0, 1.2, 0.0)
 
 
 ## Split `total` reward into up to `pieces_cap` pickups and burst them out.

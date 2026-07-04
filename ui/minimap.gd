@@ -12,6 +12,7 @@ const ENEMY_COLOR := Color(0.9, 0.25, 0.25)
 ## Enemy is winding up or attacking — the "check your back" signal.
 const ENEMY_ATTACKING_COLOR := Color(1.0, 0.62, 0.2)
 const ENEMY_STUNNED_COLOR := Color(0.55, 0.7, 1.0)
+const MAGNET_PING_COLOR := Color(0.85, 0.3, 0.95)
 ## Blips don't need 60 Hz; redrawing every frame was measurable on web.
 const REDRAW_INTERVAL := 0.05
 
@@ -61,6 +62,20 @@ func _draw() -> void:
 		var blip_radius := BLIP_RADIUS
 		if enemy.state == EnemyBase.State.WINDUP or enemy.state == EnemyBase.State.ATTACK:
 			blip_radius = BLIP_RADIUS * 1.4
+		var edge := radius - blip_radius - 2.0
+		if map_pos.length() > edge:
+			map_pos = map_pos.normalized() * edge
+			color.a = 0.5
+		draw_circle(center + map_pos, blip_radius, color)
+	# Magnet pickups on the ground: a distinct ping so they read across the
+	# arena, same clamp-to-rim treatment as enemies.
+	for magnet: Pickup in Pickup.magnets:
+		if not is_instance_valid(magnet) or not magnet.is_inside_tree():
+			continue
+		var offset := Vector2(magnet.global_position.x, magnet.global_position.z) - origin
+		var map_pos := Vector2(offset.dot(right), -offset.dot(forward)) * scale_factor
+		var color := MAGNET_PING_COLOR
+		var blip_radius := BLIP_RADIUS * 1.2
 		var edge := radius - blip_radius - 2.0
 		if map_pos.length() > edge:
 			map_pos = map_pos.normalized() * edge

@@ -17,6 +17,15 @@ const GRAVITY := 18.0
 const REST_Y := 0.3
 const SPIN_SPEED := 3.0
 const ARENA_HALF := 19.0
+## Pulse range for the magnet mesh's emission — loud enough to read across
+## the arena without blowing out into a solid glow.
+const MAGNET_PULSE_LOW := 0.8
+const MAGNET_PULSE_HIGH := 3.5
+const MAGNET_PULSE_TIME := 0.6
+
+## Every magnet pickup currently alive, so the minimap can ping them without
+## a group scan.
+static var magnets: Array[Pickup] = []
 
 var kind: StringName = &"gold"
 var value := 1
@@ -31,6 +40,8 @@ var _target: Node3D
 
 @onready var gold_mesh: MeshInstance3D = $GoldMesh
 @onready var xp_mesh: MeshInstance3D = $XpMesh
+@onready var magnet_mesh: MeshInstance3D = $MagnetMesh
+@onready var health_mesh: Node3D = $HealthMesh
 
 
 ## Call before adding to the tree.
@@ -41,9 +52,43 @@ func setup(p_kind: StringName, p_value: int, burst_velocity: Vector3) -> void:
 
 
 func _ready() -> void:
+	add_to_group(&"pickups")
 	gold_mesh.visible = kind == &"gold"
 	xp_mesh.visible = kind == &"xp"
+	magnet_mesh.visible = kind == &"magnet"
+	health_mesh.visible = kind == &"health"
 	_target = get_tree().get_first_node_in_group(&"player") as Node3D
+	if kind == &"magnet":
+		magnets.append(self)
+		# Walking to it is the decision — it must never home to the player.
+		magnet_radius = 0.0
+		lifetime = 45.0
+		_start_magnet_pulse()
+
+
+func _exit_tree() -> void:
+	magnets.erase(self)
+
+
+## Forces this pickup into the collection path this very frame — used by a
+## collected magnet to vacuum every other pickup in the arena.
+func force_magnet() -> void:
+	magnet_radius = INF
+	_age = maxf(_age, MAGNET_DELAY)
+
+
+func _start_magnet_pulse() -> void:
+	var base_material := magnet_mesh.get_active_material(0)
+	if base_material == null:
+		return
+	var material := base_material.duplicate() as StandardMaterial3D
+	magnet_mesh.material_override = material
+	var tween := create_tween()
+	tween.set_loops()
+	tween.tween_property(material, "emission_energy_multiplier", MAGNET_PULSE_HIGH,
+			MAGNET_PULSE_TIME)
+	tween.tween_property(material, "emission_energy_multiplier", MAGNET_PULSE_LOW,
+			MAGNET_PULSE_TIME)
 
 
 func _physics_process(delta: float) -> void:
@@ -58,6 +103,10 @@ func _physics_process(delta: float) -> void:
 		var dist := to_player.length()
 		if dist <= COLLECT_RADIUS:
 			EventBus.pickup_collected.emit(kind, value)
+			if kind == &"magnet":
+				for pickup: Pickup in get_tree().get_nodes_in_group(&"pickups"):
+					if pickup != self:
+						pickup.force_magnet()
 			queue_free()
 			return
 		if dist <= magnet_radius:

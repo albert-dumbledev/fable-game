@@ -196,6 +196,10 @@ func _spawn_loot_wave(wave: int) -> void:
 			LOOT_BURST_SPEED, true, LOOT_LIFETIME, LOOT_MAGNET_RADIUS)
 	_spawn_pickup_pieces(&"xp", _wave_share(xp_total, wave), LOOT_XP_PIECES,
 			LOOT_BURST_SPEED, true, LOOT_LIFETIME, LOOT_MAGNET_RADIUS)
+	# The fight is where you bled for it — the first loot wave always
+	# carries a guaranteed heal.
+	if wave == 0:
+		_spawn_single_pickup(&"health", EnemyBase.HEALTH_HEAL_PCT, 0.0)
 	BlastVfx.spawn(get_tree().current_scene,
 			global_position + Vector3(0.0, 0.2, 0.0), 3.5, LOOT_RING_COLOR, 0.1, 0.3)
 

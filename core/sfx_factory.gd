@@ -27,6 +27,8 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"enemy_die"] = _enemy_die()
 	sounds[&"coin"] = _coin()
 	sounds[&"xp"] = _xp()
+	sounds[&"magnet_collect"] = _magnet_collect()
+	sounds[&"health_pickup"] = _health_pickup()
 	sounds[&"loot_shimmer"] = _loot_shimmer()
 	sounds[&"level_up"] = _level_up()
 	sounds[&"boon"] = _boon()
@@ -139,6 +141,27 @@ static func _xp() -> AudioStreamWAV:
 	var n2 := _env(_tone(0.22, 784.0, 786.0, 0.8, SINE), 0.003, 1.6)
 	var out := _overlay(thump, n1, 0.0)
 	return _to_wav(_overlay(out, n2, 0.07), 0.45)
+
+
+## Magnet pickup: a big, low whoomp as the field kicks in, with a rising
+## filtered-noise swell and a soft mid chord shimmer riding in behind it as
+## the loot arrives. Everything low per the audio direction — it reads as
+## weight, not a chime.
+static func _magnet_collect() -> AudioStreamWAV:
+	var whoomp := _env(_tone(0.5, 90.0, 28.0, 1.0, SINE), 0.01, 1.1)
+	var swell := _env(_noise(0.4, 220.0, 1400.0, 0.55), 0.08, 1.3)
+	var out := _overlay(whoomp, swell, 0.05)
+	var chord := _env(_tone(0.4, 220.0, 221.0, 0.3, SINE), 0.06, 1.4)
+	chord = _overlay(chord, _env(_tone(0.4, 277.18, 278.0, 0.25, SINE), 0.06, 1.4), 0.0)
+	return _to_wav(_overlay(out, chord, 0.12), 0.7)
+
+
+## Health pickup: a short warm blip — gentle attack, low soft body, clearly
+## rounder than the coin/xp cues.
+static func _health_pickup() -> AudioStreamWAV:
+	var body := _env(_tone(0.1, 170.0, 150.0, 0.5, SINE), 0.015, 1.6)
+	var blip := _env(_tone(0.2, 220.0, 330.0, 0.7, SINE), 0.02, 1.5)
+	return _to_wav(_overlay(body, blip, 0.02), 0.5)
 
 
 ## Mass pickup vacuum: one warm rolled chord instead of twenty coin blips.

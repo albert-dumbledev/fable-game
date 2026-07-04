@@ -117,6 +117,12 @@ func _on_level_up(_new_level: int) -> void:
 
 
 func _on_pickup_collected(kind: StringName, _value: int) -> void:
+	if kind == &"magnet":
+		play(&"magnet_collect", 0.0, 0.05)
+		return
+	if kind == &"health":
+		play(&"health_pickup", -3.0, 0.1)
+		return
 	var now := Time.get_ticks_msec()
 	if now - _burst_start_ms > BURST_WINDOW_MS:
 		_burst_start_ms = now

@@ -125,6 +125,7 @@ func _ready() -> void:
 	health.set_max_health(stats.get_stat(Stats.MAX_HEALTH), true)
 	health.damaged.connect(_on_damaged)
 	health.died.connect(_on_died)
+	EventBus.pickup_collected.connect(_on_pickup_collected)
 	_mount_weapon(MetaProgression.get_selected_weapon())
 	for ability: StringName in MetaProgression.get_granted_abilities():
 		grant_ability(ability)
@@ -550,3 +551,10 @@ func _on_died() -> void:
 		return
 	_dead = true
 	EventBus.player_died.emit()
+
+
+## Health pickups heal a percentage of current max health (scales with
+## Bulwark/Vitality stacking rather than a flat amount).
+func _on_pickup_collected(kind: StringName, value: int) -> void:
+	if kind == &"health":
+		health.heal(stats.get_stat(Stats.MAX_HEALTH) * float(value) / 100.0)
