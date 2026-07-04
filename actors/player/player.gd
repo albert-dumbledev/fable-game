@@ -21,6 +21,12 @@ const PERFECT_BLOCK_WINDOW := 0.2
 const PERFECT_BLOCK_STUN := 1.5
 ## Duelist's Focus (sword unique boon) widens the parry window by this much.
 const LONG_PARRY_BONUS := 0.15
+## Riposte (sword core): a perfect block primes a window; the next sword swing
+## deals RIPOSTE_BASE_BONUS more damage to everything it hits, scaled by the
+## riposte_damage stat, then the prime is consumed. Priming again only
+## refreshes the window — there is never more than one riposte buffered.
+const RIPOSTE_BASE_BONUS := 0.75
+const RIPOSTE_WINDOW := 2.0
 ## Dash: a fixed-distance blink — traveled, not teleported — with full
 ## intangibility (no enemy collision, no damage, projectiles pass through).
 const DASH_DISTANCE := 6.0
@@ -78,6 +84,8 @@ var _pitch := 0.0
 var _eye_offset := Vector3.ZERO
 var _dead := false
 var _block_started_ms := -10000
+## ticks_msec deadline for the primed riposte; 0.0 = not primed.
+var _riposte_until := 0.0
 var _guard := GUARD_MAX
 var _guard_broken := false
 var _shake := 0.0
@@ -120,6 +128,10 @@ func _ready() -> void:
 	stats.set_base(Stats.FIREBALL_AOE, 1.0)
 	stats.set_base(Stats.FIREBALL_CHARGES, 1.0)
 	stats.set_base(Stats.HAMMER_AOE, 1.0)
+	stats.set_base(Stats.RIPOSTE_DAMAGE, 1.0)
+	stats.set_base(Stats.PARRY_STUN, 1.0)
+	stats.set_base(Stats.HAMMER_SHOVE, 1.0)
+	stats.set_base(Stats.SPELL_DAMAGE, 1.0)
 	for modifier: StatModifier in MetaProgression.get_stat_modifiers():
 		stats.add_modifier(modifier)
 	health.set_max_health(stats.get_stat(Stats.MAX_HEALTH), true)
@@ -268,8 +280,10 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 			if perfect:
 				EventBus.perfect_block.emit()
 				FreezeFrame.hit_pause(PARRY_HIT_PAUSE)
+				_prime_riposte()
 				if info.source.has_method(&"stun"):
-					info.source.call(&"stun", PERFECT_BLOCK_STUN)
+					info.source.call(&"stun",
+							PERFECT_BLOCK_STUN * stats.get_stat(Stats.PARRY_STUN))
 			else:
 				EventBus.attack_blocked.emit()
 				_drain_guard(GUARD_HIT_COST)
@@ -528,6 +542,22 @@ func grant_ability(id: StringName) -> void:
 
 func has_ability(id: StringName) -> bool:
 	return _abilities.get(id, false)
+
+
+## A perfect block primes/refreshes the riposte window and lights the blade.
+func _prime_riposte() -> void:
+	_riposte_until = float(Time.get_ticks_msec()) + RIPOSTE_WINDOW * 1000.0
+	weapon.notify_riposte_primed(RIPOSTE_WINDOW)
+
+
+## Consumed by the sword at swing start: the riposte damage bonus (0.0 if not
+## primed), base +75% scaled by the riposte_damage stat. Clears the prime, so
+## exactly one swing is buffed per parry.
+func consume_riposte() -> float:
+	if _riposte_until <= 0.0 or float(Time.get_ticks_msec()) > _riposte_until:
+		return 0.0
+	_riposte_until = 0.0
+	return RIPOSTE_BASE_BONUS * stats.get_stat(Stats.RIPOSTE_DAMAGE)
 
 
 func _on_vampire_kill(_enemy_data: Resource, _position: Vector3) -> void:

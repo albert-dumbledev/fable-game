@@ -33,12 +33,15 @@ const HIT_PAUSE := 0.03
 @onready var postit_model: Node3D = $ShieldPivot/PostItModel
 @onready var shield_face: MeshInstance3D = $ShieldPivot/ShieldModel/Face
 @onready var postit_face: MeshInstance3D = $ShieldPivot/PostItModel/Note
+@onready var blade: MeshInstance3D = $SwordPivot/SwordModel/Blade
 
 var _swing_tween: Tween
 var _shield_tween: Tween
 var _flash_tween: Tween
 var _swing_flip := false
 var _shield_material: StandardMaterial3D
+var _blade_material: StandardMaterial3D
+var _riposte_tween: Tween
 
 
 func _ready() -> void:
@@ -49,6 +52,13 @@ func _ready() -> void:
 	hitbox.landed.connect(_on_hit_landed)
 	Settings.changed.connect(_apply_style)
 	_apply_style()
+	var blade_mat := blade.get_active_material(0)
+	if blade_mat != null:
+		_blade_material = blade_mat.duplicate() as StandardMaterial3D
+		_blade_material.emission_enabled = true
+		_blade_material.emission = Color(1.0, 0.85, 0.3)
+		_blade_material.emission_energy_multiplier = 0.0
+		blade.material_override = _blade_material
 
 
 func _on_hit_landed(_hurtbox: HurtboxComponent) -> void:
@@ -78,6 +88,11 @@ func _apply_style() -> void:
 
 func _do_attack(duration: float) -> void:
 	var damage := weapon_data.damage + stats.get_stat(Stats.DAMAGE)
+	var player := wielder as Player
+	var riposte := player.consume_riposte() if player != null else 0.0
+	if riposte > 0.0:
+		damage *= 1.0 + riposte
+		_flash_riposte(duration)
 	var info := AttackInfo.new(wielder, damage)
 	info.hit_sound = &"melee_hit"
 	_swing_flip = not _swing_flip
@@ -157,3 +172,26 @@ func notify_block_success(perfect: bool = false) -> void:
 	_shield_tween = create_tween()
 	_shield_tween.tween_property(shield_pivot, "position", SHIELD_BLOCK_POS, 0.18) \
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+## Primed-riposte tell: the blade lights gold and the glow fades over the
+## window, so the player sees the punish window counting down.
+func notify_riposte_primed(window: float = 2.0) -> void:
+	if _blade_material == null:
+		return
+	if _riposte_tween != null:
+		_riposte_tween.kill()
+	_blade_material.emission_energy_multiplier = 3.0
+	_riposte_tween = create_tween()
+	_riposte_tween.tween_property(_blade_material, "emission_energy_multiplier", 0.0, window)
+
+
+## Consuming swing: a bright gold flash that decays over the swing.
+func _flash_riposte(duration: float) -> void:
+	if _blade_material == null:
+		return
+	if _riposte_tween != null:
+		_riposte_tween.kill()
+	_blade_material.emission_energy_multiplier = 6.0
+	_riposte_tween = create_tween()
+	_riposte_tween.tween_property(_blade_material, "emission_energy_multiplier", 0.0, duration * 0.6)

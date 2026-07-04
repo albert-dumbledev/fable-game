@@ -21,6 +21,9 @@ extends Resource
 ## Empty = a branch root, always available.
 @export var requires_upgrade: StringName = &""
 @export var requires_level := 1
+## Hidden entirely from the shop until this ability flag is owned (weapon
+## subtrees appear only after their boss drop). Empty = always visible.
+@export var requires_ability: StringName = &""
 
 
 func cost_at(level: int) -> int:

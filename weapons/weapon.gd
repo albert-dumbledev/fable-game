@@ -97,3 +97,8 @@ func _on_blocking_changed() -> void:
 ## Override: feedback when this weapon successfully blocks a hit.
 func notify_block_success(_perfect: bool = false) -> void:
 	pass
+
+
+## Override: the perfect-block riposte was primed (sword lights the blade).
+func notify_riposte_primed(_window: float = 2.0) -> void:
+	pass

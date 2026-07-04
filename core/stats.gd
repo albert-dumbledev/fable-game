@@ -15,6 +15,10 @@ const CAST_TIME := &"cast_time"
 const FIREBALL_AOE := &"fireball_aoe"
 const FIREBALL_CHARGES := &"fireball_charges"
 const HAMMER_AOE := &"hammer_aoe"
+const RIPOSTE_DAMAGE := &"riposte_damage"
+const PARRY_STUN := &"parry_stun"
+const HAMMER_SHOVE := &"hammer_shove"
+const SPELL_DAMAGE := &"spell_damage"
 
 
 static func display_name(stat: StringName) -> String:
@@ -37,4 +41,12 @@ static func display_name(stat: StringName) -> String:
 			return "fireball charge"
 		HAMMER_AOE:
 			return "slam size"
+		RIPOSTE_DAMAGE:
+			return "riposte damage"
+		PARRY_STUN:
+			return "parry stun"
+		HAMMER_SHOVE:
+			return "shove force"
+		SPELL_DAMAGE:
+			return "spell damage"
 	return String(stat)

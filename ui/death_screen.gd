@@ -50,7 +50,11 @@ func _refresh() -> void:
 		var column := _make_column(branch, gold)
 		placed += int(column.get_meta(&"card_count", 0))
 		branches_box.add_child(column)
-	if placed < MetaProgression.registry.upgrades.size():
+	var hidden := 0
+	for upgrade: UpgradeData in MetaProgression.registry.upgrades:
+		if _is_hidden(upgrade):
+			hidden += 1
+	if placed + hidden < MetaProgression.registry.upgrades.size():
 		push_warning("Some upgrades have a branch not listed in DeathScreen.BRANCHES.")
 
 
@@ -67,6 +71,8 @@ func _make_column(branch: Dictionary, gold: int) -> Control:
 	var cards := 0
 	for upgrade: UpgradeData in MetaProgression.registry.upgrades:
 		if upgrade.branch != branch["id"]:
+			continue
+		if _is_hidden(upgrade):
 			continue
 		if cards > 0:
 			var arrow := Label.new()
@@ -154,6 +160,13 @@ func _is_locked(upgrade: UpgradeData) -> bool:
 	return upgrade.requires_upgrade != &"" \
 			and MetaProgression.get_upgrade_level(upgrade.requires_upgrade) \
 			< upgrade.requires_level
+
+
+## Hidden until its gating ability is owned — the whole card, not just locked
+## (this is how weapon subtrees appear only after the weapon's boss drop).
+func _is_hidden(upgrade: UpgradeData) -> bool:
+	return upgrade.requires_ability != &"" \
+			and not MetaProgression.get_granted_abilities().has(upgrade.requires_ability)
 
 
 func _display_name_of(id: StringName) -> String:
