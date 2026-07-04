@@ -1,18 +1,20 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene format=3 uid="uid://qw6qxy1iop28"]
 
-[ext_resource type="Script" path="res://ui/hud.gd" id="1_script"]
-[ext_resource type="Script" path="res://ui/minimap.gd" id="2_minimap"]
-[ext_resource type="Shader" path="res://ui/speed_lines.gdshader" id="3_speedlines_shader"]
-[ext_resource type="Script" path="res://ui/speed_lines.gd" id="4_speedlines"]
-[ext_resource type="Shader" path="res://ui/vignette.gdshader" id="5_vignette_shader"]
+[ext_resource type="Script" uid="uid://c46e2k52drtji" path="res://ui/hud.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://c5vysfwc4xt3u" path="res://ui/minimap.gd" id="2_minimap"]
+[ext_resource type="Shader" uid="uid://bu0vqj7j3fvle" path="res://ui/speed_lines.gdshader" id="3_speedlines_shader"]
+[ext_resource type="Script" uid="uid://cvvl4go2l64jq" path="res://ui/speed_lines.gd" id="4_speedlines"]
+[ext_resource type="Shader" uid="uid://romeo6kb5u2o" path="res://ui/vignette.gdshader" id="5_vignette_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_speedlines"]
 shader = ExtResource("3_speedlines_shader")
 shader_parameter/intensity = 0.0
+shader_parameter/line_color = Color(0.75, 0.85, 1, 1)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_vignette"]
 shader = ExtResource("5_vignette_shader")
 shader_parameter/intensity = 0.0
+shader_parameter/tint = Color(0.7, 0.05, 0.05, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xp_fill"]
 bg_color = Color(0.25, 0.85, 0.9, 1)
@@ -21,29 +23,33 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[node name="HUD" type="CanvasLayer"]
+[node name="HUD" type="CanvasLayer" unique_id=430858578]
 script = ExtResource("1_script")
 
-[node name="SpeedLines" type="ColorRect" parent="."]
+[node name="SpeedLines" type="ColorRect" parent="." unique_id=21236345]
 material = SubResource("ShaderMaterial_speedlines")
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource("4_speedlines")
 
-[node name="LowHealthVignette" type="ColorRect" parent="."]
+[node name="LowHealthVignette" type="ColorRect" parent="." unique_id=2075910903]
 material = SubResource("ShaderMaterial_vignette")
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="DamageFlash" type="ColorRect" parent="."]
+[node name="DamageFlash" type="ColorRect" parent="." unique_id=488833223]
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(1, 0, 0, 0)
 
-[node name="TopBar" type="HBoxContainer" parent="."]
+[node name="TopBar" type="HBoxContainer" parent="." unique_id=1455220531]
+anchors_preset = 10
 anchor_right = 1.0
 offset_left = 16.0
 offset_top = 16.0
@@ -51,76 +57,83 @@ offset_right = -16.0
 offset_bottom = 56.0
 theme_override_constants/separation = 24
 
-[node name="HealthSlot" type="Control" parent="TopBar"]
+[node name="HealthSlot" type="Control" parent="TopBar" unique_id=392205648]
 custom_minimum_size = Vector2(280, 26)
+layout_mode = 2
 
-[node name="GhostBar" type="ProgressBar" parent="TopBar/HealthSlot"]
+[node name="GhostBar" type="ProgressBar" parent="TopBar/HealthSlot" unique_id=232811350]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-max_value = 100.0
 value = 100.0
 show_percentage = false
 
-[node name="HealthBar" type="ProgressBar" parent="TopBar/HealthSlot"]
+[node name="HealthBar" type="ProgressBar" parent="TopBar/HealthSlot" unique_id=1528617658]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-max_value = 100.0
 value = 100.0
 show_percentage = false
 
-[node name="TimerLabel" type="Label" parent="TopBar"]
+[node name="TimerLabel" type="Label" parent="TopBar" unique_id=2137972930]
+layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "00:00"
 
-[node name="KillsLabel" type="Label" parent="TopBar"]
+[node name="KillsLabel" type="Label" parent="TopBar" unique_id=1862318172]
+layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Kills: 0"
 
-[node name="GoldLabel" type="Label" parent="TopBar"]
+[node name="GoldLabel" type="Label" parent="TopBar" unique_id=514658191]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.8, 0.35, 1)
 theme_override_font_sizes/font_size = 22
 text = "Gold: 0"
 
-[node name="BossNameLabel" type="Label" parent="."]
+[node name="BossNameLabel" type="Label" parent="." unique_id=807941213]
 visible = false
+anchors_preset = -1
 anchor_left = 0.3
 anchor_right = 0.7
 offset_top = 92.0
 offset_bottom = 116.0
 theme_type_variation = &"TitleLabel"
-theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(1, 0.35, 0.3, 1)
-horizontal_alignment = 1
+theme_override_font_sizes/font_size = 18
 text = "BOSS"
+horizontal_alignment = 1
 
-[node name="BossBar" type="ProgressBar" parent="."]
+[node name="BossBar" type="ProgressBar" parent="." unique_id=118505064]
 visible = false
+modulate = Color(1, 0.4, 0.35, 1)
+anchors_preset = -1
 anchor_left = 0.3
 anchor_right = 0.7
 offset_top = 118.0
 offset_bottom = 134.0
-modulate = Color(1, 0.4, 0.35, 1)
 max_value = 400.0
 value = 400.0
 show_percentage = false
 
-[node name="AnnounceLabel" type="Label" parent="."]
+[node name="AnnounceLabel" type="Label" parent="." unique_id=408682361]
 modulate = Color(1, 1, 1, 0)
-anchor_right = 1.0
+anchors_preset = -1
 anchor_top = 0.3
+anchor_right = 1.0
 anchor_bottom = 0.3
 offset_bottom = 60.0
 theme_type_variation = &"TitleLabel"
-theme_override_font_sizes/font_size = 40
 theme_override_colors/font_color = Color(1, 0.35, 0.3, 1)
+theme_override_font_sizes/font_size = 40
 horizontal_alignment = 1
-text = ""
 
-[node name="StreakLabel" type="Label" parent="."]
+[node name="StreakLabel" type="Label" parent="." unique_id=437162215]
 modulate = Color(1, 1, 1, 0)
+anchors_preset = -1
 anchor_left = 0.5
-anchor_right = 0.5
 anchor_top = 0.42
+anchor_right = 0.5
 anchor_bottom = 0.42
 offset_left = -150.0
 offset_right = 150.0
@@ -128,9 +141,9 @@ offset_bottom = 34.0
 theme_type_variation = &"TitleLabel"
 theme_override_font_sizes/font_size = 26
 horizontal_alignment = 1
-text = ""
 
-[node name="XpRow" type="HBoxContainer" parent="."]
+[node name="XpRow" type="HBoxContainer" parent="." unique_id=1759339859]
+anchors_preset = 10
 anchor_right = 1.0
 offset_left = 16.0
 offset_top = 62.0
@@ -138,19 +151,22 @@ offset_right = -16.0
 offset_bottom = 84.0
 theme_override_constants/separation = 12
 
-[node name="LevelLabel" type="Label" parent="XpRow"]
+[node name="LevelLabel" type="Label" parent="XpRow" unique_id=1958574718]
+layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "Lv 0"
 
-[node name="XpBar" type="ProgressBar" parent="XpRow"]
+[node name="XpBar" type="ProgressBar" parent="XpRow" unique_id=940066050]
 custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 4
 theme_override_styles/fill = SubResource("StyleBoxFlat_xp_fill")
 max_value = 20.0
 show_percentage = false
 
-[node name="SkillRow" type="HBoxContainer" parent="."]
+[node name="SkillRow" type="HBoxContainer" parent="." unique_id=370693970]
+anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
@@ -159,10 +175,12 @@ offset_left = -150.0
 offset_top = -104.0
 offset_right = 150.0
 offset_bottom = -20.0
-alignment = 1
 theme_override_constants/separation = 14
+alignment = 1
 
-[node name="Minimap" type="Control" parent="."]
+[node name="Minimap" type="Control" parent="." unique_id=1470138963]
+layout_mode = 3
+anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -216.0

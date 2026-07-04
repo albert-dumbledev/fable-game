@@ -6,20 +6,27 @@ extends Resource
 @export var enemies: Array[EnemyData] = []
 ## Scheduled one-shot spawns (bosses, ambushes), sorted by time.
 @export var events: Array[WaveEvent] = []
+
 @export var start_interval := 2.5
 @export var min_interval := 0.4
 @export var interval_ramp_time := 240.0
+
 @export var hp_growth_per_min := 0.5
 @export var dmg_growth_per_min := 0.25
 ## Gold/XP drops scale alongside enemy strength.
 @export var reward_growth_per_min := 0.3
+
 @export var max_alive_start := 15
 @export var max_alive_end := 60
 @export var max_alive_ramp_time := 300.0
 
 
 func spawn_interval_at(elapsed: float) -> float:
-	return lerpf(start_interval, min_interval, clampf(elapsed / interval_ramp_time, 0.0, 1.0))
+	return lerpf(
+		start_interval,
+		min_interval,
+		clampf(elapsed / interval_ramp_time, 0.0, 1.0)
+	)
 
 
 func hp_mult_at(elapsed: float) -> float:
@@ -40,19 +47,39 @@ func max_alive_at(elapsed: float) -> int:
 
 
 func pick_enemy(elapsed: float) -> EnemyData:
-	var total := 0.0
+	var total_weight := 0.0
+
 	for data: EnemyData in enemies:
-		if elapsed >= data.min_elapsed:
-			total += data.spawn_weight
-	if total <= 0.0:
+		total_weight += _effective_spawn_weight(data, elapsed)
+
+	if total_weight <= 0.0:
 		return null
-	var roll := randf() * total
-	var last: EnemyData = null
+
+	var roll := randf() * total_weight
+
 	for data: EnemyData in enemies:
-		if elapsed < data.min_elapsed:
-			continue
-		last = data
-		roll -= data.spawn_weight
+		roll -= _effective_spawn_weight(data, elapsed)
+
 		if roll <= 0.0:
 			return data
-	return last
+
+	return null
+
+
+func _effective_spawn_weight(data: EnemyData, elapsed: float) -> float:
+	if elapsed < data.min_elapsed:
+		return 0.0
+
+	if data.weight_ramp_duration <= 0.0:
+		return data.spawn_weight
+
+	var progress := clampf(
+		(elapsed - data.min_elapsed) / data.weight_ramp_duration,
+		0.0,
+		1.0
+	)
+
+	# Quadratic ease-in.
+	progress *= progress
+
+	return data.spawn_weight * progress

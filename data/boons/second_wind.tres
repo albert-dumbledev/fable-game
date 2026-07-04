@@ -6,7 +6,7 @@
 script = ExtResource("1_script")
 id = &"second_wind"
 display_name = "Second Wind"
-description = "Perfect blocks heal 4 HP and refund half a second of guard"
+description = "Perfect blocks heal 8 HP and refund half a second of guard"
 weight = 0.3
 unique = true
 grants_ability = &"parry_heal"

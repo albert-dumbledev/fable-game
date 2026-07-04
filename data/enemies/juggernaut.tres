@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="EnemyData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://bkognv01ld0bw"]
 
-[ext_resource type="Script" path="res://core/enemy_data.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://b7careyj8tn88" path="res://core/enemy_data.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://actors/enemies/BossEnemy.tscn" id="2_scene"]
 
 [resource]

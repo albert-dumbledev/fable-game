@@ -16,3 +16,4 @@ recover_time = 0.5
 gold_reward = 5
 xp_reward = 4
 spawn_weight = 1.0
+weight_ramp_duration = 0.0

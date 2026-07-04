@@ -7,7 +7,7 @@
 [ext_resource type="Resource" path="res://data/enemies/brute.tres" id="5_brute"]
 [ext_resource type="Resource" path="res://data/enemies/spitter.tres" id="6_spitter"]
 [ext_resource type="Script" uid="uid://cs5y5yhlxd13f" path="res://core/wave_event.gd" id="7_event"]
-[ext_resource type="Resource" path="res://data/enemies/juggernaut.tres" id="8_boss"]
+[ext_resource type="Resource" uid="uid://bkognv01ld0bw" path="res://data/enemies/juggernaut.tres" id="8_boss"]
 
 [sub_resource type="Resource" id="Resource_boss1"]
 script = ExtResource("7_event")

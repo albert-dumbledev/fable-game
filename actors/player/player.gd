@@ -72,7 +72,7 @@ const PARRY_NOVA_DAMAGE_MULT := 0.5
 const PARRY_NOVA_SHOVE := 8.0
 const PARRY_NOVA_COLOR := Color(1.0, 0.85, 0.3, 0.55)
 ## Second Wind (parry_heal): perfect-block sustain.
-const PARRY_HEAL_AMOUNT := 4.0
+const PARRY_HEAL_AMOUNT := 8.0
 const PARRY_GUARD_REFUND := 0.5
 
 @onready var camera_rig: Node3D = $CameraRig
@@ -127,7 +127,7 @@ func _ready() -> void:
 	Settings.changed.connect(_on_settings_changed)
 	# 80: a fresh run should feel 4-5 early hits from death; in-run health
 	# boons (Bulwark) are the intended survivability investment.
-	stats.set_base(Stats.MAX_HEALTH, 80.0)
+	stats.set_base(Stats.MAX_HEALTH, 100.0)
 	stats.set_base(Stats.MOVE_SPEED, 6.0)
 	stats.set_base(Stats.DAMAGE, 0.0)
 	stats.set_base(Stats.ATTACK_SPEED, 1.0)

@@ -80,7 +80,7 @@ Implemented as `_riposte_until` on the player, read in `sword_and_shield.gd::_do
 | Punishing Stun | +30% parry stun duration (`parry_stun`) | stat, stackable |
 | Retribution | Perfect blocks detonate a 3m pulse: 50% weapon damage + shove 8 to everything around you | unique (`parry_nova`) |
 | Expose Weakness | Parried enemies take +35% damage from **all** sources while stunned | unique (`exposing_parry`) |
-| Second Wind | Perfect blocks heal 4 HP and refund 0.5s guard | unique (`parry_heal`) |
+| Second Wind | Perfect blocks heal 8 HP and refund 0.5s guard | unique (`parry_heal`) |
 | Blade Cyclone | Riposte swings hit in a full circle around you | unique (`riposte_sweep`) |
 
 Effect sites: `player.gd::mitigate_hit` (nova, heal, stun scaling — the perfect-block branch already exists), `EnemyBase` (a `vulnerable_until` timestamp checked in `take_damage` routing, tint like the chill tint), `sword_and_shield.gd` (riposte damage + sweep arc).
