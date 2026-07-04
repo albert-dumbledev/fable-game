@@ -9,7 +9,8 @@
 [ext_resource type="Resource" path="res://data/upgrades/firebolt.tres" id="7_fb"]
 [ext_resource type="Resource" path="res://data/upgrades/frost_nova.tres" id="8_fn"]
 [ext_resource type="Resource" path="res://data/upgrades/counterweight.tres" id="9_cw"]
+[ext_resource type="Resource" path="res://data/upgrades/heavyweight.tres" id="10_hw"]
 
 [resource]
 script = ExtResource("1_script")
-upgrades = Array[ExtResource("2_type")]([ExtResource("3_dmg"), ExtResource("4_hp"), ExtResource("5_as"), ExtResource("6_ms"), ExtResource("7_fb"), ExtResource("8_fn"), ExtResource("9_cw")])
+upgrades = Array[ExtResource("2_type")]([ExtResource("3_dmg"), ExtResource("4_hp"), ExtResource("5_as"), ExtResource("6_ms"), ExtResource("7_fb"), ExtResource("8_fn"), ExtResource("9_cw"), ExtResource("10_hw")])

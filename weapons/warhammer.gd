@@ -23,6 +23,9 @@ const AFTERSHOCK_DELAY := 0.45
 const AFTERSHOCK_DAMAGE_MULT := 0.5
 const AFTERSHOCK_AOE_MULT := 0.8
 const AFTERSHOCK_SHOVE_MULT := 0.6
+## Implosion (unique boon): slam pulls the pack inward and briefly staggers
+## them. Shorter than the swing so you must start the follow-up slam mid-pull.
+const PULL_STUN := 0.5
 ## Seismic Slam (RMB): a long committed overhead windup, then a slam that
 ## sends a GroundShockwave forward in a straight line.
 const WAVE_WINDUP := 1.1
@@ -138,22 +141,23 @@ func _impact(damage: float) -> void:
 	forward = forward.normalized()
 	var point := wielder.global_position + forward * IMPACT_DISTANCE
 	var aoe := stats.get_stat(Stats.HAMMER_AOE)
+	var shove := SHOVE_FORCE * stats.get_stat(Stats.HAMMER_SHOVE)
 	AudioManager.play(&"hammer_slam")
-	if _slam(point, damage, aoe, SHOVE_FORCE) > 0:
+	if _slam(point, damage, aoe, shove) > 0:
 		FreezeFrame.hit_pause(HIT_PAUSE)
 	var player := wielder as Player
 	if player != null:
 		player.add_shake(0.5)
 		if player.has_ability(&"aftershock"):
 			get_tree().create_timer(AFTERSHOCK_DELAY, false).timeout.connect(
-					_aftershock.bind(point, damage, aoe))
+					_aftershock.bind(point, damage, aoe, shove))
 
 
-func _aftershock(point: Vector3, damage: float, aoe: float) -> void:
+func _aftershock(point: Vector3, damage: float, aoe: float, shove: float) -> void:
 	if not is_inside_tree():
 		return
 	_slam(point, damage * AFTERSHOCK_DAMAGE_MULT, aoe * AFTERSHOCK_AOE_MULT,
-			SHOVE_FORCE * AFTERSHOCK_SHOVE_MULT)
+			shove * AFTERSHOCK_SHOVE_MULT)
 
 
 ## Returns how many enemies took damage, so callers can gate impact
@@ -162,6 +166,8 @@ func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> int:
 	var inner := INNER_RADIUS * aoe_mult
 	var outer := OUTER_RADIUS * aoe_mult
 	var hit_count := 0
+	var player := wielder as Player
+	var pull := player != null and player.has_ability(&"slam_pull")
 	for enemy: EnemyBase in EnemyBase.alive.duplicate():
 		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
 			continue
@@ -181,6 +187,12 @@ func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> int:
 			hurtbox.receive_hit(info)
 			hit_count += 1
 		if dist > 0.01:
-			enemy.apply_shove(offset.normalized() * shove)
+			var push := offset.normalized() * shove
+			enemy.apply_shove(-push if pull else push)
+		# Gather-stun: a freshly pulled pack is briefly staggered so it
+		# can't wind up on you. Guarded against re-stun so Aftershock's
+		# second pull can't stun-lock (Implosion + Aftershock).
+		if pull and enemy.state != EnemyBase.State.STUNNED:
+			enemy.stun(PULL_STUN)
 	BlastVfx.spawn(get_tree().current_scene, point, outer, SHOCKWAVE_COLOR, 0.12, 0.3)
 	return hit_count

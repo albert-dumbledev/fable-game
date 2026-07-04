@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"implosion"
+display_name = "Implosion"
+description = "The slam pulls the pack inward onto the crater instead of scattering it, briefly staggering them"
+weight = 0.3
+unique = true
+grants_ability = &"slam_pull"
+requires_weapon = &"warhammer"
