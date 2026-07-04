@@ -1,13 +1,25 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://ui/hud.gd" id="1_script"]
 [ext_resource type="Script" path="res://ui/minimap.gd" id="2_minimap"]
 [ext_resource type="Shader" path="res://ui/speed_lines.gdshader" id="3_speedlines_shader"]
 [ext_resource type="Script" path="res://ui/speed_lines.gd" id="4_speedlines"]
+[ext_resource type="Shader" path="res://ui/vignette.gdshader" id="5_vignette_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_speedlines"]
 shader = ExtResource("3_speedlines_shader")
 shader_parameter/intensity = 0.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vignette"]
+shader = ExtResource("5_vignette_shader")
+shader_parameter/intensity = 0.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xp_fill"]
+bg_color = Color(0.25, 0.85, 0.9, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_script")
@@ -18,6 +30,12 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource("4_speedlines")
+
+[node name="LowHealthVignette" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_vignette")
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
 
 [node name="DamageFlash" type="ColorRect" parent="."]
 anchor_right = 1.0
@@ -33,8 +51,19 @@ offset_right = -16.0
 offset_bottom = 56.0
 theme_override_constants/separation = 24
 
-[node name="HealthBar" type="ProgressBar" parent="TopBar"]
+[node name="HealthSlot" type="Control" parent="TopBar"]
 custom_minimum_size = Vector2(280, 26)
+
+[node name="GhostBar" type="ProgressBar" parent="TopBar/HealthSlot"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="HealthBar" type="ProgressBar" parent="TopBar/HealthSlot"]
+anchor_right = 1.0
+anchor_bottom = 1.0
 max_value = 100.0
 value = 100.0
 show_percentage = false
@@ -48,6 +77,7 @@ theme_override_font_sizes/font_size = 22
 text = "Kills: 0"
 
 [node name="GoldLabel" type="Label" parent="TopBar"]
+theme_override_colors/font_color = Color(0.95, 0.8, 0.35, 1)
 theme_override_font_sizes/font_size = 22
 text = "Gold: 0"
 
@@ -57,6 +87,7 @@ anchor_left = 0.3
 anchor_right = 0.7
 offset_top = 92.0
 offset_bottom = 116.0
+theme_type_variation = &"TitleLabel"
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(1, 0.35, 0.3, 1)
 horizontal_alignment = 1
@@ -79,8 +110,23 @@ anchor_right = 1.0
 anchor_top = 0.3
 anchor_bottom = 0.3
 offset_bottom = 60.0
+theme_type_variation = &"TitleLabel"
 theme_override_font_sizes/font_size = 40
 theme_override_colors/font_color = Color(1, 0.35, 0.3, 1)
+horizontal_alignment = 1
+text = ""
+
+[node name="StreakLabel" type="Label" parent="."]
+modulate = Color(1, 1, 1, 0)
+anchor_left = 0.5
+anchor_right = 0.5
+anchor_top = 0.42
+anchor_bottom = 0.42
+offset_left = -150.0
+offset_right = 150.0
+offset_bottom = 34.0
+theme_type_variation = &"TitleLabel"
+theme_override_font_sizes/font_size = 26
 horizontal_alignment = 1
 text = ""
 
@@ -100,6 +146,7 @@ text = "Lv 0"
 custom_minimum_size = Vector2(0, 12)
 size_flags_horizontal = 3
 size_flags_vertical = 4
+theme_override_styles/fill = SubResource("StyleBoxFlat_xp_fill")
 max_value = 20.0
 show_percentage = false
 

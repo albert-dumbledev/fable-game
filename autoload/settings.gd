@@ -20,6 +20,8 @@ var mouse_sensitivity := 1.0
 var fov := DEFAULT_FOV
 ## Multiplier on trauma shake strength; 0 disables shake entirely.
 var screen_shake := 1.0
+## Accessibility: disables freeze frames, slow-mo, and dash speed lines.
+var reduced_flash := false
 var master_volume := 1.0
 var sfx_volume := 1.0
 var fullscreen := false
@@ -64,6 +66,7 @@ func save_settings() -> void:
 		"mouse_sensitivity": mouse_sensitivity,
 		"fov": fov,
 		"screen_shake": screen_shake,
+		"reduced_flash": reduced_flash,
 		"master_volume": master_volume,
 		"sfx_volume": sfx_volume,
 		"fullscreen": fullscreen,
@@ -100,6 +103,7 @@ func _load() -> void:
 	sfx_volume = clampf(_get_float(data, "sfx_volume", 1.0), 0.0, 1.0)
 	fullscreen = data.get("fullscreen", false) == true
 	postit_mode = data.get("postit_mode", false) == true
+	reduced_flash = data.get("reduced_flash", false) == true
 
 
 func _get_float(data: Dictionary, key: String, fallback: float) -> float:

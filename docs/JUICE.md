@@ -105,7 +105,7 @@ stack pauses).
 
 ## P2 — Theme & UI pass
 
-### 5. One Theme resource for the whole UI
+### 5. One Theme resource for the whole UI — ✅ shipped 2026-07-04
 
 There is currently **no theme** — every screen is default Godot gray. Create
 `ui/theme.tres` (dark translucent panels, gold accent `#d4a942`-ish, parchment
@@ -114,7 +114,7 @@ asset-free rule was about audio; one font is worth it). Apply at the project lev
 so the main menu, pause, settings, death screen, boon screen, and shop all restyle
 at once.
 
-### 6. HUD juice
+### 6. HUD juice — ✅ shipped 2026-07-04
 
 - **Health bar**: color lerps green→amber→red with missing health; **ghost-damage
   segment** (white chunk that lingers ~0.4s then drains) so hits read at a glance;
@@ -128,7 +128,7 @@ at once.
 - **Skill slots**: radial or vertical cooldown sweep is already there — add a
   "ready" ping (flash + tick cue) the frame a cooldown completes.
 
-### 7. Kill & combat readability polish
+### 7. Kill & combat readability polish — ✅ shipped 2026-07-04
 
 - **Enemy deaths**: keep the shrink, add a matching-color CPU-particle shard burst
   and a brief floor decal-style ring. Bosses excepted (§2).
@@ -141,7 +141,11 @@ at once.
 
 ---
 
-## P3 — Nice-to-haves (only after P1/P2 verified on web)
+## P3 — Nice-to-haves — ◐ shipped 2026-07-04 except audio ducking
+
+Shipped: menu backdrop, kill-streak ticker, pickup vacuum chord, reduced-flash
+toggle. Remaining: low-HP audio ducking (needs a player-health relay signal
+into AudioManager; do it alongside the next audio pass).
 
 - **Main menu backdrop**: slow orbiting camera over the dressed arena instead of a
   flat panel — the theme sells itself before the first run.

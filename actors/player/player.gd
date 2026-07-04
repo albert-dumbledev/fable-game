@@ -451,6 +451,9 @@ func _do_nova(damage_mult: float, slow_mult: float, slow_time: float) -> void:
 			enemy.apply_shove(offset.normalized() * NOVA_PUSH_FORCE)
 	BlastVfx.spawn(get_tree().current_scene, global_position, FROST_NOVA_RADIUS,
 			FROST_NOVA_COLOR, 0.35, 0.4)
+	# Lingering frost skim across the ground where the nova passed.
+	BlastVfx.spawn(get_tree().current_scene, global_position, FROST_NOVA_RADIUS,
+			Color(0.7, 0.9, 1.0, 0.35), 0.04, 1.1)
 	AudioManager.play(&"frost_nova")
 	add_shake(0.2)
 

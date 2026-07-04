@@ -17,7 +17,7 @@ static var _slow_token := 0
 
 
 static func hit_pause(duration: float) -> void:
-	if _pause_active or duration <= 0.0:
+	if _pause_active or duration <= 0.0 or Settings.reduced_flash:
 		return
 	var tree := _tree()
 	if tree == null:
@@ -31,7 +31,7 @@ static func hit_pause(duration: float) -> void:
 
 
 static func slow_motion(time_scale: float, duration: float) -> void:
-	if duration <= 0.0:
+	if duration <= 0.0 or Settings.reduced_flash:
 		return
 	var tree := _tree()
 	if tree == null:

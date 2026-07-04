@@ -11,6 +11,8 @@ var skill_id: StringName
 var _overlay: ColorRect
 var _cooldown_label: Label
 var _charges_label: Label
+var _was_cooling := false
+var _ping_tween: Tween
 
 
 func setup(id: StringName, key_text: String, display_name: String) -> void:
@@ -66,11 +68,34 @@ func update_cooldown(remaining: float, max_value: float) -> void:
 	var fraction := 0.0
 	if max_value > 0.0:
 		fraction = clampf(remaining / max_value, 0.0, 1.0)
-	_overlay.visible = fraction > 0.0
+	var cooling := fraction > 0.0
+	if _was_cooling and not cooling:
+		_ready_ping()
+	_was_cooling = cooling
+	_overlay.visible = cooling
 	_overlay.anchor_top = 0.0
 	_overlay.anchor_bottom = fraction
 	_cooldown_label.visible = remaining > 0.05
 	_cooldown_label.text = "%.1f" % maxf(remaining, 0.0)
+
+
+## Flash + pop the frame a cooldown completes, so "ready again" registers
+## without looking down. The guard meter is exempt — it cycles constantly
+## while blocking and would blink nonstop.
+func _ready_ping() -> void:
+	if skill_id == &"block":
+		return
+	pivot_offset = size * 0.5
+	scale = Vector2(1.18, 1.18)
+	modulate = Color(1.8, 1.7, 1.3)
+	if _ping_tween != null:
+		_ping_tween.kill()
+	_ping_tween = create_tween()
+	_ping_tween.set_parallel(true)
+	_ping_tween.tween_property(self, "scale", Vector2.ONE, 0.22) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_ping_tween.tween_property(self, "modulate", Color.WHITE, 0.3)
+	AudioManager.play(&"click")
 
 
 func update_charges(current: int, maximum: int) -> void:

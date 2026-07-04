@@ -82,6 +82,8 @@ func _begin_charge_windup() -> void:
 		_kill_color_tween()
 		_color_tween = create_tween()
 		_color_tween.tween_property(_material, "albedo_color", CHARGE_COLOR, CHARGE_WINDUP)
+	# Eyes stay lit through the rush — reset in _end_charge.
+	_flash_eyes(CHARGE_WINDUP)
 	_tween_fist(FIST_WINDUP, CHARGE_WINDUP)
 
 
@@ -105,6 +107,7 @@ func _end_charge() -> void:
 	_charge_phase = ChargePhase.NONE
 	_charge_cooldown = CHARGE_INTERVAL
 	collision_mask = NORMAL_COLLISION_MASK
+	_reset_eyes()
 	hitbox.deactivate()
 	_tween_fist(FIST_REST, 0.3)
 	velocity.x = 0.0
@@ -182,31 +185,7 @@ func _death_burst() -> void:
 	BlastVfx.spawn(scene, center, 7.0, LOOT_RING_COLOR, 0.5, 0.45)
 	BlastVfx.spawn(scene, global_position + Vector3(0.0, 0.15, 0.0), 9.0,
 			DEATH_BURST_COLOR, 0.08, 0.5)
-	var shards := CPUParticles3D.new()
-	shards.one_shot = true
-	shards.amount = 36
-	shards.lifetime = 1.0
-	shards.explosiveness = 1.0
-	shards.direction = Vector3.UP
-	shards.spread = 85.0
-	shards.gravity = Vector3(0.0, -20.0, 0.0)
-	shards.initial_velocity_min = 5.0
-	shards.initial_velocity_max = 12.0
-	shards.angular_velocity_min = -360.0
-	shards.angular_velocity_max = 360.0
-	var box := BoxMesh.new()
-	box.size = Vector3(0.22, 0.22, 0.22)
-	var material := StandardMaterial3D.new()
-	material.albedo_color = _base_color
-	material.emission_enabled = true
-	material.emission = _base_color
-	material.emission_energy_multiplier = 1.3
-	box.material = material
-	shards.mesh = box
-	scene.add_child(shards)
-	shards.global_position = center
-	shards.emitting = true
-	shards.finished.connect(shards.queue_free)
+	ShardBurst.spawn(scene, center, _base_color, 36, 12.0, 0.22, 1.0)
 
 
 func _spawn_loot_wave(wave: int) -> void:

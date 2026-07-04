@@ -33,6 +33,32 @@ func setup(info: AttackInfo, direction: Vector3, radius_mult: float = 1.0,
 func _ready() -> void:
 	area_entered.connect(_on_area_entered)
 	body_entered.connect(_on_body_entered)
+	# Ember trail: world-space particles shed behind the flight path.
+	var trail := CPUParticles3D.new()
+	trail.amount = 26
+	trail.lifetime = 0.45
+	trail.local_coords = false
+	trail.direction = Vector3.UP
+	trail.spread = 180.0
+	trail.gravity = Vector3(0.0, 1.2, 0.0)
+	trail.initial_velocity_min = 0.3
+	trail.initial_velocity_max = 1.0
+	trail.scale_amount_min = 0.5
+	var box := BoxMesh.new()
+	box.size = Vector3.ONE * 0.08
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(1.0, 0.5, 0.12)
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.45, 0.1)
+	material.emission_energy_multiplier = 2.0
+	box.material = material
+	trail.mesh = box
+	trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# The ball is positioned after add_child; a frame-zero emission would
+	# drop a stray ember at the world origin. Defer the start one frame.
+	trail.emitting = false
+	trail.set_deferred(&"emitting", true)
+	add_child(trail)
 
 
 func _physics_process(delta: float) -> void:
@@ -79,6 +105,8 @@ func _explode() -> void:
 	AudioManager.play_at(&"explosion", global_position)
 	BlastVfx.spawn(get_tree().current_scene, global_position, _radius,
 			Color(1.0, 0.5, 0.1, 0.7), 1.0, BLAST_DURATION)
+	ShardBurst.spawn(get_tree().current_scene, global_position,
+			Color(1.0, 0.55, 0.15), 12, 7.0, 0.1, 0.7)
 	# Nearby blasts rattle the camera a little.
 	var player := get_tree().get_first_node_in_group(&"player") as Player
 	if player != null and player.global_position.distance_to(global_position) < 9.0:

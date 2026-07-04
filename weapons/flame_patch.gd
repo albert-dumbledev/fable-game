@@ -47,6 +47,35 @@ func _ready() -> void:
 	var tween := mesh.create_tween().set_loops()
 	tween.tween_property(mesh, "scale:y", 0.26, 0.12)
 	tween.tween_property(mesh, "scale:y", 0.18, 0.12)
+	# Ember sparks drifting up off the patch rim.
+	var embers := CPUParticles3D.new()
+	embers.amount = 14
+	embers.lifetime = 0.9
+	embers.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	embers.emission_ring_axis = Vector3.UP
+	embers.emission_ring_radius = _radius * 0.8
+	embers.emission_ring_inner_radius = 0.1
+	embers.emission_ring_height = 0.05
+	embers.direction = Vector3.UP
+	embers.spread = 12.0
+	embers.gravity = Vector3(0.0, 1.6, 0.0)
+	embers.initial_velocity_min = 0.4
+	embers.initial_velocity_max = 1.1
+	var spark := BoxMesh.new()
+	spark.size = Vector3.ONE * 0.06
+	var spark_material := StandardMaterial3D.new()
+	spark_material.albedo_color = Color(1.0, 0.55, 0.12)
+	spark_material.emission_enabled = true
+	spark_material.emission = Color(1.0, 0.5, 0.1)
+	spark_material.emission_energy_multiplier = 2.5
+	spark.material = spark_material
+	embers.mesh = spark
+	embers.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# The patch is positioned after add_child (spawn()); starting emission
+	# now would put frame-zero sparks at the world origin. Defer one frame.
+	embers.emitting = false
+	embers.set_deferred(&"emitting", true)
+	add_child(embers)
 
 
 func _physics_process(delta: float) -> void:

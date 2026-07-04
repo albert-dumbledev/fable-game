@@ -27,6 +27,7 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"enemy_die"] = _enemy_die()
 	sounds[&"coin"] = _coin()
 	sounds[&"xp"] = _xp()
+	sounds[&"loot_shimmer"] = _loot_shimmer()
 	sounds[&"level_up"] = _level_up()
 	sounds[&"boon"] = _boon()
 	sounds[&"fireball_shoot"] = _fireball_shoot()
@@ -138,6 +139,19 @@ static func _xp() -> AudioStreamWAV:
 	var n2 := _env(_tone(0.22, 784.0, 786.0, 0.8, SINE), 0.003, 1.6)
 	var out := _overlay(thump, n1, 0.0)
 	return _to_wav(_overlay(out, n2, 0.07), 0.45)
+
+
+## Mass pickup vacuum: one warm rolled chord instead of twenty coin blips.
+## Soft attack and mid-register fundamentals so it shimmers rather than
+## stabs; distinct from the level-up arpeggio by being simultaneous-ish.
+static func _loot_shimmer() -> AudioStreamWAV:
+	var freqs: PackedFloat32Array = [261.63, 329.63, 392.0, 523.25]
+	var out := PackedFloat32Array()
+	for i: int in freqs.size():
+		var note := _env(_tone(0.5, freqs[i], freqs[i] * 1.004, 0.4, SINE), 0.04, 1.3)
+		out = _overlay(out, note, 0.04 * i)
+	var sparkle := _env(_noise(0.3, 1500.0, 400.0, 0.25), 0.03, 1.5)
+	return _to_wav(_overlay(out, sparkle, 0.05), 0.5)
 
 
 ## Level up: rising major arpeggio.

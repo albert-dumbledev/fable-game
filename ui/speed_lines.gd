@@ -23,6 +23,8 @@ func _ready() -> void:
 
 
 func _on_player_dashed() -> void:
+	if Settings.reduced_flash:
+		return
 	var shader_material := material as ShaderMaterial
 	if shader_material == null:
 		return

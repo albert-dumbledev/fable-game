@@ -30,6 +30,7 @@ func _begin_attack() -> void:
 	if _material != null:
 		_kill_color_tween()
 		_material.albedo_color = _base_color
+	_reset_eyes()
 	# Spit animation reuses the fist as a gland recoil.
 	_tween_fist(FIST_PUNCH, ATTACK_ACTIVE_TIME * 0.5)
 	if projectile_scene == null or _target == null:

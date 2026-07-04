@@ -11,6 +11,10 @@ const POOL_3D_SIZE := 16
 ## Identical sounds inside this window are dropped — a vacuumed coin fountain
 ## or a hammer slam into a pack must not stack 16 copies into one frame.
 const MIN_REPEAT_MS := 45
+## A pickup rush: this many collections inside the window plays one warm
+## shimmer chord on top of the (already rate-limited) blips.
+const BURST_WINDOW_MS := 250
+const BURST_THRESHOLD := 12
 
 var _sounds: Dictionary[StringName, AudioStreamWAV] = {}
 var _players: Array[AudioStreamPlayer] = []
@@ -18,6 +22,8 @@ var _players_3d: Array[AudioStreamPlayer3D] = []
 var _next := 0
 var _next_3d := 0
 var _last_ms: Dictionary[StringName, int] = {}
+var _burst_start_ms := 0
+var _burst_count := 0
 
 
 func _ready() -> void:
@@ -111,6 +117,13 @@ func _on_level_up(_new_level: int) -> void:
 
 
 func _on_pickup_collected(kind: StringName, _value: int) -> void:
+	var now := Time.get_ticks_msec()
+	if now - _burst_start_ms > BURST_WINDOW_MS:
+		_burst_start_ms = now
+		_burst_count = 0
+	_burst_count += 1
+	if _burst_count == BURST_THRESHOLD:
+		play(&"loot_shimmer", -2.0, 0.03)
 	if kind == &"gold":
 		play(&"coin", -6.0, 0.18)
 	else:

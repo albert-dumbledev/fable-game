@@ -38,6 +38,9 @@ var _material: StandardMaterial3D
 var _base_color := Color.WHITE
 var _fist_tween: Tween
 var _color_tween: Tween
+var _eyes: Array[MeshInstance3D] = []
+var _eye_material: StandardMaterial3D
+var _eye_tween: Tween
 var _stun_duration := 0.0
 var _shove := Vector3.ZERO
 var _slow_mult := 1.0
@@ -68,6 +71,20 @@ func _ready() -> void:
 		_material = base_material.duplicate() as StandardMaterial3D
 		mesh.material_override = _material
 		_base_color = _material.albedo_color
+	# Shared per-enemy eye material so windups can ignite the eyes — the
+	# tell that reads through a crowd better than body tint alone.
+	for path: NodePath in [^"Mesh/EyeL", ^"Mesh/EyeR"]:
+		var eye := get_node_or_null(path) as MeshInstance3D
+		if eye != null:
+			_eyes.append(eye)
+	if not _eyes.is_empty():
+		_eye_material = StandardMaterial3D.new()
+		_eye_material.albedo_color = Color(0.9, 0.9, 0.9)
+		_eye_material.emission_enabled = true
+		_eye_material.emission = Color(1.0, 0.25, 0.1)
+		_eye_material.emission_energy_multiplier = 0.0
+		for eye: MeshInstance3D in _eyes:
+			eye.material_override = _eye_material
 
 
 func _physics_process(delta: float) -> void:
@@ -173,6 +190,7 @@ func _begin_windup() -> void:
 		_kill_color_tween()
 		_color_tween = create_tween()
 		_color_tween.tween_property(_material, "albedo_color", WINDUP_COLOR, data.windup_time)
+	_flash_eyes(data.windup_time)
 	# Cock the fist back so the incoming punch is readable.
 	_tween_fist(FIST_WINDUP, data.windup_time)
 
@@ -182,6 +200,7 @@ func _begin_attack() -> void:
 	if _material != null:
 		_kill_color_tween()
 		_material.albedo_color = _resting_color()
+	_reset_eyes()
 	hitbox.activate(
 		AttackInfo.new(self, data.damage * _dmg_mult, data.knockback), ATTACK_ACTIVE_TIME)
 	# A perfect block inside activate() can stun us synchronously — if so,
@@ -206,6 +225,7 @@ func stun(duration: float) -> void:
 	_stun_duration = duration
 	velocity.x = 0.0
 	velocity.z = 0.0
+	_reset_eyes()
 	hitbox.deactivate()
 	_tween_fist(FIST_REST, 0.2)
 	if _material != null:
@@ -242,6 +262,25 @@ func _kill_color_tween() -> void:
 		_color_tween = null
 
 
+## Windup tell: the eyes ignite over the windup duration.
+func _flash_eyes(duration: float) -> void:
+	if _eye_material == null:
+		return
+	if _eye_tween != null:
+		_eye_tween.kill()
+	_eye_tween = create_tween()
+	_eye_tween.tween_property(_eye_material, "emission_energy_multiplier", 3.5, duration)
+
+
+func _reset_eyes() -> void:
+	if _eye_material == null:
+		return
+	if _eye_tween != null:
+		_eye_tween.kill()
+		_eye_tween = null
+	_eye_material.emission_energy_multiplier = 0.0
+
+
 func _begin_recover() -> void:
 	_set_state(State.RECOVER)
 	_tween_fist(FIST_REST, 0.3)
@@ -263,7 +302,7 @@ func _on_damaged(info: AttackInfo) -> void:
 	DamageNumber.spawn(
 		get_tree().current_scene,
 		global_position + Vector3(randf_range(-0.25, 0.25), 2.0, randf_range(-0.25, 0.25)),
-		info.damage)
+		info.damage, health.current <= 0.0)
 
 
 func _on_died() -> void:
@@ -273,6 +312,14 @@ func _on_died() -> void:
 	hitbox.deactivate()
 	hurtbox.set_deferred(&"monitorable", false)
 	EventBus.enemy_killed.emit(data, global_position)
+	_reset_eyes()
+	# Kill pop: color-matched shards and a brief ground ring under the
+	# shrinking corpse.
+	ShardBurst.spawn(get_tree().current_scene,
+			global_position + Vector3(0.0, 0.9, 0.0), _base_color, 9, 5.5, 0.12)
+	BlastVfx.spawn(get_tree().current_scene,
+			global_position + Vector3(0.0, 0.1, 0.0), 1.1,
+			Color(_base_color.r, _base_color.g, _base_color.b, 0.4), 0.1, 0.25)
 	_spawn_pickups(&"gold", int(round(data.gold_reward * _reward_mult)))
 	_spawn_pickups(&"xp", int(round(data.xp_reward * _reward_mult)))
 	var tween := create_tween()

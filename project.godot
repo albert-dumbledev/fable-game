@@ -40,6 +40,10 @@ gdscript/warnings/unsafe_call_argument=1
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[gui]
+
+theme/custom="res://ui/theme.tres"
+
 [input]
 
 move_forward={

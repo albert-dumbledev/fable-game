@@ -27,6 +27,11 @@ func _ready() -> void:
 	check.button_pressed = Settings.fullscreen
 	check.toggled.connect(_on_fullscreen_toggled)
 	rows.add_child(check)
+	var flash_check := CheckButton.new()
+	flash_check.text = "Reduced flash (no freeze frames / slow-mo)"
+	flash_check.button_pressed = Settings.reduced_flash
+	flash_check.toggled.connect(_on_reduced_flash_toggled)
+	rows.add_child(flash_check)
 
 
 func _add_slider(label_text: String, min_value: float, max_value: float,
@@ -70,6 +75,12 @@ func _on_slider_released(_value_changed: bool) -> void:
 func _on_fullscreen_toggled(pressed: bool) -> void:
 	Settings.fullscreen = pressed
 	Settings.apply()
+	Settings.save_settings()
+	AudioManager.play(&"click")
+
+
+func _on_reduced_flash_toggled(pressed: bool) -> void:
+	Settings.reduced_flash = pressed
 	Settings.save_settings()
 	AudioManager.play(&"click")
 
