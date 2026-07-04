@@ -21,6 +21,8 @@ const SHIELD_REST_POS := Vector3(-0.55, -0.3, 0.1)
 const SHIELD_REST_ROT := Vector3(-30.0, 35.0, 10.0)
 const SHIELD_BLOCK_POS := Vector3(-0.08, 0.08, -0.12)
 const SHIELD_BLOCK_ROT := Vector3.ZERO
+## Real-time freeze frame per swing connect (coalesced by FreezeFrame).
+const HIT_PAUSE := 0.04
 
 @onready var hitbox: HitboxComponent = $Hitbox
 @onready var sword_pivot: Node3D = $SwordPivot
@@ -44,8 +46,13 @@ func _ready() -> void:
 	sword_pivot.rotation_degrees = SWORD_REST_ROT
 	shield_pivot.position = SHIELD_REST_POS
 	shield_pivot.rotation_degrees = SHIELD_REST_ROT
+	hitbox.landed.connect(_on_hit_landed)
 	Settings.changed.connect(_apply_style)
 	_apply_style()
+
+
+func _on_hit_landed(_hurtbox: HurtboxComponent) -> void:
+	FreezeFrame.hit_pause(HIT_PAUSE)
 
 
 ## Swaps between the real models and the post-it/pencil easter egg

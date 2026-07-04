@@ -26,6 +26,15 @@ const LONG_PARRY_BONUS := 0.15
 const DASH_DISTANCE := 6.0
 const DASH_DURATION := 0.12
 const DASH_COOLDOWN := 2.0
+const DASH_FOV_PUNCH := 14.0
+const DASH_RING_COLOR := Color(0.7, 0.85, 1.0, 0.5)
+const DASH_DUST_COLOR := Color(0.65, 0.6, 0.55, 0.4)
+## Viewmodel tilt into the dash direction (degrees at full lateral/forward).
+const DASH_KICK_ROLL := 6.0
+const DASH_KICK_PITCH := 4.0
+## Real-time freeze frame on a perfect block — the parry should feel like
+## the world flinches.
+const PARRY_HIT_PAUSE := 0.09
 const NORMAL_COLLISION_MASK := 5
 const DASH_COLLISION_MASK := 1
 const THORNS_DAMAGE := 15.0
@@ -76,6 +85,8 @@ var _abilities: Dictionary[StringName, bool] = {}
 var _dash_time := 0.0
 var _dash_cooldown := 0.0
 var _dash_dir := Vector3.ZERO
+var _dash_fov_tween: Tween
+var _dash_kick_tween: Tween
 var _cast_cooldown := 0.0
 var _fireball_charges := 1
 var _nova_cooldown := 0.0
@@ -255,6 +266,7 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 					attacker_hurtbox.receive_hit(AttackInfo.new(self, THORNS_DAMAGE))
 			if perfect:
 				EventBus.perfect_block.emit()
+				FreezeFrame.hit_pause(PARRY_HIT_PAUSE)
 				if info.source.has_method(&"stun"):
 					info.source.call(&"stun", PERFECT_BLOCK_STUN)
 			else:
@@ -324,14 +336,35 @@ func _begin_dash(direction: Vector3) -> void:
 	_dash_cooldown = DASH_COOLDOWN
 	_knockback = Vector3.ZERO
 	AudioManager.play(&"dash")
+	EventBus.player_dashed.emit()
+	# Departure mark: a ground ring left behind at the launch point.
+	BlastVfx.spawn(get_tree().current_scene,
+			global_position + Vector3(0.0, 0.1, 0.0), 1.6, DASH_RING_COLOR, 0.1, 0.3)
 	# Intangible: pass through enemies (walls still stop the dash) and
 	# turn the hurtbox dark so nothing — melee or projectile — connects.
 	collision_mask = DASH_COLLISION_MASK
 	hurtbox.set_deferred(&"monitorable", false)
-	# FOV punch sells the burst.
-	var tween := create_tween()
-	tween.tween_property(camera, "fov", Settings.fov + 9.0, DASH_DURATION * 0.6)
-	tween.tween_property(camera, "fov", Settings.fov, 0.18)
+	# FOV punch sells the burst: overshoot fast, settle slow.
+	if _dash_fov_tween != null:
+		_dash_fov_tween.kill()
+	_dash_fov_tween = create_tween()
+	_dash_fov_tween.tween_property(
+		camera, "fov", Settings.fov + DASH_FOV_PUNCH, DASH_DURATION * 0.5) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_dash_fov_tween.tween_property(camera, "fov", Settings.fov, 0.22) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	# Viewmodel kick: tilt the weapon into the dash direction and ease back.
+	var local_dir := global_transform.basis.inverse() * _dash_dir
+	var kick := Vector3(
+		local_dir.z * DASH_KICK_PITCH, 0.0, -local_dir.x * DASH_KICK_ROLL)
+	if _dash_kick_tween != null:
+		_dash_kick_tween.kill()
+	_dash_kick_tween = create_tween()
+	_dash_kick_tween.tween_property(
+		weapon_mount, "rotation_degrees", kick, DASH_DURATION * 0.5) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_dash_kick_tween.tween_property(weapon_mount, "rotation_degrees", Vector3.ZERO, 0.2) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 func _end_dash() -> void:
@@ -340,6 +373,10 @@ func _end_dash() -> void:
 	# Kill most momentum so the blink stops crisply.
 	velocity.x *= 0.2
 	velocity.z *= 0.2
+	# Arrival: dust ring underfoot and a nudge of shake so the stop has weight.
+	BlastVfx.spawn(get_tree().current_scene,
+			global_position + Vector3(0.0, 0.1, 0.0), 1.2, DASH_DUST_COLOR, 0.12, 0.25)
+	add_shake(0.12)
 
 
 func _begin_cast() -> void:

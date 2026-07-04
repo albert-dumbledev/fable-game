@@ -32,6 +32,9 @@ const WAVE_COOLDOWN := 6.0
 const WAVE_DAMAGE_MULT := 1.2
 const WAVE_RAISED_POS := Vector3(0.05, 0.45, 0.2)
 const WAVE_RAISED_ROT := Vector3(95.0, 0.0, 0.0)
+## Real-time freeze frame when the slam actually catches something —
+## longer than the sword's: this is the heavy weapon.
+const HIT_PAUSE := 0.07
 
 @onready var hammer_pivot: Node3D = $HammerPivot
 @onready var handle_mesh: MeshInstance3D = $HammerPivot/HandleMesh
@@ -136,7 +139,8 @@ func _impact(damage: float) -> void:
 	var point := wielder.global_position + forward * IMPACT_DISTANCE
 	var aoe := stats.get_stat(Stats.HAMMER_AOE)
 	AudioManager.play(&"hammer_slam")
-	_slam(point, damage, aoe, SHOVE_FORCE)
+	if _slam(point, damage, aoe, SHOVE_FORCE) > 0:
+		FreezeFrame.hit_pause(HIT_PAUSE)
 	var player := wielder as Player
 	if player != null:
 		player.add_shake(0.5)
@@ -152,9 +156,12 @@ func _aftershock(point: Vector3, damage: float, aoe: float) -> void:
 			SHOVE_FORCE * AFTERSHOCK_SHOVE_MULT)
 
 
-func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> void:
+## Returns how many enemies took damage, so callers can gate impact
+## feedback on the slam actually catching something.
+func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> int:
 	var inner := INNER_RADIUS * aoe_mult
 	var outer := OUTER_RADIUS * aoe_mult
+	var hit_count := 0
 	for node: Node in get_tree().get_nodes_in_group(&"enemies"):
 		var enemy := node as EnemyBase
 		if enemy == null or not enemy.is_inside_tree():
@@ -173,6 +180,8 @@ func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> void
 				# splash keeps the generic hit.
 				info.hit_sound = &"melee_hit"
 			hurtbox.receive_hit(info)
+			hit_count += 1
 		if dist > 0.01:
 			enemy.apply_shove(offset.normalized() * shove)
 	BlastVfx.spawn(get_tree().current_scene, point, outer, SHOCKWAVE_COLOR, 0.12, 0.3)
+	return hit_count

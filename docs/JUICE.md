@@ -21,7 +21,7 @@ translucent panels, gold accents, warm parchment text.
 
 ## P1 — The big four (do these first)
 
-### 1. Dash must *feel* fast
+### 1. Dash must *feel* fast — ✅ shipped 2026-07-04
 
 Today: 0.12s velocity blink + 9° FOV punch + one synth cue (`player.gd::_begin_dash`).
 It teleports competently but doesn't *rush*. Changes:
@@ -90,7 +90,7 @@ decoration is visual, at the perimeter, or outside the walls.
   pickups, fireballs, telegraph flashes, and torches all start popping), mild
   contrast/saturation adjustment, slightly cool ambient with warm key light.
 
-### 4. Hit-pause (the missing combat feel lever)
+### 4. Hit-pause (the missing combat feel lever) — ✅ shipped 2026-07-04
 
 Already named in PLAN.md §6 as the remaining melee-feel lever. One tiny system:
 `FreezeFrame.hit_pause(duration)` (autoload or static) sets `Engine.time_scale`

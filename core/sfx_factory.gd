@@ -197,9 +197,14 @@ static func _frost_nova() -> AudioStreamWAV:
 	return _to_wav(out, 0.55)
 
 
-## Dash blink: very short bright whoosh.
+## Dash blink: the original bright zip riding on a low falling air rush —
+## the low layer is what makes it read as *speed* rather than a UI tick.
 static func _dash() -> AudioStreamWAV:
-	return _to_wav(_env(_noise(0.12, 600.0, 2200.0, 1.0), 0.015, 1.6), 0.5)
+	var zip := _env(_noise(0.12, 600.0, 2200.0, 1.0), 0.015, 1.6)
+	var rush := _env(_noise(0.3, 900.0, 160.0, 0.9), 0.02, 1.2)
+	var drop := _env(_tone(0.22, 220.0, 85.0, 0.35, SINE), 0.01, 1.4)
+	var out := _overlay(zip, rush, 0.0)
+	return _to_wav(_overlay(out, drop, 0.02), 0.55)
 
 
 ## Boss spawn: low detuned horn blast, slow attack.

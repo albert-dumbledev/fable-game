@@ -53,3 +53,7 @@ signal wave_announcement(text: String)
 ## Emitted when a boss-tagged enemy spawns. `boss` is the EnemyBase node.
 @warning_ignore("unused_signal")
 signal boss_spawned(boss: Node)
+
+## Emitted the moment the player's dash begins (drives screen feedback).
+@warning_ignore("unused_signal")
+signal player_dashed

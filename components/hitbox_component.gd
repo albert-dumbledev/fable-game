@@ -7,6 +7,11 @@ extends Area3D
 ## starts are swept via get_overlapping_areas(), which toggling `monitoring`
 ## at activation time would miss.
 
+## Emitted each time this hitbox connects with a hurtbox (once per target
+## per activation). Owners hang impact feedback — hit-pause — off this;
+## the damage itself has already been routed through receive_hit.
+signal landed(hurtbox: HurtboxComponent)
+
 var _info: AttackInfo
 var _remaining := 0.0
 var _already_hit: Array[HurtboxComponent] = []
@@ -49,3 +54,4 @@ func _try_hit(area: Area3D) -> void:
 		return
 	_already_hit.append(hurtbox)
 	hurtbox.receive_hit(_info)
+	landed.emit(hurtbox)

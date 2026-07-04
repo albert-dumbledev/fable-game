@@ -1,10 +1,23 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://ui/hud.gd" id="1_script"]
 [ext_resource type="Script" path="res://ui/minimap.gd" id="2_minimap"]
+[ext_resource type="Shader" path="res://ui/speed_lines.gdshader" id="3_speedlines_shader"]
+[ext_resource type="Script" path="res://ui/speed_lines.gd" id="4_speedlines"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_speedlines"]
+shader = ExtResource("3_speedlines_shader")
+shader_parameter/intensity = 0.0
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_script")
+
+[node name="SpeedLines" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_speedlines")
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("4_speedlines")
 
 [node name="DamageFlash" type="ColorRect" parent="."]
 anchor_right = 1.0
