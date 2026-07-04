@@ -15,61 +15,67 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0.07, 0.07, 0.09, 1)
 
-[node name="Center" type="CenterContainer" parent="." unique_id=845381770]
+[node name="Scroll" type="ScrollContainer" parent="."]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
+follow_focus = true
+horizontal_scroll_mode = 0
 
-[node name="Box" type="VBoxContainer" parent="Center" unique_id=59001089]
+[node name="Center" type="CenterContainer" parent="Scroll" unique_id=845381770]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Box" type="VBoxContainer" parent="Scroll/Center" unique_id=59001089]
 custom_minimum_size = Vector2(920, 0)
 layout_mode = 2
-theme_override_constants/separation = 14
+theme_override_constants/separation = 10
 
-[node name="Title" type="Label" parent="Center/Box" unique_id=2089490356]
+[node name="Title" type="Label" parent="Scroll/Center/Box" unique_id=2089490356]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.2, 0.2, 1)
 theme_override_font_sizes/font_size = 52
 text = "YOU DIED"
 horizontal_alignment = 1
 
-[node name="Buttons" type="HBoxContainer" parent="Center/Box" unique_id=698455439]
+[node name="Buttons" type="HBoxContainer" parent="Scroll/Center/Box" unique_id=698455439]
 layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 1
 
-[node name="NextRunButton" type="Button" parent="Center/Box/Buttons" unique_id=1009868403]
+[node name="NextRunButton" type="Button" parent="Scroll/Center/Box/Buttons" unique_id=1009868403]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Next Run"
 
-[node name="MenuButton" type="Button" parent="Center/Box/Buttons" unique_id=919618777]
+[node name="MenuButton" type="Button" parent="Scroll/Center/Box/Buttons" unique_id=919618777]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Main Menu"
 
-[node name="StatsLabel" type="Label" parent="Center/Box" unique_id=2019443262]
+[node name="StatsLabel" type="Label" parent="Scroll/Center/Box" unique_id=2019443262]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "Survived 00:00"
 horizontal_alignment = 1
 
-[node name="GoldLabel" type="Label" parent="Center/Box" unique_id=416545134]
+[node name="GoldLabel" type="Label" parent="Scroll/Center/Box" unique_id=416545134]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Gold: 0"
 horizontal_alignment = 1
 
-[node name="LoadoutLabel" type="Label" parent="Center/Box" unique_id=107292555]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Loadout"
-horizontal_alignment = 1
-
-[node name="Loadout" type="HBoxContainer" parent="Center/Box" unique_id=1427777103]
+[node name="Loadout" type="HBoxContainer" parent="Scroll/Center/Box" unique_id=1427777103]
 layout_mode = 2
 theme_override_constants/separation = 10
 alignment = 1
 
-[node name="Branches" type="HBoxContainer" parent="Center/Box" unique_id=1161454430]
+[node name="LoadoutLabel" type="Label" parent="Scroll/Center/Box/Loadout" unique_id=107292555]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Loadout:"
+
+[node name="Branches" type="HBoxContainer" parent="Scroll/Center/Box" unique_id=1161454430]
 layout_mode = 2
 theme_override_constants/separation = 20

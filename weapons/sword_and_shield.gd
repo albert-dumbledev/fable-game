@@ -25,7 +25,12 @@ const SHIELD_BLOCK_ROT := Vector3.ZERO
 @onready var hitbox: HitboxComponent = $Hitbox
 @onready var sword_pivot: Node3D = $SwordPivot
 @onready var shield_pivot: Node3D = $ShieldPivot
-@onready var shield_mesh: MeshInstance3D = $ShieldPivot/ShieldMesh
+@onready var sword_model: Node3D = $SwordPivot/SwordModel
+@onready var pencil_model: Node3D = $SwordPivot/PencilModel
+@onready var shield_model: Node3D = $ShieldPivot/ShieldModel
+@onready var postit_model: Node3D = $ShieldPivot/PostItModel
+@onready var shield_face: MeshInstance3D = $ShieldPivot/ShieldModel/Face
+@onready var postit_face: MeshInstance3D = $ShieldPivot/PostItModel/Note
 
 var _swing_tween: Tween
 var _shield_tween: Tween
@@ -39,19 +44,35 @@ func _ready() -> void:
 	sword_pivot.rotation_degrees = SWORD_REST_ROT
 	shield_pivot.position = SHIELD_REST_POS
 	shield_pivot.rotation_degrees = SHIELD_REST_ROT
-	# Per-instance material so the block flash can animate emission.
-	var material := shield_mesh.get_active_material(0)
+	Settings.changed.connect(_apply_style)
+	_apply_style()
+
+
+## Swaps between the real models and the post-it/pencil easter egg
+## (Settings.postit_mode, toggled by typing "postit" mid-run).
+func _apply_style() -> void:
+	var postit: bool = Settings.postit_mode
+	sword_model.visible = not postit
+	pencil_model.visible = postit
+	shield_model.visible = not postit
+	postit_model.visible = postit
+	# Per-instance material on the active shield face so the block flash can
+	# animate emission. Rebuilt on every settings change, so always reset the
+	# energy — a duplicate taken mid-flash would otherwise stay lit forever.
+	var face := postit_face if postit else shield_face
+	var material := face.get_active_material(0)
 	if material != null:
 		_shield_material = material.duplicate() as StandardMaterial3D
 		_shield_material.emission_enabled = true
 		_shield_material.emission = Color(1.0, 1.0, 1.0)
 		_shield_material.emission_energy_multiplier = 0.0
-		shield_mesh.material_override = _shield_material
+		face.material_override = _shield_material
 
 
 func _do_attack(duration: float) -> void:
 	var damage := weapon_data.damage + stats.get_stat(Stats.DAMAGE)
 	var info := AttackInfo.new(wielder, damage)
+	info.hit_sound = &"melee_hit"
 	_swing_flip = not _swing_flip
 	var side := 1.0 if _swing_flip else -1.0
 	# Rigid arm-swing: the sword orbits the virtual SHOULDER. `dir` is the
@@ -66,7 +87,11 @@ func _do_attack(duration: float) -> void:
 	var dir_windup := dir_start.rotated(axis, -WINDUP_ANGLE)
 	var total_sweep := WINDUP_ANGLE + dir_start.angle_to(dir_end)
 	var windup_pos := SHOULDER + dir_windup * ARM_LENGTH
-	var windup_quat := Basis.looking_at(dir_windup, axis).get_rotation_quaternion()
+	# Up vector is the arc tangent (axis × dir): the model is rolled 90° so
+	# the blade's edges sit on the pivot's Y axis, and aligning Y with the
+	# direction of travel keeps the edge — not the flat — leading the cut.
+	var windup_quat := Basis.looking_at(
+		dir_windup, axis.cross(dir_windup)).get_rotation_quaternion()
 	if _swing_tween != null:
 		_swing_tween.kill()
 	_swing_tween = create_tween()
@@ -83,7 +108,7 @@ func _do_attack(duration: float) -> void:
 		func(t: float) -> void:
 			var dir := dir_windup.rotated(axis, total_sweep * t)
 			sword_pivot.position = SHOULDER + dir * ARM_LENGTH
-			sword_pivot.basis = Basis.looking_at(dir, axis),
+			sword_pivot.basis = Basis.looking_at(dir, axis.cross(dir)),
 		0.0, 1.0, duration * 0.3
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	# 3) Backswing: settle back to the ready stance.

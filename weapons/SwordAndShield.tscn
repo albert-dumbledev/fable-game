@@ -1,23 +1,128 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=33 format=3]
 
 [ext_resource type="Script" path="res://weapons/sword_and_shield.gd" id="1_script"]
 [ext_resource type="Resource" path="res://data/weapons/sword.tres" id="2_data"]
 [ext_resource type="Script" path="res://components/hitbox_component.gd" id="3_hitbox"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sword"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_steel"]
 albedo_color = Color(0.75, 0.78, 0.82, 1)
+metallic = 0.85
+roughness = 0.3
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_guard"]
+albedo_color = Color(0.45, 0.36, 0.2, 1)
 metallic = 0.8
-roughness = 0.35
+roughness = 0.4
 
-[sub_resource type="BoxMesh" id="BoxMesh_sword"]
-size = Vector3(0.07, 0.07, 1)
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_grip"]
+albedo_color = Color(0.28, 0.18, 0.11, 1)
+roughness = 0.95
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_shield"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wood"]
 albedo_color = Color(0.45, 0.3, 0.16, 1)
 roughness = 0.9
 
-[sub_resource type="BoxMesh" id="BoxMesh_shield"]
-size = Vector3(0.45, 0.6, 0.06)
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_iron"]
+albedo_color = Color(0.42, 0.43, 0.47, 1)
+metallic = 0.75
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_postit"]
+albedo_color = Color(1, 0.93, 0.18, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_scribble"]
+albedo_color = Color(0.22, 0.22, 0.26, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pencil_paint"]
+albedo_color = Color(1, 0.72, 0.06, 1)
+roughness = 0.55
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pencil_wood"]
+albedo_color = Color(0.88, 0.72, 0.5, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_graphite"]
+albedo_color = Color(0.18, 0.18, 0.2, 1)
+metallic = 0.3
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_eraser"]
+albedo_color = Color(0.95, 0.55, 0.65, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="BoxMesh_blade"]
+size = Vector3(0.06, 0.016, 0.85)
+
+[sub_resource type="PrismMesh" id="PrismMesh_tip"]
+size = Vector3(0.06, 0.12, 0.016)
+
+[sub_resource type="BoxMesh" id="BoxMesh_guard"]
+size = Vector3(0.24, 0.04, 0.05)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_grip"]
+top_radius = 0.022
+bottom_radius = 0.022
+height = 0.2
+
+[sub_resource type="SphereMesh" id="SphereMesh_pommel"]
+radius = 0.032
+height = 0.064
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_face"]
+top_radius = 0.32
+bottom_radius = 0.32
+height = 0.05
+
+[sub_resource type="TorusMesh" id="TorusMesh_rim"]
+inner_radius = 0.29
+outer_radius = 0.35
+
+[sub_resource type="SphereMesh" id="SphereMesh_boss"]
+radius = 0.09
+height = 0.09
+is_hemisphere = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_strap"]
+size = Vector3(0.055, 0.38, 0.012)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_handle"]
+top_radius = 0.018
+bottom_radius = 0.018
+height = 0.28
+
+[sub_resource type="BoxMesh" id="BoxMesh_note"]
+size = Vector3(0.45, 0.45, 0.01)
+
+[sub_resource type="BoxMesh" id="BoxMesh_scribble"]
+size = Vector3(0.3, 0.025, 0.004)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_shaft"]
+top_radius = 0.035
+bottom_radius = 0.035
+height = 0.75
+radial_segments = 6
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_cone_wood"]
+top_radius = 0.0
+bottom_radius = 0.035
+height = 0.12
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_cone_graphite"]
+top_radius = 0.0
+bottom_radius = 0.013
+height = 0.05
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_ferrule"]
+top_radius = 0.037
+bottom_radius = 0.037
+height = 0.06
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_eraser"]
+top_radius = 0.034
+bottom_radius = 0.034
+height = 0.07
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_hitbox"]
 size = Vector3(1.4, 1.2, 2.2)
@@ -29,17 +134,118 @@ weapon_data = ExtResource("2_data")
 [node name="SwordPivot" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 0, 0)
 
-[node name="SwordMesh" type="MeshInstance3D" parent="SwordPivot"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
-mesh = SubResource("BoxMesh_sword")
-surface_material_override/0 = SubResource("StandardMaterial3D_sword")
+[node name="SwordModel" type="Node3D" parent="SwordPivot"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="Blade" type="MeshInstance3D" parent="SwordPivot/SwordModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.475)
+mesh = SubResource("BoxMesh_blade")
+surface_material_override/0 = SubResource("StandardMaterial3D_steel")
+
+[node name="Tip" type="MeshInstance3D" parent="SwordPivot/SwordModel"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, -0.96)
+mesh = SubResource("PrismMesh_tip")
+surface_material_override/0 = SubResource("StandardMaterial3D_steel")
+
+[node name="Guard" type="MeshInstance3D" parent="SwordPivot/SwordModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.03)
+mesh = SubResource("BoxMesh_guard")
+surface_material_override/0 = SubResource("StandardMaterial3D_guard")
+
+[node name="Grip" type="MeshInstance3D" parent="SwordPivot/SwordModel"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0.095)
+mesh = SubResource("CylinderMesh_grip")
+surface_material_override/0 = SubResource("StandardMaterial3D_grip")
+
+[node name="Pommel" type="MeshInstance3D" parent="SwordPivot/SwordModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.21)
+mesh = SubResource("SphereMesh_pommel")
+surface_material_override/0 = SubResource("StandardMaterial3D_guard")
+
+[node name="PencilModel" type="Node3D" parent="SwordPivot"]
+visible = false
+
+[node name="Shaft" type="MeshInstance3D" parent="SwordPivot/PencilModel"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -0.425)
+mesh = SubResource("CylinderMesh_shaft")
+surface_material_override/0 = SubResource("StandardMaterial3D_pencil_paint")
+
+[node name="WoodCone" type="MeshInstance3D" parent="SwordPivot/PencilModel"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, -0.85)
+mesh = SubResource("CylinderMesh_cone_wood")
+surface_material_override/0 = SubResource("StandardMaterial3D_pencil_wood")
+
+[node name="GraphiteTip" type="MeshInstance3D" parent="SwordPivot/PencilModel"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, -0.915)
+mesh = SubResource("CylinderMesh_cone_graphite")
+surface_material_override/0 = SubResource("StandardMaterial3D_graphite")
+
+[node name="Ferrule" type="MeshInstance3D" parent="SwordPivot/PencilModel"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -0.02)
+mesh = SubResource("CylinderMesh_ferrule")
+surface_material_override/0 = SubResource("StandardMaterial3D_steel")
+
+[node name="Eraser" type="MeshInstance3D" parent="SwordPivot/PencilModel"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0.04)
+mesh = SubResource("CylinderMesh_eraser")
+surface_material_override/0 = SubResource("StandardMaterial3D_eraser")
 
 [node name="ShieldPivot" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.35, 0, 0)
 
-[node name="ShieldMesh" type="MeshInstance3D" parent="ShieldPivot"]
-mesh = SubResource("BoxMesh_shield")
-surface_material_override/0 = SubResource("StandardMaterial3D_shield")
+[node name="ShieldModel" type="Node3D" parent="ShieldPivot"]
+
+[node name="Face" type="MeshInstance3D" parent="ShieldPivot/ShieldModel"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)
+mesh = SubResource("CylinderMesh_face")
+surface_material_override/0 = SubResource("StandardMaterial3D_wood")
+
+[node name="Rim" type="MeshInstance3D" parent="ShieldPivot/ShieldModel"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)
+mesh = SubResource("TorusMesh_rim")
+surface_material_override/0 = SubResource("StandardMaterial3D_iron")
+
+[node name="Boss" type="MeshInstance3D" parent="ShieldPivot/ShieldModel"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, -0.02)
+mesh = SubResource("SphereMesh_boss")
+surface_material_override/0 = SubResource("StandardMaterial3D_iron")
+
+[node name="StrapLeft" type="MeshInstance3D" parent="ShieldPivot/ShieldModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0, 0.031)
+mesh = SubResource("BoxMesh_strap")
+surface_material_override/0 = SubResource("StandardMaterial3D_grip")
+
+[node name="StrapRight" type="MeshInstance3D" parent="ShieldPivot/ShieldModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0, 0.031)
+mesh = SubResource("BoxMesh_strap")
+surface_material_override/0 = SubResource("StandardMaterial3D_grip")
+
+[node name="Handle" type="MeshInstance3D" parent="ShieldPivot/ShieldModel"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0.05)
+mesh = SubResource("CylinderMesh_handle")
+surface_material_override/0 = SubResource("StandardMaterial3D_grip")
+
+[node name="PostItModel" type="Node3D" parent="ShieldPivot"]
+visible = false
+
+[node name="Note" type="MeshInstance3D" parent="ShieldPivot/PostItModel"]
+mesh = SubResource("BoxMesh_note")
+surface_material_override/0 = SubResource("StandardMaterial3D_postit")
+
+[node name="Scribble1" type="MeshInstance3D" parent="ShieldPivot/PostItModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.02, 0.12, 0.008)
+mesh = SubResource("BoxMesh_scribble")
+surface_material_override/0 = SubResource("StandardMaterial3D_scribble")
+
+[node name="Scribble2" type="MeshInstance3D" parent="ShieldPivot/PostItModel"]
+transform = Transform3D(0.85, 0, 0, 0, 1, 0, 0, 0, 1, 0.01, 0.04, 0.008)
+mesh = SubResource("BoxMesh_scribble")
+surface_material_override/0 = SubResource("StandardMaterial3D_scribble")
+
+[node name="Scribble3" type="MeshInstance3D" parent="ShieldPivot/PostItModel"]
+transform = Transform3D(0.6, 0, 0, 0, 1, 0, 0, 0, 1, -0.05, -0.04, 0.008)
+mesh = SubResource("BoxMesh_scribble")
+surface_material_override/0 = SubResource("StandardMaterial3D_scribble")
 
 [node name="Hitbox" type="Area3D" parent="."]
 collision_layer = 0

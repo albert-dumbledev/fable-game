@@ -167,7 +167,12 @@ func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> void
 		var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 		if hurtbox != null:
 			var dealt := damage if dist <= inner else damage * SPLASH_DAMAGE_MULT
-			hurtbox.receive_hit(AttackInfo.new(wielder, dealt))
+			var info := AttackInfo.new(wielder, dealt)
+			if dist <= inner:
+				# Direct contact under the hammer head sounds meaty;
+				# splash keeps the generic hit.
+				info.hit_sound = &"melee_hit"
+			hurtbox.receive_hit(info)
 		if dist > 0.01:
 			enemy.apply_shove(offset.normalized() * shove)
 	BlastVfx.spawn(get_tree().current_scene, point, outer, SHOCKWAVE_COLOR, 0.12, 0.3)

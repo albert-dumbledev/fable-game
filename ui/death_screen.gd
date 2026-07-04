@@ -9,14 +9,14 @@ const BRANCHES: Array[Dictionary] = [
 	{"id": &"arcana", "title": "ARCANA", "color": Color(0.6, 0.7, 1.0)},
 ]
 
-@onready var title_label: Label = $Center/Box/Title
-@onready var stats_label: Label = $Center/Box/StatsLabel
-@onready var gold_label: Label = $Center/Box/GoldLabel
-@onready var loadout_label: Label = $Center/Box/LoadoutLabel
-@onready var loadout_box: HBoxContainer = $Center/Box/Loadout
-@onready var branches_box: HBoxContainer = $Center/Box/Branches
-@onready var next_run_button: Button = $Center/Box/Buttons/NextRunButton
-@onready var menu_button: Button = $Center/Box/Buttons/MenuButton
+@onready var title_label: Label = $Scroll/Center/Box/Title
+@onready var stats_label: Label = $Scroll/Center/Box/StatsLabel
+@onready var gold_label: Label = $Scroll/Center/Box/GoldLabel
+@onready var loadout_label: Label = $Scroll/Center/Box/Loadout/LoadoutLabel
+@onready var loadout_box: HBoxContainer = $Scroll/Center/Box/Loadout
+@onready var branches_box: HBoxContainer = $Scroll/Center/Box/Branches
+@onready var next_run_button: Button = $Scroll/Center/Box/Buttons/NextRunButton
+@onready var menu_button: Button = $Scroll/Center/Box/Buttons/MenuButton
 
 
 func _ready() -> void:
@@ -83,14 +83,16 @@ func _make_column(branch: Dictionary, gold: int) -> Control:
 
 func _make_card(upgrade: UpgradeData, gold: int) -> Control:
 	var level := MetaProgression.get_upgrade_level(upgrade.id)
+	if not _is_locked(upgrade) and upgrade.max_level > 0 and level >= upgrade.max_level:
+		return _make_maxed_card(upgrade)
 	var card := PanelContainer.new()
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override(&"margin_left", 10)
-	margin.add_theme_constant_override(&"margin_top", 8)
+	margin.add_theme_constant_override(&"margin_top", 6)
 	margin.add_theme_constant_override(&"margin_right", 10)
-	margin.add_theme_constant_override(&"margin_bottom", 8)
+	margin.add_theme_constant_override(&"margin_bottom", 6)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override(&"separation", 4)
+	box.add_theme_constant_override(&"separation", 3)
 	var name_label := Label.new()
 	name_label.text = "%s  (Lv %d)" % [upgrade.display_name, level] \
 			if level > 0 else upgrade.display_name
@@ -111,12 +113,6 @@ func _make_card(upgrade: UpgradeData, gold: int) -> Control:
 		lock.add_theme_font_size_override(&"font_size", 13)
 		lock.add_theme_color_override(&"font_color", Color(0.85, 0.7, 0.4))
 		box.add_child(lock)
-	elif upgrade.max_level > 0 and level >= upgrade.max_level:
-		var maxed := Label.new()
-		maxed.text = "MAX"
-		maxed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		maxed.add_theme_color_override(&"font_color", Color(0.92, 0.78, 0.5))
-		box.add_child(maxed)
 	else:
 		var cost := upgrade.cost_at(level)
 		var buy := Button.new()
@@ -126,6 +122,31 @@ func _make_card(upgrade: UpgradeData, gold: int) -> Control:
 		box.add_child(buy)
 	margin.add_child(box)
 	card.add_child(margin)
+	return card
+
+
+## Owned one-shot unlocks (and any maxed upgrade) collapse to a slim
+## gold-highlighted chip; the description survives as a tooltip.
+func _make_maxed_card(upgrade: UpgradeData) -> Control:
+	var card := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.2, 0.17, 0.1)
+	style.border_color = Color(0.92, 0.78, 0.5)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	style.content_margin_left = 10.0
+	style.content_margin_right = 10.0
+	style.content_margin_top = 5.0
+	style.content_margin_bottom = 5.0
+	card.add_theme_stylebox_override(&"panel", style)
+	card.tooltip_text = upgrade.description
+	var label := Label.new()
+	label.text = "✔ %s" % upgrade.display_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override(&"font_size", 15)
+	label.add_theme_color_override(&"font_color", Color(0.92, 0.78, 0.5))
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(label)
 	return card
 
 
@@ -146,10 +167,10 @@ func _display_name_of(id: StringName) -> String:
 ## and disabled. Hidden entirely until a second weapon is unlocked.
 func _refresh_loadout() -> void:
 	for child: Node in loadout_box.get_children():
-		child.queue_free()
+		if child != loadout_label:
+			child.queue_free()
 	var weapons := MetaProgression.get_unlocked_weapons()
 	var visible_row := weapons.size() > 1
-	loadout_label.visible = visible_row
 	loadout_box.visible = visible_row
 	if not visible_row:
 		return

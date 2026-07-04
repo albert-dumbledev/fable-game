@@ -18,6 +18,7 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"swing"] = _swing()
 	sounds[&"hammer_swing"] = _hammer_swing()
 	sounds[&"hit"] = _hit()
+	sounds[&"melee_hit"] = _melee_hit()
 	sounds[&"hammer_slam"] = _hammer_slam()
 	sounds[&"block"] = _block()
 	sounds[&"parry"] = _parry()
@@ -42,14 +43,17 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 # --- Individual sounds ------------------------------------------------------
 
 
-## Sword whoosh: airy noise sweeping up through the swing arc.
+## Sword slash: broad air whoosh swelling through the arc with a thin high
+## hiss riding the blade edge — a smooth sweep rather than an abrupt chop.
 static func _swing() -> AudioStreamWAV:
-	return _to_wav(_env(_noise(0.16, 350.0, 1800.0, 1.0), 0.03, 1.4), 0.55)
+	var arc := _env(_noise(0.24, 250.0, 2400.0, 1.0), 0.09, 1.1)
+	var edge := _env(_noise(0.18, 1200.0, 4200.0, 0.35), 0.07, 1.3)
+	return _to_wav(_overlay(arc, edge, 0.04), 0.32)
 
 
 ## Heavier, slower whoosh for the hammer haul.
 static func _hammer_swing() -> AudioStreamWAV:
-	return _to_wav(_env(_noise(0.28, 150.0, 850.0, 1.0), 0.06, 1.2), 0.6)
+	return _to_wav(_env(_noise(0.28, 150.0, 850.0, 1.0), 0.06, 1.2), 0.38)
 
 
 ## Melee connect: punchy low thud with a snap of noise on top.
@@ -59,11 +63,24 @@ static func _hit() -> AudioStreamWAV:
 	return _to_wav(_overlay(body, snap, 0.0), 0.75)
 
 
-## Ground slam: deep boom plus debris noise.
+## Direct weapon contact: meaty wet smack — a sharp crack of noise over a
+## pitch-dropping body, with a short low saw for gristle.
+static func _melee_hit() -> AudioStreamWAV:
+	var crack := _env(_noise(0.05, 2400.0, 300.0, 0.55), 0.002, 2.2)
+	var body := _env(_tone(0.18, 140.0, 58.0, 1.0, SINE), 0.004, 2.0)
+	var gristle := _env(_tone(0.07, 90.0, 50.0, 0.35, SAW), 0.003, 1.8)
+	var out := _overlay(body, crack, 0.0)
+	return _to_wav(_overlay(out, gristle, 0.01), 0.8)
+
+
+## Ground slam: deep boom sagging into a long low rumble tail, with only a
+## short dark crack on the impact itself.
 static func _hammer_slam() -> AudioStreamWAV:
-	var boom := _env(_tone(0.42, 110.0, 34.0, 1.0, SINE), 0.005, 1.6)
-	var debris := _env(_noise(0.3, 1400.0, 100.0, 0.6), 0.004, 1.8)
-	return _to_wav(_overlay(boom, debris, 0.0), 0.85)
+	var boom := _env(_tone(0.7, 100.0, 26.0, 1.0, SINE), 0.005, 1.1)
+	var rumble := _env(_noise(0.65, 160.0, 45.0, 0.7), 0.01, 1.0)
+	var crack := _env(_noise(0.08, 1200.0, 200.0, 0.4), 0.003, 2.0)
+	var out := _overlay(boom, rumble, 0.0)
+	return _to_wav(_overlay(out, crack, 0.0), 0.95)
 
 
 ## Shield block: inharmonic metallic partials with a hard attack.
@@ -105,16 +122,21 @@ static func _enemy_die() -> AudioStreamWAV:
 	return _to_wav(_overlay(blip, splat, 0.0), 0.45)
 
 
-## Gold pickup: classic two-note coin chirp.
+## Gold pickup: coin-purse thock — a woody low knock with a soft chime on
+## top; tactile rather than musical.
 static func _coin() -> AudioStreamWAV:
-	var out := _env(_tone(0.05, 1400.0, 1400.0, 0.6, SINE), 0.002, 1.2)
-	out = _overlay(out, _env(_tone(0.09, 1870.0, 1880.0, 0.6, SINE), 0.002, 1.4), 0.045)
-	return _to_wav(out, 0.5)
+	var thock := _env(_tone(0.07, 320.0, 190.0, 1.0, SINE), 0.002, 2.2)
+	var chime := _env(_tone(0.14, 660.0, 662.0, 0.5, SINE), 0.003, 1.8)
+	return _to_wav(_overlay(thock, chime, 0.03), 0.55)
 
 
-## XP pickup: single soft blip, quieter sibling of the coin.
+## XP pickup: warm two-note chime with a soft low thump for body.
 static func _xp() -> AudioStreamWAV:
-	return _to_wav(_env(_tone(0.07, 820.0, 980.0, 0.5, SINE), 0.004, 1.4), 0.35)
+	var thump := _env(_tone(0.08, 220.0, 160.0, 0.4, SINE), 0.003, 2.0)
+	var n1 := _env(_tone(0.16, 523.25, 524.0, 0.8, SINE), 0.003, 1.8)
+	var n2 := _env(_tone(0.22, 784.0, 786.0, 0.8, SINE), 0.003, 1.6)
+	var out := _overlay(thump, n1, 0.0)
+	return _to_wav(_overlay(out, n2, 0.07), 0.45)
 
 
 ## Level up: rising major arpeggio.
@@ -134,25 +156,45 @@ static func _boon() -> AudioStreamWAV:
 	return _to_wav(out, 0.55)
 
 
-## Fireball release: whoosh with a fiery crackle bed.
+## Fireball release: ignition puff and a low saw roar with fiery crackle
+## pops scattered through the tail.
 static func _fireball_shoot() -> AudioStreamWAV:
-	var whoosh := _env(_noise(0.28, 400.0, 1500.0, 1.0), 0.02, 1.4)
-	var body := _env(_tone(0.2, 240.0, 110.0, 0.5, SAW), 0.01, 1.6)
-	return _to_wav(_overlay(whoosh, body, 0.0), 0.6)
+	var puff := _env(_noise(0.3, 2200.0, 200.0, 1.0), 0.008, 1.6)
+	var roar := _env(_tone(0.3, 150.0, 70.0, 0.55, SAW), 0.02, 1.3)
+	var out := _overlay(puff, roar, 0.0)
+	for i: int in 9:
+		var pop := _env(_noise(randf_range(0.015, 0.035), 2800.0, 600.0,
+				randf_range(0.2, 0.4)), 0.002, 2.0)
+		out = _overlay(out, pop, randf_range(0.03, 0.26))
+	return _to_wav(out, 0.6)
 
 
-## Explosion: big noise boom collapsing into a sub tail.
+## Explosion: hard blast front collapsing into a sub drop, with burning
+## ember crackle in the tail.
 static func _explosion() -> AudioStreamWAV:
-	var blast := _env(_noise(0.5, 2500.0, 60.0, 1.0), 0.005, 1.5)
-	var sub := _env(_tone(0.45, 90.0, 30.0, 0.9, SINE), 0.008, 1.4)
-	return _to_wav(_overlay(blast, sub, 0.0), 0.85)
+	var blast := _env(_noise(0.55, 3000.0, 45.0, 1.0), 0.003, 1.3)
+	var sub := _env(_tone(0.6, 80.0, 24.0, 1.0, SINE), 0.006, 1.2)
+	var out := _overlay(blast, sub, 0.0)
+	for i: int in 7:
+		var ember := _env(_noise(randf_range(0.02, 0.04), 2200.0, 500.0,
+				randf_range(0.15, 0.3)), 0.002, 2.0)
+		out = _overlay(out, ember, randf_range(0.12, 0.45))
+	return _to_wav(out, 0.9)
 
 
-## Frost nova: icy shimmer — high noise and a long descending glassy tone.
+## Frost nova: cold air rush with two detuned glass tones falling away and
+## tiny crystalline ticks like frost snapping into place.
 static func _frost_nova() -> AudioStreamWAV:
-	var shimmer := _env(_noise(0.4, 4500.0, 1200.0, 0.8), 0.01, 1.3)
-	var glass := _env(_tone(0.38, 1319.0, 392.0, 0.4, SINE), 0.01, 1.2)
-	return _to_wav(_overlay(shimmer, glass, 0.02), 0.55)
+	var rush := _env(_noise(0.5, 6000.0, 700.0, 0.7), 0.008, 1.3)
+	var glass_hi := _env(_tone(0.45, 1319.0, 988.0, 0.35, SINE), 0.01, 1.2)
+	var glass_lo := _env(_tone(0.5, 660.0, 440.0, 0.3, SINE), 0.015, 1.1)
+	var out := _overlay(rush, glass_hi, 0.01)
+	out = _overlay(out, glass_lo, 0.03)
+	for i: int in 8:
+		var tick := _env(_noise(randf_range(0.008, 0.02), 5000.0, 2500.0,
+				randf_range(0.25, 0.45)), 0.001, 1.8)
+		out = _overlay(out, tick, randf_range(0.05, 0.4))
+	return _to_wav(out, 0.55)
 
 
 ## Dash blink: very short bright whoosh.
