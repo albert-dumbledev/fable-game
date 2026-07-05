@@ -13,6 +13,13 @@ const COLOR := Color(1.0, 0.7, 0.3, 0.6)
 ## briefly staggered clump when it dissipates.
 const DRAG_SHOVE_MULT := 1.6
 const DRAG_STUN := 0.5
+## Implosion (slam_pull) on the Seismic Slam: instead of carrying enemies
+## forward, the wave rakes them back toward the cast origin and staggers them
+## there — a gather, not a scatter. Distance-scaled so they converge and settle
+## near the centre instead of being flung past it.
+const PULL_STUN := 0.5
+const PULL_STRENGTH := 4.0
+const PULL_MAX := 11.0
 
 var _info: AttackInfo
 var _dir := Vector3.FORWARD
@@ -23,11 +30,13 @@ var _shove := SHOVE
 var _drag := false
 ## Enemies caught while dragging, staggered as a clump when the wave ends.
 var _dragged: Array[EnemyBase] = []
+var _pull := false
+var _origin := Vector3.ZERO
 
 
 static func spawn(parent: Node, position: Vector3, info: AttackInfo,
 		direction: Vector3, radius_mult: float = 1.0, shove: float = SHOVE,
-		drag: bool = false) -> void:
+		drag: bool = false, pull: bool = false) -> void:
 	if parent == null:
 		return
 	var wave := GroundShockwave.new()
@@ -36,6 +45,8 @@ static func spawn(parent: Node, position: Vector3, info: AttackInfo,
 	wave._radius = HIT_RADIUS * radius_mult
 	wave._shove = shove
 	wave._drag = drag
+	wave._pull = pull
+	wave._origin = position
 	parent.add_child(wave)
 	wave.global_position = position
 
@@ -76,11 +87,21 @@ func _physics_process(delta: float) -> void:
 		var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 		if hurtbox != null:
 			hurtbox.receive_hit(AttackInfo.new(_info.source, _info.damage))
-		# Carried along the wave, not scattered radially. Riptide drags harder
-		# and remembers who it caught so it can stagger the clump at the end.
-		enemy.apply_shove(_dir * _shove * (DRAG_SHOVE_MULT if _drag else 1.0))
-		if _drag:
+		# Pull (Implosion) rakes enemies back to the cast origin and staggers
+		# them; Riptide (drag) carries them forward; otherwise a plain carry.
+		if _pull:
+			var to_origin := _origin - enemy.global_position
+			to_origin.y = 0.0
+			var d := to_origin.length()
+			if d > 0.1:
+				enemy.apply_shove(to_origin / d * minf(PULL_MAX, d * PULL_STRENGTH))
+			if enemy.state != EnemyBase.State.STUNNED and enemy.state != EnemyBase.State.DEAD:
+				enemy.stun(PULL_STUN)
+		elif _drag:
+			enemy.apply_shove(_dir * _shove * DRAG_SHOVE_MULT)
 			_dragged.append(enemy)
+		else:
+			enemy.apply_shove(_dir * _shove)
 	if _traveled >= RANGE:
 		if _drag:
 			_stagger_dragged()

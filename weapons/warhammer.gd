@@ -13,8 +13,11 @@ const SLAM_POS := Vector3(0.0, -0.5, -0.35)
 const SLAM_ROT := Vector3(-75.0, 0.0, 0.0)
 ## Where the head lands: this far in front of the player, at ground level.
 const IMPACT_DISTANCE := 2.2
-const INNER_RADIUS := 2.4
-const OUTER_RADIUS := 4.2
+const INNER_RADIUS := 2.0
+const OUTER_RADIUS := 3.6
+## Primary slam covers a 210° frontal arc (this is the half-angle), so there
+## is a ~150° blind wedge directly behind the player to punish careless facing.
+const SLAM_ARC_HALF_DEG := 105.0
 const SPLASH_DAMAGE_MULT := 0.4
 const SHOVE_FORCE := 9.0
 const SHOCKWAVE_COLOR := Color(1.0, 0.75, 0.35, 0.55)
@@ -23,9 +26,6 @@ const AFTERSHOCK_DELAY := 0.45
 const AFTERSHOCK_DAMAGE_MULT := 0.5
 const AFTERSHOCK_AOE_MULT := 0.8
 const AFTERSHOCK_SHOVE_MULT := 0.6
-## Implosion (unique boon): slam pulls the pack inward and briefly staggers
-## them. Shorter than the swing so you must start the follow-up slam mid-pull.
-const PULL_STUN := 0.5
 ## Bone Breaker (unique boon): fraction of slam damage dealt when a shoved
 ## enemy slams into a wall.
 const BONE_BREAKER_MULT := 0.3
@@ -126,9 +126,10 @@ func _wave_impact(damage: float) -> void:
 	var wave_shove := GroundShockwave.SHOVE * stats.get_stat(Stats.HAMMER_SHOVE)
 	var wave_player := wielder as Player
 	var wave_drag := wave_player != null and wave_player.has_ability(&"wave_drag")
+	var wave_pull := wave_player != null and wave_player.has_ability(&"slam_pull")
 	GroundShockwave.spawn(get_tree().current_scene, origin,
 			AttackInfo.new(wielder, damage), forward, stats.get_stat(Stats.HAMMER_AOE),
-			wave_shove, wave_drag)
+			wave_shove, wave_drag, wave_pull)
 	BlastVfx.spawn(get_tree().current_scene, origin, 1.6, SHOCKWAVE_COLOR, 0.15, 0.2)
 	var player := wielder as Player
 	if player != null:
@@ -150,31 +151,32 @@ func _impact(damage: float) -> void:
 	var aoe := stats.get_stat(Stats.HAMMER_AOE)
 	var shove := SHOVE_FORCE * stats.get_stat(Stats.HAMMER_SHOVE)
 	AudioManager.play(&"hammer_slam")
-	if _slam(point, damage, aoe, shove) > 0:
+	if _slam(point, forward, damage, aoe, shove) > 0:
 		FreezeFrame.hit_pause(HIT_PAUSE)
 	var player := wielder as Player
 	if player != null:
 		player.add_shake(0.5)
 		if player.has_ability(&"aftershock"):
 			get_tree().create_timer(AFTERSHOCK_DELAY, false).timeout.connect(
-					_aftershock.bind(point, damage, aoe, shove))
+					_aftershock.bind(point, forward, damage, aoe, shove))
 
 
-func _aftershock(point: Vector3, damage: float, aoe: float, shove: float) -> void:
+func _aftershock(point: Vector3, forward: Vector3, damage: float, aoe: float,
+		shove: float) -> void:
 	if not is_inside_tree():
 		return
-	_slam(point, damage * AFTERSHOCK_DAMAGE_MULT, aoe * AFTERSHOCK_AOE_MULT,
+	_slam(point, forward, damage * AFTERSHOCK_DAMAGE_MULT, aoe * AFTERSHOCK_AOE_MULT,
 			shove * AFTERSHOCK_SHOVE_MULT)
 
 
 ## Returns how many enemies took damage, so callers can gate impact
 ## feedback on the slam actually catching something.
-func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> int:
+func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
+		shove: float) -> int:
 	var inner := INNER_RADIUS * aoe_mult
 	var outer := OUTER_RADIUS * aoe_mult
 	var hit_count := 0
 	var player := wielder as Player
-	var pull := player != null and player.has_ability(&"slam_pull")
 	var wall_damage := damage * BONE_BREAKER_MULT \
 			if player != null and player.has_ability(&"shove_impact") else 0.0
 	for enemy: EnemyBase in EnemyBase.alive.duplicate():
@@ -184,6 +186,13 @@ func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> int:
 		offset.y = 0.0
 		var dist := offset.length()
 		if dist > outer:
+			continue
+		# 210° frontal arc, measured from the player so the blind wedge sits at
+		# your back. Enemies right on top of you (tiny vector) always count.
+		var to_enemy := enemy.global_position - wielder.global_position
+		to_enemy.y = 0.0
+		if to_enemy.length() > 0.1 \
+				and rad_to_deg(forward.angle_to(to_enemy)) > SLAM_ARC_HALF_DEG:
 			continue
 		var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 		if hurtbox != null:
@@ -196,12 +205,6 @@ func _slam(point: Vector3, damage: float, aoe_mult: float, shove: float) -> int:
 			hurtbox.receive_hit(info)
 			hit_count += 1
 		if dist > 0.01:
-			var push := offset.normalized() * shove
-			enemy.apply_shove(-push if pull else push, wall_damage, wielder)
-		# Gather-stun: a freshly pulled pack is briefly staggered so it
-		# can't wind up on you. Guarded against re-stun so Aftershock's
-		# second pull can't stun-lock (Implosion + Aftershock).
-		if pull and enemy.state != EnemyBase.State.STUNNED:
-			enemy.stun(PULL_STUN)
+			enemy.apply_shove(offset.normalized() * shove, wall_damage, wielder)
 	BlastVfx.spawn(get_tree().current_scene, point, outer, SHOCKWAVE_COLOR, 0.12, 0.3)
 	return hit_count

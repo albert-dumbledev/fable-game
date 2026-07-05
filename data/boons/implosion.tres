@@ -6,7 +6,7 @@
 script = ExtResource("1_script")
 id = &"implosion"
 display_name = "Implosion"
-description = "The slam pulls the pack inward onto the crater instead of scattering it, briefly staggering them"
+description = "The Seismic Slam rakes enemies back to its centre and staggers them there, instead of a scattering wave"
 weight = 0.3
 unique = true
 grants_ability = &"slam_pull"
