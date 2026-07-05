@@ -1,0 +1,74 @@
+extends Node
+## Headless smoke harness for the enemy-expansion work. Boots the Arena, then
+## force-spawns each new enemy that exists (regardless of time gates) via the
+## live spawner, exercises the Broodmother death-burst, and reports. Run with:
+##   Godot --headless --quit-after 600 res://test/EnemySmoke.tscn
+## Not shipped — lives under test/ purely for milestone verification.
+
+const CANDIDATES := [
+	"res://data/enemies/broodmother.tres",
+	"res://data/enemies/stalker.tres",
+	"res://data/enemies/gilded.tres",
+	"res://data/enemies/scavenger.tres",
+]
+
+var _done := false
+
+
+func _ready() -> void:
+	_run.call_deferred()
+
+
+func _run() -> void:
+	# Bring up the Arena as the current scene while this harness node stays
+	# alive alongside it to drive the test.
+	var arena: Node = load("res://levels/Arena.tscn").instantiate()
+	get_tree().root.add_child(arena)
+	get_tree().current_scene = arena
+	# Let the Arena, player, and RunDirector come up.
+	for i in 15:
+		await get_tree().physics_frame
+	var spawner: Spawner = _find_spawner()
+	if spawner == null:
+		print("SMOKE FAIL: no spawner")
+		get_tree().quit()
+		return
+	var spawned := 0
+	for path: String in CANDIDATES:
+		if not ResourceLoader.exists(path):
+			continue
+		var data: EnemyData = load(path)
+		var enemy := spawner.spawn_enemy(data, 200.0)
+		if enemy != null:
+			spawned += 1
+			print("SMOKE: spawned %s" % data.display_name)
+	print("SMOKE: spawned %d new enemy type(s)" % spawned)
+	# Let them act for a bit.
+	for i in 40:
+		await get_tree().physics_frame
+	# Exercise the death-burst: kill any Broodmother and count the hatch.
+	await _test_broodmother(spawner)
+	print("SMOKE OK — alive=%d" % EnemyBase.alive.size())
+	_done = true
+	get_tree().quit()
+
+
+func _test_broodmother(_spawner: Spawner) -> void:
+	if not ResourceLoader.exists("res://data/enemies/broodmother.tres"):
+		return
+	var before := EnemyBase.alive.size()
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if is_instance_valid(enemy) and enemy.data != null \
+				and enemy.data.display_name == "Broodmother":
+			enemy.health.take_damage(AttackInfo.new(null, 99999.0))
+	for i in 30:
+		await get_tree().physics_frame
+	var after := EnemyBase.alive.size()
+	print("SMOKE: broodmother kill: alive %d -> %d (expect hatchlings)" % [before, after])
+
+
+func _find_spawner() -> Spawner:
+	var rd := get_tree().get_first_node_in_group(&"run_director")
+	if rd == null:
+		return null
+	return rd.get_node_or_null(^"Spawner") as Spawner
