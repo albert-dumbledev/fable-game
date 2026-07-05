@@ -3,7 +3,7 @@ extends BossBase
 ## THE HIEROPHANT: a slow, kiting caster boss. It backs away when the player
 ## closes, sliding along the arena walls rather than pinning itself into a
 ## corner, and casts from range. Kiting + Arcane Bolt filler + Triple Fireball
-## + the repulse anti-melee retaliation are wired; Eruption lands in M4.
+## + the repulse anti-melee retaliation + Arcane Eruption are all wired.
 
 const RETREAT_RANGE := 13.0
 const ARENA_HALF := 18.5
@@ -30,12 +30,24 @@ const FIREBALL_LEAD := 0.4
 ## ticks while not stunned, so a remote parry-stun stretches the burst window.
 const REPULSE_FUSE := 1.5
 const REPULSE_IMPULSE := 26.0
+## Arcane Eruption — the repositioning challenge: three chained rifts, each
+## telegraphed then erupting where the player stood when that rift began. Forces
+## constant movement and combos with the repulse (getting shoved into a rift).
+const ERUPTION_COOLDOWN := 10.0
+const ERUPTION_RIFTS := 3
+const ERUPTION_RIFT_INTERVAL := 0.55
+const ERUPTION_TELEGRAPH := 0.8
+const ERUPTION_RADIUS := 2.6
+const ERUPTION_DAMAGE_MULT := 1.2
+const ERUPTION_SHOVE := 18.0
+const ERUPTION_COLOR := Color(0.7, 0.35, 1.0, 0.5)  # violet rift, distinct from the red slam/boulder telegraph
 
-enum Spell { NONE, BOLT, FIREBALL }
+enum Spell { NONE, BOLT, FIREBALL, ERUPTION }
 
 var _cast_lockout := 0.0
 var _bolt_cd := 0.0
 var _fireball_cd := 0.0
+var _eruption_cd := 0.0
 var _pending_spell := Spell.NONE
 var _orb_material: StandardMaterial3D
 var _staff_rest := Vector3.ZERO
@@ -59,6 +71,7 @@ func _chase() -> void:
 	_cast_lockout = maxf(0.0, _cast_lockout - delta)
 	_bolt_cd = maxf(0.0, _bolt_cd - delta)
 	_fireball_cd = maxf(0.0, _fireball_cd - delta)
+	_eruption_cd = maxf(0.0, _eruption_cd - delta)
 	var to_target := _target.global_position - global_position
 	to_target.y = 0.0
 	var dist := to_target.length()
@@ -105,9 +118,10 @@ func _flee(to_target: Vector3, dist: float) -> void:
 	velocity.z = move_dir.z * move_speed()
 
 
-## Cast priority (Eruption > Fireball > Bolt) — Eruption slots in ahead of
-## both in M4.
+## Cast priority: Eruption > Fireball > Bolt.
 func _choose_spell() -> Spell:
+	if _eruption_cd <= 0.0:
+		return Spell.ERUPTION
 	if _fireball_cd <= 0.0:
 		return Spell.FIREBALL
 	if _bolt_cd <= 0.0:
@@ -140,6 +154,8 @@ func _begin_attack() -> void:
 			_cast_bolt()
 		Spell.FIREBALL:
 			_cast_fireball()
+		Spell.ERUPTION:
+			_cast_eruption()
 	_pending_spell = Spell.NONE
 
 
@@ -182,6 +198,57 @@ func _cast_fireball() -> void:
 		EnemyFireball.spawn(get_tree().current_scene, muzzle, dir,
 				AttackInfo.new(self, data.damage * _dmg_mult, FIREBALL_KNOCKBACK))
 	AudioManager.play_at(&"fireball_shoot", global_position)
+
+
+## Kick off the chained rifts. Each rift is scheduled independently; the whole
+## sequence runs on its own timers, outliving this cast's RECOVER, so the caster
+## resumes kiting/casting while the rifts play out. A rift captured the player's
+## position at ITS start, so standing still eats rift two.
+func _cast_eruption() -> void:
+	_eruption_cd = ERUPTION_COOLDOWN
+	for i: int in ERUPTION_RIFTS:
+		get_tree().create_timer(i * ERUPTION_RIFT_INTERVAL, false).timeout.connect(_spawn_rift)
+
+
+func _spawn_rift() -> void:
+	if not is_inside_tree() or state == State.DEAD or _target == null:
+		return
+	var pos := _target.global_position
+	pos.y = 0.05
+	GroundTelegraph.spawn(get_tree().current_scene, pos, ERUPTION_RADIUS,
+			ERUPTION_TELEGRAPH, ERUPTION_COLOR)
+	get_tree().create_timer(ERUPTION_TELEGRAPH, false).timeout.connect(_erupt.bind(pos))
+
+
+## The rift blows: damage the player through the hurtbox (knockback 0 — the pop
+## comes from apply_shove instead) and launch them up-and-out. Shoves minions too.
+func _erupt(pos: Vector3) -> void:
+	if not is_inside_tree() or state == State.DEAD:
+		return
+	var scene := get_tree().current_scene
+	AudioManager.play_at(&"explosion", pos)  # placeholder crack until the M4 SFX pass
+	BlastVfx.spawn(scene, pos, ERUPTION_RADIUS, ERUPTION_COLOR, 0.5, 0.35)
+	ShardBurst.spawn(scene, pos + Vector3(0.0, 0.2, 0.0), Color(0.6, 0.4, 1.0), 12, 8.0, 0.14)
+	var player := get_tree().get_first_node_in_group(&"player") as Node3D
+	if player != null:
+		var off := player.global_position - pos
+		off.y = 0.0
+		if off.length() <= ERUPTION_RADIUS:
+			var hurtbox := player.get_node_or_null(^"Hurtbox") as HurtboxComponent
+			if hurtbox != null:
+				hurtbox.receive_hit(AttackInfo.new(self,
+						data.damage * _dmg_mult * ERUPTION_DAMAGE_MULT, 0.0))
+			# Up-and-out pop (mostly vertical). Only the real Player has apply_shove.
+			if player is Player:
+				var out := off.normalized() if off.length() > 0.01 else Vector3.ZERO
+				(player as Player).apply_shove(out * 7.0 + Vector3.UP * ERUPTION_SHOVE)
+	for minion: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(minion) or minion == self or not minion.is_inside_tree():
+			continue
+		var moff := minion.global_position - pos
+		moff.y = 0.0
+		if moff.length() <= ERUPTION_RADIUS and moff.length() > 0.01:
+			minion.apply_shove(moff.normalized() * 8.0)
 
 
 func _staff_muzzle() -> Vector3:
