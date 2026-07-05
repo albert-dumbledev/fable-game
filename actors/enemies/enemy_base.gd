@@ -21,6 +21,9 @@ const MAGNET_DROP_CHANCE := 0.007
 const HEALTH_DROP_CHANCE := 0.02
 const HEALTH_HEAL_PCT := 25
 const MAGNET_LIFETIME := 45.0
+const DEATH_SPAWN_RADIUS := 1.2
+const DEATH_SPAWN_ARENA_HALF := 18.5
+const DEATH_SPAWN_HEIGHT := 1.0
 
 const ATTACK_ACTIVE_TIME := 0.25
 const WINDUP_COLOR := Color(1.0, 0.55, 0.35)
@@ -389,9 +392,47 @@ func _on_died() -> void:
 		_spawn_single_pickup(&"magnet", 1, MAGNET_LIFETIME)
 	if randf() < HEALTH_DROP_CHANCE:
 		_spawn_single_pickup(&"health", HEALTH_HEAL_PCT, 0.0)
+	_spawn_death_children()
 	var tween := create_tween()
 	tween.tween_property(self, "scale", Vector3.ONE * 0.05, 0.22)
 	tween.tween_callback(queue_free)
+
+
+## Broodmother-style death burst (EnemyData.death_spawns): instantiate the
+## children in a tight ring around the corpse, inheriting this enemy's wave
+## mults, hatching from RECOVER (they hold still for recover_time with a
+## scale-up pop before chasing). No recursion — a child that itself has
+## death_spawns is refused.
+func _spawn_death_children() -> void:
+	if data.death_spawns == null or data.death_spawn_count <= 0:
+		return
+	if data.death_spawns.death_spawns != null:
+		push_warning("Refusing recursive death_spawns on %s" % data.display_name)
+		return
+	var parent := get_tree().current_scene
+	if parent == null:
+		return
+	AudioManager.play_at(&"brood_burst", global_position)
+	var count := data.death_spawn_count
+	for i: int in count:
+		var child := data.death_spawns.scene.instantiate() as EnemyBase
+		if child == null:
+			continue
+		child.setup(data.death_spawns, _hp_mult, _dmg_mult, _reward_mult)
+		var angle := (float(i) + randf_range(-0.2, 0.2)) * TAU / float(count)
+		var pos := global_position + Vector3(cos(angle) * DEATH_SPAWN_RADIUS, 0.0,
+				sin(angle) * DEATH_SPAWN_RADIUS)
+		pos.x = clampf(pos.x, -DEATH_SPAWN_ARENA_HALF, DEATH_SPAWN_ARENA_HALF)
+		pos.z = clampf(pos.z, -DEATH_SPAWN_ARENA_HALF, DEATH_SPAWN_ARENA_HALF)
+		pos.y = DEATH_SPAWN_HEIGHT
+		child.scale = Vector3.ONE * 0.2
+		parent.add_child(child)
+		child.global_position = pos
+		# Hatch beat: hold in RECOVER and pop up to full scale before chasing.
+		child._set_state(State.RECOVER)
+		var pop := child.create_tween()
+		pop.tween_property(child, "scale", Vector3.ONE, 0.3) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## Explode the reward outward as collectable pieces.

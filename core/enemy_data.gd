@@ -22,3 +22,10 @@ extends Resource
 ## Ordered ability flags; on boss death the first one the player doesn't own
 ## drops as a weapon relic.
 @export var unlock_drops: Array[StringName] = []
+
+## Death-burst spawner: on death, EnemyBase spawns `death_spawn_count` copies of
+## `death_spawns` in a ring around the corpse (see EnemyBase._on_died). Children
+## inherit this enemy's wave-scaling mults and hatch from RECOVER. No recursion:
+## a child's own death_spawns is ignored.
+@export var death_spawns: EnemyData
+@export var death_spawn_count := 0

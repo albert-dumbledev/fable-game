@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://core/enemy_data.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://actors/enemies/BroodlingEnemy.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Broodling"
+scene = ExtResource("2_scene")
+max_health = 6.0
+move_speed = 7.0
+damage = 6.0
+attack_range = 1.4
+windup_time = 0.22
+recover_time = 0.45
+knockback = 2.0
+gold_reward = 2
+xp_reward = 2
+spawn_weight = 0.0
+min_elapsed = 0.0

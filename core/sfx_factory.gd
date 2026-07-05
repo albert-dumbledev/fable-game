@@ -41,6 +41,7 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"boss_horn"] = _boss_horn()
 	sounds[&"boss_death"] = _boss_death()
 	sounds[&"boulder_impact"] = _boulder_impact()
+	sounds[&"brood_burst"] = _brood_burst()
 	sounds[&"repulse"] = _repulse()
 	sounds[&"eruption"] = _eruption()
 	sounds[&"alarm"] = _alarm()
@@ -301,6 +302,20 @@ static func _boulder_impact() -> AudioStreamWAV:
 	var crack := _env(_noise(0.07, 1400.0, 300.0, 0.5), 0.002, 2.0)
 	var out := _overlay(boom, debris, 0.0)
 	return _to_wav(_overlay(out, crack, 0.0), 0.9)
+
+
+## Broodmother burst: a wet low squelch (fast-falling filtered noise over a
+## short pitch-dropping body) with a scatter of short high-ish chitters riding
+## the tail as the brood hatches. Fundamentals stay low; the chitters are brief.
+static func _brood_burst() -> AudioStreamWAV:
+	var squelch := _env(_noise(0.22, 900.0, 90.0, 1.0), 0.004, 1.5)
+	var body := _env(_tone(0.2, 150.0, 55.0, 0.7, SINE), 0.005, 1.6)
+	var out := _overlay(squelch, body, 0.0)
+	for i: int in 6:
+		var chitter := _env(_tone(randf_range(0.03, 0.05), randf_range(600.0, 900.0),
+				randf_range(300.0, 450.0), randf_range(0.15, 0.28), SQUARE), 0.002, 2.0)
+		out = _overlay(out, chitter, randf_range(0.06, 0.28))
+	return _to_wav(out, 0.7)
 
 
 ## Caster repulse: a low outward whoomp — a soft sine body dropping in pitch
