@@ -54,6 +54,11 @@ signal wave_announcement(text: String)
 @warning_ignore("unused_signal")
 signal boss_spawned(boss: Node)
 
+## Emitted when the player collects a weapon-unlock relic. `ability` is the
+## granted flag. Drives the claim screen and resumes boss-cleared spawning.
+@warning_ignore("unused_signal")
+signal unlock_claimed(ability: StringName)
+
 ## Emitted the moment the player's dash begins (drives screen feedback).
 @warning_ignore("unused_signal")
 signal player_dashed

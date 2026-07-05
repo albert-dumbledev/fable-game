@@ -171,6 +171,7 @@ func _claim_unlock() -> void:
 	MetaProgression.grant_meta_ability(ability)
 	AudioManager.play(&"unlock_claim")
 	EventBus.wave_announcement.emit("%s CLAIMED — equip it from your loadout" % _unlock_label())
+	EventBus.unlock_claimed.emit(ability)
 
 
 ## The claimed weapon's display name (upper-cased) for the banner, resolved
