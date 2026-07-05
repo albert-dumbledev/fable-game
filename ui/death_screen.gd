@@ -9,6 +9,15 @@ const BRANCHES: Array[Dictionary] = [
 	{"id": &"arcana", "title": "ARCANA", "color": Color(0.6, 0.7, 1.0)},
 ]
 
+## Signature colour + identity name per loadout, so the shop visibly re-themes
+## when you switch weapons in the picker.
+const LOADOUT_THEMES: Dictionary = {
+	&"sword_and_shield": {"name": "DUELIST", "color": Color(0.55, 0.72, 0.95)},
+	&"warhammer": {"name": "EARTHSHAKER", "color": Color(0.95, 0.62, 0.32)},
+	&"battle_staff": {"name": "ARCANIST", "color": Color(0.72, 0.55, 1.0)},
+}
+const DEFAULT_LOADOUT_COLOR := Color(0.8, 0.8, 0.85)
+
 @onready var title_label: Label = $Scroll/Center/Box/Title
 @onready var stats_label: Label = $Scroll/Center/Box/StatsLabel
 @onready var gold_label: Label = $Scroll/Center/Box/GoldLabel
@@ -17,6 +26,8 @@ const BRANCHES: Array[Dictionary] = [
 @onready var branches_box: HBoxContainer = $Scroll/Center/Box/Branches
 @onready var next_run_button: Button = $Scroll/Center/Box/Buttons/NextRunButton
 @onready var menu_button: Button = $Scroll/Center/Box/Buttons/MenuButton
+
+var _loadout_banner: Label
 
 
 func _ready() -> void:
@@ -43,6 +54,7 @@ func _refresh() -> void:
 	_refresh_loadout()
 	for child: Node in branches_box.get_children():
 		child.queue_free()
+	_refresh_loadout_banner()
 	if MetaProgression.registry == null:
 		return
 	var placed := 0
@@ -60,6 +72,34 @@ func _refresh() -> void:
 			hidden += 1
 	if placed + hidden < MetaProgression.registry.upgrades.size():
 		push_warning("Some upgrades have a branch not listed in DeathScreen.BRANCHES.")
+
+
+## The theme for the currently selected loadout (falls back to a neutral grey).
+func _loadout_color() -> Color:
+	var theme: Dictionary = LOADOUT_THEMES.get(MetaProgression.selected_weapon, {})
+	return theme.get("color", DEFAULT_LOADOUT_COLOR)
+
+
+func _loadout_name() -> String:
+	var theme: Dictionary = LOADOUT_THEMES.get(MetaProgression.selected_weapon, {})
+	return theme.get("name", "")
+
+
+## Identity banner shown above the upgrade tree, themed to match the
+## selected loadout's signature colour. Created lazily and kept just above
+## branches_box in the Box VBoxContainer.
+func _refresh_loadout_banner() -> void:
+	var box := branches_box.get_parent()
+	if _loadout_banner == null:
+		_loadout_banner = Label.new()
+		_loadout_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_loadout_banner.add_theme_font_size_override(&"font_size", 26)
+		box.add_child(_loadout_banner)
+		box.move_child(_loadout_banner, branches_box.get_index())
+	var identity := _loadout_name()
+	_loadout_banner.visible = identity != ""
+	_loadout_banner.text = identity
+	_loadout_banner.add_theme_color_override(&"font_color", _loadout_color())
 
 
 func _make_column(branch: Dictionary, gold: int) -> Control:
@@ -96,6 +136,14 @@ func _make_card(upgrade: UpgradeData, gold: int) -> Control:
 	if not _is_locked(upgrade) and upgrade.max_level > 0 and level >= upgrade.max_level:
 		return _make_maxed_card(upgrade)
 	var card := PanelContainer.new()
+	var accent := StyleBoxFlat.new()
+	accent.bg_color = Color(0.12, 0.12, 0.15, 0.9)
+	accent.border_color = _loadout_color()
+	accent.set_border_width_all(1)
+	accent.border_width_left = 4
+	accent.set_corner_radius_all(4)
+	accent.content_margin_left = 2.0
+	card.add_theme_stylebox_override(&"panel", accent)
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override(&"margin_left", 10)
 	margin.add_theme_constant_override(&"margin_top", 6)
