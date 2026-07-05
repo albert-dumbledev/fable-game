@@ -1,6 +1,6 @@
 # Enemy Expansion — Broodmother, Stalker, Gilded One, Scavenger
 
-> **Status: ◯ Planned.** Four new non-boss enemies that widen the mid-run pool (75s–150s, the stretch between the Juggernaut and the Hierophant) and — the design goal — **interact with systems and enemies that already exist** rather than just adding stat lines: the death-burst spawner turns kill *positioning* into a decision, the hit-and-run Stalker attacks the guard meter, the Gilded One weaponizes the player's own greed against the horde, and the Scavenger attacks the reward-on-collection economy directly.
+> **Status: ✅ Done (playtest tuning pending).** Four new non-boss enemies that widen the mid-run pool (75s–150s, the stretch between the Juggernaut and the Hierophant) and — the design goal — **interact with systems and enemies that already exist** rather than just adding stat lines: the death-burst spawner turns kill *positioning* into a decision, the hit-and-run Stalker attacks the guard meter, the Gilded One weaponizes the player's own greed against the horde, and the Scavenger attacks the reward-on-collection economy directly.
 
 Guiding constraint (same as the progression and boss reworks): everything rides on machinery that already exists — the `EnemyBase` state machine with per-state overrides (Spitter is the template), the hurtbox pipeline (block/parry/dash counterplay works against every new attack for free), `apply_slow` routed through `move_speed()` (Frost Nova catches every runner for free), the physical-pickup economy, and `WaveTable`/`WaveEvent` scheduling. Three small pieces of genuinely new plumbing, each reusable beyond its first consumer (§0).
 
@@ -107,11 +107,11 @@ All fundamentals kept low; differentiation by timbre/envelope, not height. Per-i
 
 Each milestone ends runtime-smoke-tested headless (console exe, `--quit-after`, scene loads + a scripted spawn), same protocol as the boss rework.
 
-- **M1 — Death-spawn plumbing + Broodmother.** §0.1 `EnemyData` fields + generic `_on_died` handling (hatch-delay trick), `broodmother/broodling.tres` + scenes, pool registration. *Acceptance:* killing a Broodmother anywhere hatches 5 delayed Broodlings that inherit wave scaling; no recursion; teardown-safe.
-- **M2 — Stalker.** Arc engage / timed disengage subclass; verify parry-stun interrupts a strike and slows collapse the orbit. *Acceptance:* it never idles in melee outside its strike, and a parry → riposte kills it.
-- **M3 — Gilded One.** `WaveEvent.chance` (§0.2), flee-toward-crowds steering, 30s despawn shimmer, ring jackpot fountain, `rare` tag + gold minimap blip, glimmer/jackpot SFX, one-alive + boss-pause guards.
-- **M4 — Scavenger.** `Pickup` edible registry + `consume()` (§0.3), seek/eat/belly/burrow loop, bounty fountain on death, loot-threshold trigger in `RunDirector` with cooldown + boss-pause guard, gulp/burrow SFX.
-- **M5 — Integration & balance pass.** Pool weight retune (§5 target mix), the 240s brood event, a full-run playtest against the difficulty cadence (especially 240–300s: brood event → Hierophant), tuning from feel, then docs refresh (`ENEMIES.md` roster/authoring tables, `PLAN.md` phase row).
+- **✅ M1 — Death-spawn plumbing + Broodmother.** §0.1 `EnemyData` fields + generic `_on_died` handling (hatch-delay trick), `broodmother/broodling.tres` + scenes, pool registration. *Acceptance:* killing a Broodmother anywhere hatches 5 delayed Broodlings that inherit wave scaling; no recursion; teardown-safe.
+- **✅ M2 — Stalker.** Arc engage / timed disengage subclass; verify parry-stun interrupts a strike and slows collapse the orbit. *Acceptance:* it never idles in melee outside its strike, and a parry → riposte kills it.
+- **✅ M3 — Gilded One.** `WaveEvent.chance` (§0.2), flee-toward-crowds steering, 30s despawn shimmer, ring jackpot fountain, `rare` tag + gold minimap blip, glimmer/jackpot SFX, one-alive + boss-pause guards.
+- **✅ M4 — Scavenger.** `Pickup` edible registry + `consume()` (§0.3), seek/eat/belly/burrow loop, bounty fountain on death, loot-threshold trigger in `RunDirector` with cooldown + boss-pause guard, gulp/burrow SFX.
+- **✅ M5 — Integration & balance pass.** Pool weight retune (§5 target mix), the 240s brood event, a full-run playtest against the difficulty cadence (especially 240–300s: brood event → Hierophant), tuning from feel, then docs refresh (`ENEMIES.md` roster/authoring tables, `PLAN.md` phase row).
 
 ## 8. Risks / tuning watch
 
