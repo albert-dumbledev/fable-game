@@ -164,6 +164,9 @@ Each milestone ships independently and smoke-tests headless (scene loads; script
    - **Runtime-validated** via a throwaway headless harness (`Godot --headless res://<scene>` with autoloads live): boulder end-to-end dealt the exact expected 105 dmg through the player hurtbox and the projectile cleaned up; slam WINDUP→ATTACK→RECOVER cycled with no errors; distance-based mode selection confirmed.
    - Playtest gate (owner): the 150 s fight, with every loadout — pose/timing feel + telegraph honesty.
 3. **M3 — Caster core:** scene/data, kiting + wall-slide, repulse (with stun suppression), Arcane Bolt, Triple Fireball. Test via a temporary early `WaveTable` event time.
+   - **M3a — `BossBase` refactor:** ✅ **Done.** Extracted the death-spectacle + loot-wave block (consts + `_on_died`/`_death_burst`/`_spawn_loot_wave`/`_wave_share`) from `boss_enemy.gd` into a new `actors/enemies/boss_base.gd` (`BossBase extends EnemyBase`). `BossEnemy` now `extends BossBase` and keeps only a thin `_on_died` that cancels an in-progress charge before `super()`. The Caster will `extend BossBase` for the same death/loot free. Behavior-preserving; Juggernaut death verified to still run its choreography at runtime.
+   - **M3b — Caster scene + data + kiting:** ⏳ pending.
+   - **M3c — repulse + Arcane Bolt + Triple Fireball:** ⏳ pending.
 4. **M4 — Eruption + rotation polish:** the third spell, cast priorities, orb-flare/SFX pass (new cues: repulse whoomp, boulder thud, eruption crack — low fundamentals, differentiate by timbre).
 5. **M5 — Schedule + victory:** wave-table swap, `unlock_drops` moves, run-end-on-staff + ClaimScreen/DeathScreen framing. Update `docs/ENEMIES.md` + `PLAN.md` after it all lands (the usual doc refresh).
 
