@@ -342,6 +342,14 @@ func add_shake(amount: float) -> void:
 	_shake = minf(_shake + amount, 1.0)
 
 
+## Physically fling the player with no damage — mirror of EnemyBase.apply_shove.
+## Used by boss pushes (Caster repulse, eruption rifts). A well-timed dash still
+## escapes it (_begin_dash zeroes _knockback).
+func apply_shove(impulse: Vector3) -> void:
+	_knockback = impulse
+	velocity.y += minf(impulse.length() * 0.15, 3.0)
+
+
 ## FOV applies live from the settings panel; skip mid-dash so the punch
 ## tween finishes on its own values.
 func _on_settings_changed() -> void:

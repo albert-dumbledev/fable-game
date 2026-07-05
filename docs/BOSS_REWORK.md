@@ -1,6 +1,6 @@
 # Boss Rework — Juggernaut weapon kit + the minute-5 Caster
 
-> **Status: 📋 Planned.** Reworks the Juggernaut from "big chaser with a charge" into a two-mode warhammer boss (boulder throw at range, telegraphed hammer slam up close), and replaces the minute-5 double-Juggernaut wave with a new **Caster boss** that kites, retaliates with a zero-damage repulse, and carries the staff drop. Collecting the staff **ends the run (victory)** for now.
+> **Status: 🔨 In progress (M1 done).** Reworks the Juggernaut from "big chaser with a charge" into a two-mode warhammer boss (boulder throw at range, telegraphed hammer slam up close), and replaces the minute-5 double-Juggernaut wave with a new **Caster boss** that kites, retaliates with a zero-damage repulse, and carries the staff drop. Collecting the staff **ends the run (victory)** for now.
 
 Guiding constraint (same as the progression rework): everything rides on machinery that already exists — the EnemyBase state machine with per-state overrides, the hurtbox pipeline (so block/parry/dash counterplay works against every new attack for free), `apply_shove`/`AttackInfo.knockback` as the displacement primitives, `Projectile`/`Fireball` as templates, and the boss-relic flow in `RunDirector`. Two genuinely new pieces of tech: a **ground telegraph** VFX and a **public push API on the player**.
 
@@ -157,7 +157,7 @@ No mechanism changes: `RunDirector._track_boss / _on_boss_wave_cleared / _spawn_
 
 Each milestone ships independently and smoke-tests headless (scene loads; scripted spawn + attack tick):
 
-1. **M1 — Shared tech:** `GroundTelegraph`, `Player.apply_shove`. Tiny, unblocks everything.
+1. **M1 — Shared tech:** ✅ **Done.** `GroundTelegraph` (`core/ground_telegraph.gd` — display-only filling-disc decal, `ENEMY_COLOR` windup red), `Player.apply_shove` (`actors/player/player.gd`, mirror of `EnemyBase.apply_shove`, dash still escapes). Tiny, unblocks everything.
 2. **M2 — Juggernaut kit:** hammer model + poses, slam (facing lock + telegraph + scaled hammer AoE), boulder (lead targeting + arc + impact), retuned `juggernaut.tres`, charge untouched. Playtest gate: the 150 s fight, with every loadout.
 3. **M3 — Caster core:** scene/data, kiting + wall-slide, repulse (with stun suppression), Arcane Bolt, Triple Fireball. Test via a temporary early `WaveTable` event time.
 4. **M4 — Eruption + rotation polish:** the third spell, cast priorities, orb-flare/SFX pass (new cues: repulse whoomp, boulder thud, eruption crack — low fundamentals, differentiate by timbre).
