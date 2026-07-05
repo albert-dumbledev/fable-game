@@ -1,0 +1,87 @@
+[gd_scene format=3 uid="uid://cqxvj6t2n4k8w"]
+
+[ext_resource type="Script" path="res://actors/enemies/scavenger_enemy.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://blucif7uth0gi" path="res://components/health_component.gd" id="2_health"]
+[ext_resource type="Script" uid="uid://b644v2rrbvyod" path="res://components/hurtbox_component.gd" id="3_hurtbox"]
+[ext_resource type="Script" uid="uid://csfkvj8kmkrmx" path="res://components/hitbox_component.gd" id="4_hitbox"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+radius = 0.5
+height = 0.85
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_body"]
+albedo_color = Color(0.36, 0.28, 0.2, 1)
+roughness = 0.85
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
+material = SubResource("StandardMaterial3D_body")
+radius = 0.5
+height = 0.85
+
+[sub_resource type="SphereMesh" id="SphereMesh_eye"]
+radius = 0.07
+height = 0.14
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fist"]
+albedo_color = Color(0.28, 0.21, 0.15, 1)
+roughness = 0.7
+
+[sub_resource type="SphereMesh" id="SphereMesh_fist"]
+material = SubResource("StandardMaterial3D_fist")
+radius = 0.14
+height = 0.28
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_attack"]
+radius = 0.5
+
+[node name="ScavengerEnemy" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 7
+script = ExtResource("1_script")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("CapsuleMesh_body")
+
+[node name="EyeL" type="MeshInstance3D" parent="Mesh"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.16, 0.28, -0.42)
+mesh = SubResource("SphereMesh_eye")
+
+[node name="EyeR" type="MeshInstance3D" parent="Mesh"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.16, 0.28, -0.42)
+mesh = SubResource("SphereMesh_eye")
+
+[node name="FistPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 0.55, -0.3)
+
+[node name="Fist" type="MeshInstance3D" parent="FistPivot"]
+mesh = SubResource("SphereMesh_fist")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("2_health")
+max_health = 45.0
+
+[node name="Hurtbox" type="Area3D" parent="." node_paths=PackedStringArray("health")]
+collision_layer = 16
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_hurtbox")
+health = NodePath("../Health")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hurtbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="AttackHitbox" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 8
+monitorable = false
+script = ExtResource("4_hitbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AttackHitbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -0.6)
+shape = SubResource("SphereShape3D_attack")

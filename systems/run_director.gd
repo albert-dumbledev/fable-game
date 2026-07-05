@@ -13,11 +13,18 @@ const PICKUP_SCENE := preload("res://actors/pickups/Pickup.tscn")
 const XP_BASE := 14.0
 const XP_GROWTH := 1.14
 
+## Loot-eater: spawned reactively when the arena floor is carpeted with loot,
+## not from the pool. See _maybe_spawn_scavenger.
+const SCAVENGER_DATA := preload("res://data/enemies/scavenger.tres")
+const SCAVENGER_LOOT_THRESHOLD := 20
+const SCAVENGER_COOLDOWN := 25.0
+
 var elapsed := 0.0
 var kills := 0
 var gold_earned := 0
 var xp := 0
 var level := 0
+var _scavenger_cooldown := 0.0
 
 var _run_active := true
 ## Per-event next-fire clock (repeating events re-arm; one-shots go INF).
@@ -53,6 +60,7 @@ func _physics_process(delta: float) -> void:
 		return
 	spawner.tick(elapsed, delta)
 	_fire_due_events()
+	_maybe_spawn_scavenger(delta)
 
 
 ## Scheduled spawns (bosses, ambushes, repeating swarms) from the WaveTable.
@@ -88,6 +96,26 @@ func _fire_due_events() -> void:
 func _rare_alive() -> bool:
 	for enemy: EnemyBase in EnemyBase.alive:
 		if is_instance_valid(enemy) and enemy.data != null and enemy.data.tags.has(&"rare"):
+			return true
+	return false
+
+
+## Spawn a Scavenger reactively when uncollected ground loot piles up — at most
+## one alive, on a cooldown, and only past its time gate. It appears precisely
+## when the player is leaving money on the floor (the post-swarm carpet).
+func _maybe_spawn_scavenger(delta: float) -> void:
+	_scavenger_cooldown = maxf(0.0, _scavenger_cooldown - delta)
+	if _scavenger_cooldown > 0.0 or elapsed < SCAVENGER_DATA.min_elapsed:
+		return
+	if Pickup.edible.size() < SCAVENGER_LOOT_THRESHOLD or _scavenger_alive():
+		return
+	if spawner.spawn_enemy(SCAVENGER_DATA, elapsed) != null:
+		_scavenger_cooldown = SCAVENGER_COOLDOWN
+
+
+func _scavenger_alive() -> bool:
+	for enemy: EnemyBase in EnemyBase.alive:
+		if is_instance_valid(enemy) and enemy is ScavengerEnemy:
 			return true
 	return false
 

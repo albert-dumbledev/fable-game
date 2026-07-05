@@ -47,6 +47,8 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"eruption"] = _eruption()
 	sounds[&"gilded_glimmer"] = _gilded_glimmer()
 	sounds[&"gilded_jackpot"] = _gilded_jackpot()
+	sounds[&"scavenger_gulp"] = _scavenger_gulp()
+	sounds[&"scavenger_burrow"] = _scavenger_burrow()
 	sounds[&"alarm"] = _alarm()
 	sounds[&"click"] = _click()
 	sounds[&"player_death"] = _player_death()
@@ -374,6 +376,24 @@ static func _gilded_jackpot() -> AudioStreamWAV:
 	var shimmer := _env(_tone(0.5, 330.0, 331.0, 0.25, SINE), 0.05, 1.3)
 	var out := _overlay(thunk, puff, 0.0)
 	return _to_wav(_overlay(out, shimmer, 0.03), 0.7)
+
+
+## Scavenger gulp: a short comedic downward sweep — a quick gulp as it swallows a
+## piece of loot. Low and brief.
+static func _scavenger_gulp() -> AudioStreamWAV:
+	var gulp := _env(_tone(0.12, 300.0, 90.0, 1.0, SINE), 0.004, 1.6)
+	var slurp := _env(_noise(0.06, 800.0, 200.0, 0.3), 0.003, 1.8)
+	return _to_wav(_overlay(gulp, slurp, 0.0), 0.5)
+
+
+## Scavenger burrow: a low filtered-noise rumble swell as it digs out with the
+## loot — earthy, rising then cut. All low.
+static func _scavenger_burrow() -> AudioStreamWAV:
+	var rumble := _env(_noise(0.6, 90.0, 260.0, 1.0), 0.15, 0.9)
+	var grit := _env(_noise(0.5, 300.0, 120.0, 0.5), 0.05, 1.0)
+	var sub := _env(_tone(0.5, 70.0, 45.0, 0.5, SINE), 0.02, 1.0)
+	var out := _overlay(rumble, grit, 0.0)
+	return _to_wav(_overlay(out, sub, 0.0), 0.6)
 
 
 ## Wave/swarm announcement: two alternating alarm tones.

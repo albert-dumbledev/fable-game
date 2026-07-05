@@ -48,6 +48,8 @@ func _run() -> void:
 		await get_tree().physics_frame
 	# Exercise the death-burst: kill any Broodmother and count the hatch.
 	await _test_broodmother(spawner)
+	# Exercise the Scavenger eat -> bounty path.
+	await _test_scavenger(spawner)
 	print("SMOKE OK — alive=%d" % EnemyBase.alive.size())
 	_done = true
 	get_tree().quit()
@@ -65,6 +67,34 @@ func _test_broodmother(_spawner: Spawner) -> void:
 		await get_tree().physics_frame
 	var after := EnemyBase.alive.size()
 	print("SMOKE: broodmother kill: alive %d -> %d (expect hatchlings)" % [before, after])
+
+
+## Feeds a fresh Scavenger a pile of gold, confirms it consumes pieces, then
+## kills it and confirms the bounty (eaten x1.25) erupts as a fountain.
+func _test_scavenger(spawner: Spawner) -> void:
+	if not ResourceLoader.exists("res://data/enemies/scavenger.tres"):
+		return
+	var scav := spawner.spawn_enemy(load("res://data/enemies/scavenger.tres"), 200.0) as ScavengerEnemy
+	if scav == null:
+		print("SMOKE: scavenger spawn failed")
+		return
+	for i in 12:
+		var piece: Pickup = load("res://actors/pickups/Pickup.tscn").instantiate()
+		piece.setup(&"gold", 5, Vector3.ZERO)
+		get_tree().current_scene.add_child(piece)
+		piece.global_position = scav.global_position \
+				+ Vector3(randf_range(-1.0, 1.0), 0.3, randf_range(-1.0, 1.0))
+	for i in 120:
+		await get_tree().physics_frame
+	if not is_instance_valid(scav):
+		print("SMOKE: scavenger freed before bounty check")
+		return
+	print("SMOKE: scavenger ate %d pieces" % scav._eaten_count)
+	var before := Pickup.edible.size()
+	scav.health.take_damage(AttackInfo.new(null, 99999.0))
+	for i in 20:
+		await get_tree().physics_frame
+	print("SMOKE: scavenger bounty: edible %d -> %d (fountain expected)" % [before, Pickup.edible.size()])
 
 
 func _find_spawner() -> Spawner:

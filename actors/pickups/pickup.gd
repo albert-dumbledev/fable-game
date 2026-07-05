@@ -31,6 +31,10 @@ const UNLOCK_PULSE_HIGH := 4.0
 ## a group scan.
 static var magnets: Array[Pickup] = []
 
+## Every gold/XP pickup currently on the ground — the Scavenger's food. (Relics,
+## magnets, and health never register: boss loot and utility drops are theft-proof.)
+static var edible: Array[Pickup] = []
+
 var kind: StringName = &"gold"
 var value := 1
 ## For &"unlock" relics, the flag granted on collect.
@@ -60,6 +64,8 @@ func setup(p_kind: StringName, p_value: int, burst_velocity: Vector3) -> void:
 
 func _ready() -> void:
 	add_to_group(&"pickups")
+	if kind == &"gold" or kind == &"xp":
+		edible.append(self)
 	gold_mesh.visible = kind == &"gold"
 	xp_mesh.visible = kind == &"xp"
 	magnet_mesh.visible = kind == &"magnet"
@@ -81,6 +87,7 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	magnets.erase(self)
+	edible.erase(self)
 
 
 ## Forces this pickup into the collection path this very frame — used by a
@@ -88,6 +95,14 @@ func _exit_tree() -> void:
 func force_magnet() -> void:
 	magnet_radius = INF
 	_age = maxf(_age, MAGNET_DELAY)
+
+
+## Eaten by a Scavenger: hand over the value and vanish WITHOUT emitting
+## pickup_collected — loot a Scavenger ate was never collected by the player.
+func consume() -> int:
+	edible.erase(self)
+	queue_free()
+	return value
 
 
 func _start_pulse(target_mesh: MeshInstance3D, low: float, high: float) -> void:
