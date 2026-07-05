@@ -25,6 +25,9 @@ const SHIELD_BLOCK_ROT := Vector3.ZERO
 const HIT_PAUSE := 0.03
 ## Blade Cyclone (unique boon): radial strike radius for a riposte swing.
 const SWEEP_RADIUS := 2.8
+## Second Wind (parry_heal): a lifesteal swing heals this fraction of the
+## damage it deals, per enemy hit.
+const LIFESTEAL_PCT := 0.25
 
 @onready var hitbox: HitboxComponent = $Hitbox
 @onready var sword_pivot: Node3D = $SwordPivot
@@ -44,6 +47,8 @@ var _swing_flip := false
 var _shield_material: StandardMaterial3D
 var _blade_material: StandardMaterial3D
 var _riposte_tween: Tween
+var _lifesteal_swing := false
+var _swing_damage := 0.0
 
 
 func _ready() -> void:
@@ -65,6 +70,10 @@ func _ready() -> void:
 
 func _on_hit_landed(_hurtbox: HurtboxComponent) -> void:
 	FreezeFrame.hit_pause(HIT_PAUSE)
+	if _lifesteal_swing:
+		var player := wielder as Player
+		if player != null:
+			player.heal(_swing_damage * LIFESTEAL_PCT)
 
 
 ## Swaps between the real models and the post-it/pencil easter egg
@@ -96,6 +105,8 @@ func _do_attack(duration: float) -> void:
 		damage *= 1.0 + riposte
 		_flash_riposte(duration)
 	var sweep := riposte > 0.0 and player != null and player.has_ability(&"riposte_sweep")
+	_swing_damage = damage
+	_lifesteal_swing = player != null and player.consume_lifesteal()
 	var info := AttackInfo.new(wielder, damage)
 	info.hit_sound = &"melee_hit"
 	_swing_flip = not _swing_flip

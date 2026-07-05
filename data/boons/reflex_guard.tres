@@ -4,10 +4,10 @@
 
 [resource]
 script = ExtResource("1_script")
-id = &"second_wind"
-display_name = "Second Wind"
-description = "Perfect blocks steal life on your next swing — it heals 25% of the damage it deals"
+id = &"reflex_guard"
+display_name = "Reflex Guard"
+description = "The instant you raise your guard it blocks all directions for a moment (0.5s cooldown)"
 weight = 0.3
 unique = true
-grants_ability = &"parry_heal"
+grants_ability = &"omni_block"
 requires_weapon = &"sword_and_shield"

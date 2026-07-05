@@ -71,9 +71,13 @@ const PARRY_NOVA_RADIUS := 3.0
 const PARRY_NOVA_DAMAGE_MULT := 0.5
 const PARRY_NOVA_SHOVE := 8.0
 const PARRY_NOVA_COLOR := Color(1.0, 0.85, 0.3, 0.55)
-## Second Wind (parry_heal): perfect-block sustain.
-const PARRY_HEAL_AMOUNT := 8.0
+## Second Wind (parry_heal): a perfect block primes lifesteal on the next
+## swing instead of healing outright — the sword pays it back on the punish.
 const PARRY_GUARD_REFUND := 0.5
+## Reflex Guard (omni_block): for a beat after raising the block it guards all
+## directions, then goes on cooldown so it can't be spammed by re-tapping block.
+const OMNI_BLOCK_WINDOW := 0.15
+const OMNI_BLOCK_COOLDOWN := 0.5
 
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
@@ -92,8 +96,12 @@ var _pitch := 0.0
 var _eye_offset := Vector3.ZERO
 var _dead := false
 var _block_started_ms := -10000
+var _omni_window_end_ms := -10000
+var _omni_next_ms := 0
 ## ticks_msec deadline for the primed riposte; 0.0 = not primed.
 var _riposte_until := 0.0
+## Second Wind (parry_heal): a perfect block primes lifesteal on the next swing.
+var _lifesteal_pending := false
 var _guard := GUARD_MAX
 var _guard_broken := false
 var _shake := 0.0
@@ -213,6 +221,9 @@ func _physics_process(delta: float) -> void:
 				and not _guard_broken and _guard > 0.0
 		if block_held and not weapon.is_blocking:
 			_block_started_ms = Time.get_ticks_msec()
+			if has_ability(&"omni_block") and Time.get_ticks_msec() >= _omni_next_ms:
+				_omni_window_end_ms = Time.get_ticks_msec() + int(OMNI_BLOCK_WINDOW * 1000.0)
+				_omni_next_ms = Time.get_ticks_msec() + int(OMNI_BLOCK_COOLDOWN * 1000.0)
 		weapon.set_blocking(block_held)
 		# On weapons with no shield, RMB is the weapon's secondary ability.
 		if not weapon.weapon_data.can_block \
@@ -271,8 +282,9 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 		to_attacker.y = 0.0
 		var forward := -global_transform.basis.z
 		forward.y = 0.0
-		if to_attacker.length() > 0.01 \
-				and rad_to_deg(forward.angle_to(to_attacker)) <= BLOCK_HALF_ANGLE_DEG:
+		var in_cone := rad_to_deg(forward.angle_to(to_attacker)) <= BLOCK_HALF_ANGLE_DEG
+		var omni := Time.get_ticks_msec() <= _omni_window_end_ms
+		if to_attacker.length() > 0.01 and (in_cone or omni):
 			var since_raise := (Time.get_ticks_msec() - _block_started_ms) / 1000.0
 			var window := PERFECT_BLOCK_WINDOW \
 					+ (LONG_PARRY_BONUS if has_ability(&"long_parry") else 0.0)
@@ -296,7 +308,7 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 				if has_ability(&"parry_nova"):
 					_parry_nova()
 				if has_ability(&"parry_heal"):
-					health.heal(PARRY_HEAL_AMOUNT)
+					_lifesteal_pending = true
 					_guard = minf(GUARD_MAX, _guard + PARRY_GUARD_REFUND)
 			else:
 				EventBus.attack_blocked.emit()
@@ -614,6 +626,20 @@ func consume_riposte() -> float:
 		return 0.0
 	_riposte_until = 0.0
 	return RIPOSTE_BASE_BONUS * stats.get_stat(Stats.RIPOSTE_DAMAGE)
+
+
+## Consumed by the sword at swing start: whether the next swing should steal
+## life (primed by a Second Wind perfect block). Clears the prime.
+func consume_lifesteal() -> bool:
+	if not _lifesteal_pending:
+		return false
+	_lifesteal_pending = false
+	return true
+
+
+## Heal helper for weapon-driven effects (lifesteal).
+func heal(amount: float) -> void:
+	health.heal(amount)
 
 
 func _on_vampire_kill(_enemy_data: Resource, _position: Vector3) -> void:
