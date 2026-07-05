@@ -12,6 +12,8 @@ const ENEMY_COLOR := Color(0.9, 0.25, 0.25)
 ## Enemy is winding up or attacking — the "check your back" signal.
 const ENEMY_ATTACKING_COLOR := Color(1.0, 0.62, 0.2)
 const ENEMY_STUNNED_COLOR := Color(0.55, 0.7, 1.0)
+## Rare bounty enemy (the Gilded One): a gold blip regardless of state.
+const RARE_COLOR := Color(1.0, 0.84, 0.2)
 const MAGNET_PING_COLOR := Color(0.85, 0.3, 0.95)
 ## Blips don't need 60 Hz; redrawing every frame was measurable on web.
 const REDRAW_INTERVAL := 0.05
@@ -55,7 +57,9 @@ func _draw() -> void:
 		# Into view space: x along player right, y along player forward (up).
 		var map_pos := Vector2(offset.dot(right), -offset.dot(forward)) * scale_factor
 		var color := ENEMY_COLOR
-		if enemy.state == EnemyBase.State.WINDUP or enemy.state == EnemyBase.State.ATTACK:
+		if enemy.data != null and enemy.data.tags.has(&"rare"):
+			color = RARE_COLOR
+		elif enemy.state == EnemyBase.State.WINDUP or enemy.state == EnemyBase.State.ATTACK:
 			color = ENEMY_ATTACKING_COLOR
 		elif enemy.state == EnemyBase.State.STUNNED:
 			color = ENEMY_STUNNED_COLOR

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://core/enemy_data.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://actors/enemies/GildedEnemy.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Gilded One"
+scene = ExtResource("2_scene")
+max_health = 30.0
+move_speed = 7.2
+damage = 0.0
+attack_range = 0.0
+knockback = 0.0
+gold_reward = 60
+xp_reward = 25
+spawn_weight = 0.0
+min_elapsed = 0.0
+tags = Array[StringName]([&"rare"])

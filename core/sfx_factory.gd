@@ -45,6 +45,8 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"stalker_disengage"] = _stalker_disengage()
 	sounds[&"repulse"] = _repulse()
 	sounds[&"eruption"] = _eruption()
+	sounds[&"gilded_glimmer"] = _gilded_glimmer()
+	sounds[&"gilded_jackpot"] = _gilded_jackpot()
 	sounds[&"alarm"] = _alarm()
 	sounds[&"click"] = _click()
 	sounds[&"player_death"] = _player_death()
@@ -350,6 +352,28 @@ static func _eruption() -> AudioStreamWAV:
 	var out := _overlay(crack, thump, 0.0)
 	out = _overlay(out, rumble, 0.03)
 	return _to_wav(_overlay(out, rise, 0.02), 0.85)
+
+
+## Gilded One spawn/despawn glimmer: two detuned low-mid tones under a slow
+## tremolo — an audible "something rare is here" cue. Low per the audio direction.
+static func _gilded_glimmer() -> AudioStreamWAV:
+	var a := _tone(0.6, 330.0, 333.0, 0.5, SINE)
+	var b := _tone(0.6, 495.0, 499.0, 0.4, SINE)
+	var out := _overlay(a, b, 0.0)
+	for i: int in out.size():
+		var t := float(i) / float(RATE)
+		out[i] *= 0.65 + 0.35 * sin(TAU * 6.0 * t)
+	return _to_wav(_env(out, 0.03, 1.2), 0.5)
+
+
+## Gilded jackpot: a deep celebratory thunk to sit UNDER the coin-blip fountain
+## when the Gilded One is finally cracked open. Low sine body + soft noise puff.
+static func _gilded_jackpot() -> AudioStreamWAV:
+	var thunk := _env(_tone(0.4, 140.0, 60.0, 1.0, SINE), 0.005, 1.3)
+	var puff := _env(_noise(0.25, 400.0, 1200.0, 0.4), 0.02, 1.2)
+	var shimmer := _env(_tone(0.5, 330.0, 331.0, 0.25, SINE), 0.05, 1.3)
+	var out := _overlay(thunk, puff, 0.0)
+	return _to_wav(_overlay(out, shimmer, 0.03), 0.7)
 
 
 ## Wave/swarm announcement: two alternating alarm tones.

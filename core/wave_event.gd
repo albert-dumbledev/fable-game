@@ -11,3 +11,7 @@ extends Resource
 ## 0 = fire once. Otherwise the event re-fires this many seconds after
 ## each firing, forever (swarms that keep coming).
 @export var repeat_every := 0.0
+## Chance to actually fire when the clock crosses `time` (and on each repeat).
+## 1.0 = always. `repeat_every` re-arms regardless of the roll — a miss just
+## waits for the next window. Used for rare random events (the Gilded One).
+@export var chance := 1.0

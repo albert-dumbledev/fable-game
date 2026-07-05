@@ -69,6 +69,13 @@ func _fire_due_events() -> void:
 			continue
 		var event := table.events[i]
 		_next_event_at[i] = elapsed + event.repeat_every if event.repeat_every > 0.0 else INF
+		# Chance events (the Gilded One) roll each fire; the re-arm above already
+		# happened, so a miss just waits for the next window.
+		if event.chance < 1.0 and randf() >= event.chance:
+			continue
+		# Rare bounty enemies (gold minimap blip) cap at one alive at a time.
+		if event.enemy != null and event.enemy.tags.has(&"rare") and _rare_alive():
+			continue
 		if event.announcement != "":
 			EventBus.wave_announcement.emit(event.announcement)
 		for j: int in event.count:
@@ -76,6 +83,13 @@ func _fire_due_events() -> void:
 			if enemy != null and event.enemy.tags.has(&"boss"):
 				EventBus.boss_spawned.emit(enemy)
 				_track_boss(enemy, event.enemy)
+
+
+func _rare_alive() -> bool:
+	for enemy: EnemyBase in EnemyBase.alive:
+		if is_instance_valid(enemy) and enemy.data != null and enemy.data.tags.has(&"rare"):
+			return true
+	return false
 
 
 func _on_enemy_killed(_enemy_data: Resource, _position: Vector3) -> void:
