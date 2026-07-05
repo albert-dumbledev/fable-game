@@ -42,6 +42,7 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"boss_death"] = _boss_death()
 	sounds[&"boulder_impact"] = _boulder_impact()
 	sounds[&"brood_burst"] = _brood_burst()
+	sounds[&"stalker_disengage"] = _stalker_disengage()
 	sounds[&"repulse"] = _repulse()
 	sounds[&"eruption"] = _eruption()
 	sounds[&"alarm"] = _alarm()
@@ -316,6 +317,15 @@ static func _brood_burst() -> AudioStreamWAV:
 				randf_range(300.0, 450.0), randf_range(0.15, 0.28), SQUARE), 0.002, 2.0)
 		out = _overlay(out, chitter, randf_range(0.06, 0.28))
 	return _to_wav(out, 0.7)
+
+
+## Stalker disengage: a short reverse-whoosh — filtered noise whose cutoff RISES
+## (air rushing as it bolts back) with a long swell-in attack and an abrupt tail,
+## the inverse of the swing whoosh. Low-mid and brief.
+static func _stalker_disengage() -> AudioStreamWAV:
+	var rush := _env(_noise(0.22, 200.0, 1500.0, 1.0), 0.14, 0.5)
+	var body := _env(_tone(0.18, 90.0, 165.0, 0.35, SINE), 0.1, 0.6)
+	return _to_wav(_overlay(rush, body, 0.0), 0.4)
 
 
 ## Caster repulse: a low outward whoomp — a soft sine body dropping in pitch

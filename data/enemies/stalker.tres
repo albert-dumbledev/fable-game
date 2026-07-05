@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://core/enemy_data.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://actors/enemies/StalkerEnemy.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "Stalker"
+scene = ExtResource("2_scene")
+max_health = 18.0
+move_speed = 6.8
+damage = 16.0
+attack_range = 1.7
+windup_time = 0.28
+recover_time = 0.35
+knockback = 4.0
+gold_reward = 7
+xp_reward = 5
+spawn_weight = 0.5
+min_elapsed = 75.0
+weight_ramp_duration = 60.0
