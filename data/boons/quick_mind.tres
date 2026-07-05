@@ -16,4 +16,5 @@ display_name = "Quick Mind"
 description = "-12% spell cooldown"
 weight = 0.7
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])
+requires_weapon = &"battle_staff"
 requires_any_ability = Array[StringName]([&"firebolt", &"frost_nova"])

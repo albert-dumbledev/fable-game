@@ -36,7 +36,6 @@ const VULNERABLE_MULT := 1.35
 ## Bone Breaker: a shove carrying wall damage that lands the enemy on a wall
 ## deals it once, if the shove is still strong enough to count as a slam.
 const WALL_IMPACT_MIN_SPEED := 5.0
-const WALL_IMPACT_STUN := 0.4
 
 @onready var health: HealthComponent = $Health
 @onready var hurtbox: HurtboxComponent = $Hurtbox
@@ -185,8 +184,6 @@ func _wall_impact() -> void:
 	_shove_wall_damage = 0.0
 	if hurtbox != null:
 		hurtbox.receive_hit(AttackInfo.new(_shove_source, dmg))
-	if state != State.STUNNED and state != State.DEAD:
-		stun(WALL_IMPACT_STUN)
 
 
 ## Expose Weakness (sword unique boon): the enemy takes VULNERABLE_MULT damage

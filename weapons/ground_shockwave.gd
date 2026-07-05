@@ -18,8 +18,8 @@ const DRAG_STUN := 0.5
 ## there — a gather, not a scatter. Distance-scaled so they converge and settle
 ## near the centre instead of being flung past it.
 const PULL_STUN := 0.5
-const PULL_STRENGTH := 4.0
-const PULL_MAX := 11.0
+const PULL_STRENGTH := 9.0
+const PULL_MAX := 22.0
 
 var _info: AttackInfo
 var _dir := Vector3.FORWARD

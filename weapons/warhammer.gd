@@ -204,7 +204,7 @@ func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
 				info.hit_sound = &"melee_hit"
 			hurtbox.receive_hit(info)
 			hit_count += 1
-		if dist > 0.01:
+		if dist <= inner and dist > 0.01:
 			enemy.apply_shove(offset.normalized() * shove, wall_damage, wielder)
 	BlastVfx.spawn(get_tree().current_scene, point, outer, SHOCKWAVE_COLOR, 0.12, 0.3)
 	return hit_count

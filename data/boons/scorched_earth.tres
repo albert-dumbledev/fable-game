@@ -10,4 +10,5 @@ description = "The fireball blast leaves burning ground that scorches everything
 weight = 0.3
 unique = true
 grants_ability = &"burning_ground"
+requires_weapon = &"battle_staff"
 requires_any_ability = Array[StringName]([&"firebolt"])

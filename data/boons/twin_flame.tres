@@ -17,4 +17,5 @@ description = "Bank a second fireball charge - cast twice back to back"
 weight = 0.3
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])
 unique = true
+requires_weapon = &"battle_staff"
 requires_any_ability = Array[StringName]([&"firebolt"])

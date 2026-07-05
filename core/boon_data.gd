@@ -23,6 +23,10 @@ extends Resource
 ## Only offered if the player owns at least one of these ability flags
 ## (e.g. spell boons gated on the spell being unlocked). Empty = no gate.
 @export var requires_any_ability: Array[StringName] = []
+## Optional per-rarity value multiplier override (indexed COMMON, RARE, EPIC,
+## LEGENDARY). Empty = use the global rarity mults. Lets a boon scale on its
+## own curve instead of the shared one.
+@export var rarity_mults: Array[float] = []
 
 
 func describe(value_mult: float = 1.0) -> String:

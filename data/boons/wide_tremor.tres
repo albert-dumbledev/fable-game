@@ -7,13 +7,14 @@
 script = ExtResource("2_mod")
 stat = &"hammer_aoe"
 kind = 1
-value = 0.2
+value = 0.1
 
 [resource]
 script = ExtResource("1_script")
 id = &"wide_tremor"
 display_name = "Wide Tremor"
-description = "+20% slam size"
+description = "+10% slam size"
 weight = 0.8
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])
 requires_weapon = &"warhammer"
+rarity_mults = Array[float]([1.0, 2.0, 2.5, 4.0])

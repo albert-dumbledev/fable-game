@@ -124,10 +124,14 @@ func _roll_offers(count: int) -> Array[Offer]:
 			offer.tag = "UNIQUE"
 			offer.color = UNIQUE_COLOR
 		else:
-			var rarity := _roll_rarity()
+			var ri := _roll_rarity_index()
+			var rarity: Dictionary = RARITIES[ri]
 			offer.tag = rarity["tag"]
-			offer.mult = rarity["mult"]
 			offer.color = rarity["color"]
+			if offer.boon.rarity_mults.is_empty():
+				offer.mult = rarity["mult"]
+			else:
+				offer.mult = offer.boon.rarity_mults[clampi(ri, 0, offer.boon.rarity_mults.size() - 1)]
 		offers.append(offer)
 	return offers
 
@@ -154,14 +158,15 @@ func _is_offerable(boon: BoonData, player: Player) -> bool:
 	return true
 
 
-func _roll_rarity() -> Dictionary:
+## The rolled rarity's index into RARITIES (weighted by chance).
+func _roll_rarity_index() -> int:
 	var roll := randf()
-	for rarity: Dictionary in RARITIES:
-		var chance: float = rarity["chance"]
+	for i: int in RARITIES.size():
+		var chance: float = RARITIES[i]["chance"]
 		if roll < chance:
-			return rarity
+			return i
 		roll -= chance
-	return RARITIES[0]
+	return 0
 
 
 func _on_pick(offer: Offer) -> void:

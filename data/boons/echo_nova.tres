@@ -10,4 +10,5 @@ description = "Frost Nova pulses a second time - weaker damage and slow, one bea
 weight = 0.3
 unique = true
 grants_ability = &"nova_echo"
+requires_weapon = &"battle_staff"
 requires_any_ability = Array[StringName]([&"frost_nova"])
