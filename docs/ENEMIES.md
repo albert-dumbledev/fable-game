@@ -47,9 +47,11 @@ Roles: Chaser is the baseline; Sprinter forces backpedal discipline (fast, fragi
 
 ### New enemies (Phase 7)
 
+These are the **third-act (5:00–7:30) roster**: after the run was extended toward a 7:30 finale (see the wave-events section), all four expansion enemies were pushed past the 5:00 Hierophant so the new final act is where they live.
+
 | | Broodmother | Broodling | Stalker | Gilded One | Scavenger |
 |---|---|---|---|---|---|
-| Enters at | 135s (pool) | via death burst | 75s (pool) | 90s (chance event) | 150s (loot-triggered) |
+| Enters at | 330s (pool) | via death burst | 300s (pool) | 315s (chance event) | 300s (loot-triggered) |
 | HP | 70 | 6 | 18 | 30 | 45 |
 | Speed | 2.2 | 7.0 | 6.8 (orbit 8) | 7.2 | 4.2 / 5.8 sated |
 | Damage | 24 | 6 | 16 | — | — |
@@ -80,7 +82,7 @@ Roles: Chaser is the baseline; Sprinter forces backpedal discipline (fast, fragi
 | Enemy HP | `× (1 + hp_growth_per_min · min)` | +50%/min |
 | Enemy damage | `× (1 + dmg_growth_per_min · min)` | +40%/min |
 | Reward (gold & XP drops) | `× (1 + reward_growth_per_min · min)` | +30%/min |
-| Alive cap | lerp `start → end` over ramp | 24 → 90 over 270s |
+| Alive cap | lerp `start → end` over ramp | 24 → 120 over 390s |
 | Pool pick | weight-roll among entries with `elapsed ≥ min_elapsed` | — |
 
 Multipliers are baked per-enemy at spawn via `enemy.setup(data, hp_mult, dmg_mult, reward_mult)` — `EnemyData` resources are never mutated. Damage growth stays under HP growth so runs still end by attrition and being swarmed rather than pure one-shots, but at +40%/min it bites: with the 80-HP player baseline, "3–4 hits from death" holds through the midgame unless health boons are picked. The 90 alive cap is still well under the ~200 GDScript danger zone (PLAN §6); profile before raising it again. `spawn_enemy()` is public so scheduled `WaveTable` events reuse ring placement and scaling.
@@ -91,7 +93,9 @@ Multipliers are baked per-enemy at spawn via `enemy.setup(data, hp_mult, dmg_mul
 
 **Rare event guards:** the `_rare_alive()` check ensures at most one enemy tagged `rare` is alive at a time (one Gilded One per spawn window). Boss-loot and loot-triggered spawns also guard against firing while spawning is paused.
 
-Default table: one Juggernaut at **150s** ("THE JUGGERNAUT APPROACHES", drops `weapon_warhammer`), one Caster at **300s** ("THE HIEROPHANT APPROACHES", drops `weapon_staff` — collecting it **wins the run**), **12 Sprinters at 45s repeating every 50s** ("A SWARM APPROACHES"), **16 Chasers at 120s repeating every 80s** ("THEY POUR IN"), **24 Spitters at 360s repeating every 60s** ("THEY'RE EVERYWHERE"), **one Gilded One at 90s repeating every 70s** (chance 0.6, silent — spawn glimmer SFX + gold minimap blip are the announcement), and **3 Broodmothers at 240s** (one-shot "THE BROOD COMES" — a mid-run AoE exam between the two bosses).
+Default table: one Juggernaut at **150s** ("THE JUGGERNAUT APPROACHES", drops `weapon_warhammer`), one Caster at **300s** ("THE HIEROPHANT APPROACHES", drops `weapon_staff` — now a **normal weapon unlock**, no longer the run-ender), **12 Sprinters at 45s repeating every 50s** ("A SWARM APPROACHES"), **16 Chasers at 120s repeating every 80s** ("THEY POUR IN"), **24 Spitters at 360s repeating every 60s** ("THEY'RE EVERYWHERE"), **one Gilded One at 315s repeating every 70s** (chance 0.6, silent — spawn glimmer SFX + gold minimap blip are the announcement), and **3 Broodmothers at 390s** (one-shot "THE BROOD COMES" — the third-act AoE exam before the reserved 7:30 boss slot).
+
+**Run length & the 7:30 finale.** The run targets **7:30** in preparation for a 3rd boss. The two existing bosses stay put (2:30 / 5:00); the alive cap climbs the same slope past 4:30 (to 120 by 6:30) instead of plateauing at 90, and the four expansion enemies populate the new 5:00–7:30 third act. Victory is a **placeholder timed finale**: `RunDirector` fires `finish_victory()` at `VICTORY_TIME = 450s` (deferred `GameManager.end_run({victory: true})`). This is temporary — a 3rd boss will eventually own the win at ~7:30, and the timed trigger comes back out.
 
 **Shared boss tech.** `GroundTelegraph` (`core/ground_telegraph.gd`): a display-only ground danger decal that fills centre→rim over a windup then frees itself — the attack owns the timing, the telegraph is pure VFX. `Player.apply_shove(impulse)`: the mirror of `EnemyBase.apply_shove`, a no-damage push (a well-timed dash still escapes it, since `_dash` zeroes `_knockback`). Enemy ground-AoE damage vs the player always routes through `player.get_node("Hurtbox").receive_hit(...)`, never `health.take_damage`, so block/dash/perfect-block counterplay works unchanged. `BossBase` (`boss_base.gd`) holds the shared death spectacle + three-fountain loot wave; both bosses extend it.
 
@@ -108,7 +112,7 @@ Default table: one Juggernaut at **150s** ("THE JUGGERNAUT APPROACHES", drops `w
 - **Arcane Eruption** (10s): three chained rifts, each telegraphing where the player *currently* stands then erupting (1.2× damage + an up-and-out pop) 0.55s apart — forces constant movement, combos with the repulse.
 - **Repulse** (`_on_damaged` fuse): the first hit taken arms a **1.5s fuse**; when it elapses the player is flung clear (impulse 26, **0 damage**) as a direct, un-blockable `apply_shove` (dash still escapes). Later hits don't reset it; a **stun pauses the fuse** (a remote parry-stun on a bolt/fireball stretches the burst window). The staff orb brightens as the fuse fills. This is the anti-melee pacing valve — every approach buys a guaranteed burst window.
 
-**Boss-loot flow:** the weapon relic drops from `RunDirector`, not the boss, and only once EVERY boss of the wave is dead. When the last boss falls and a relic is owed, the arena clears its remaining minions and **spawning PAUSES** (run timer keeps advancing) so the player can walk to the relic in peace. The HUD shows one health bar PER living boss. The relic is an infinite-lifetime pickup; collecting it opens a paused `ClaimScreen` modal. On acknowledge a normal relic resumes spawning — **but the staff ends the run in victory**: `RunDirector._on_unlock_claimed` leaves spawning paused, and the ClaimScreen's Continue calls `finish_victory` → `GameManager.end_run({victory: true})` → the "VICTORY" `DeathScreen`. (Veteran saves already owning the staff get no drop and play on endless.) See `RunDirector._track_boss`, `_on_boss_died`, `_on_boss_wave_cleared`, `_spawn_relic`, `_on_unlock_claimed`, `finish_victory`; `EventBus.unlock_claimed`; and `Pickup` kind `&"unlock"`.
+**Boss-loot flow:** the weapon relic drops from `RunDirector`, not the boss, and only once EVERY boss of the wave is dead. When the last boss falls and a relic is owed, the arena clears its remaining minions and **spawning PAUSES** (run timer keeps advancing) so the player can walk to the relic in peace. The HUD shows one health bar PER living boss. The relic is an infinite-lifetime pickup; collecting it opens a paused `ClaimScreen` modal. On acknowledge **every** relic (the staff included) resumes spawning and the run continues to the 7:30 finale — the staff is now an ordinary weapon unlock, not a win condition (`RunDirector._on_unlock_claimed` just clears the pause). See `RunDirector._track_boss`, `_on_boss_died`, `_on_boss_wave_cleared`, `_spawn_relic`, `_on_unlock_claimed`, `finish_victory` (the timed 7:30 handoff); `EventBus.unlock_claimed`; and `Pickup` kind `&"unlock"`.
 
 ## Death → pickups (`actors/pickups/pickup.gd`)
 

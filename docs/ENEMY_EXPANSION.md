@@ -79,7 +79,7 @@ The minimap already reads `enemy.state` for its color language (orange = winding
 
 | | Broodmother | Broodling | Stalker | Gilded One | Scavenger |
 |---|---|---|---|---|---|
-| Enters at | **135s** (pool) | via death burst | **75s** (pool) | **90s** (chance event) | **150s** (loot-triggered) |
+| Enters at | **330s** (pool) | via death burst | **300s** (pool) | **315s** (chance event) | **300s** (loot-triggered) |
 | HP | 70 | 6 | 18 | 30 | 45 |
 | Speed | 2.2 | 7.0 | 6.8 (orbit 8) | 7.2 | 4.2 / 5.8 sated |
 | Damage | 24 | 6 | 16 | — | — |
@@ -87,12 +87,12 @@ The minimap already reads `enemy.state` for its color language (orange = winding
 | Windup / recover | 0.5 / 0.8 | 0.22 / 0.45 | 0.28 / 0.35 | — | — |
 | Knockback | 8 | 2 | 4 | — | — |
 | Gold / XP | 10 / 7 | 2 / 2 | 7 / 5 | **60 / 25** | bounty ×1.25 |
-| Spawn weight | 0.35 | — | 0.5 | — | — |
+| Spawn weight | 0.27 | — | 0.5 | — | — |
 | Tags | | | | `rare` | |
 
-- All time gates sit **before the minute-5 Hierophant**, so the full roster is experienced in a staff-victory run; endless veterans get the complete late mix.
-- **Pool dilution:** two new weighted entrants shift the late composition. M5 retunes weights against a target mix (roughly: Chaser 30% / Sprinter 20% / Spitter 15% / Brute 12% / Stalker 15% / Broodmother 8% by late-game weight share) and considers `weight_ramp_duration` on both newcomers so they fade in rather than spike.
-- **New swarm event (M5):** one-shot at **240s** — 3 Broodmothers, "THE BROOD COMES" — a mid-run AoE exam between the two bosses, slotted into the rhythmic-cadence gap.
+- **Post-M5 rescale:** the run was extended toward a **7:30 finale** (in preparation for a 3rd boss), and all four expansion enemies were pushed into the new **5:00–7:30 third act** (the entry times above). The 0:00–5:00 stretch reverts to the base four-enemy roster + the two existing bosses; the expansion roster now *defines* the final act.
+- **Pool dilution:** two new weighted entrants shift the late composition. M5 retuned weights against a target mix (roughly: Chaser 30% / Sprinter 20% / Spitter 15% / Brute 12% / Stalker 15% / Broodmother 8% by late-game weight share), with `weight_ramp_duration` on both newcomers so they fade in rather than spike.
+- **Swarm event (M5, moved by the rescale):** one-shot at **390s** — 3 Broodmothers, "THE BROOD COMES" — the third-act AoE exam before the reserved 7:30 boss slot.
 
 ## 6. SFX (procedural, `SfxFactory`, low-pitched per the audio direction)
 
