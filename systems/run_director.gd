@@ -5,8 +5,11 @@ extends Node
 
 @onready var spawner: Spawner = $Spawner
 
-const XP_BASE := 20
-const XP_PER_LEVEL := 15
+# Level cadence target ~10-30s. A gentle geometric curve keeps that roughly
+# constant as XP income ramps, while big chunks (swarms, bosses) still pop
+# multiple levels at once via the while-loop in _grant_xp.
+const XP_BASE := 14.0
+const XP_GROWTH := 1.14
 
 var elapsed := 0.0
 var kills := 0
@@ -89,7 +92,7 @@ func _grant_xp(amount: int) -> void:
 
 
 func _xp_required(current_level: int) -> int:
-	return XP_BASE + current_level * XP_PER_LEVEL
+	return int(round(XP_BASE * pow(XP_GROWTH, current_level)))
 
 
 func _on_player_died() -> void:
