@@ -48,6 +48,13 @@ count = 24
 announcement = "THEY'RE EVERYWHERE"
 repeat_every = 60.0
 
+[sub_resource type="Resource" id="Resource_brood_event"]
+script = ExtResource("7_event")
+time = 240.0
+enemy = ExtResource("10_broodmother")
+count = 3
+announcement = "THE BROOD COMES"
+
 [sub_resource type="Resource" id="Resource_gilded"]
 script = ExtResource("7_event")
 time = 90.0
@@ -59,7 +66,7 @@ chance = 0.6
 [resource]
 script = ExtResource("1_script")
 enemies = Array[ExtResource("2_type")]([ExtResource("3_chaser"), ExtResource("4_sprinter"), ExtResource("5_brute"), ExtResource("6_spitter"), ExtResource("10_broodmother"), ExtResource("11_stalker")])
-events = Array[ExtResource("7_event")]([SubResource("Resource_boss1"), SubResource("Resource_boss2"), SubResource("Resource_swarm_sprinters"), SubResource("Resource_swarm_chasers"), SubResource("Resource_swarm_spitters"), SubResource("Resource_gilded")])
+events = Array[ExtResource("7_event")]([SubResource("Resource_boss1"), SubResource("Resource_boss2"), SubResource("Resource_swarm_sprinters"), SubResource("Resource_swarm_chasers"), SubResource("Resource_swarm_spitters"), SubResource("Resource_gilded"), SubResource("Resource_brood_event")])
 start_interval = 2.2
 min_interval = 0.25
 interval_ramp_time = 210.0

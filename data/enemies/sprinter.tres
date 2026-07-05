@@ -16,6 +16,6 @@ recover_time = 0.5
 knockback = 3.0
 gold_reward = 4
 xp_reward = 3
-spawn_weight = 0.8
+spawn_weight = 0.67
 min_elapsed = 45.0
 weight_ramp_duration = 120.0
