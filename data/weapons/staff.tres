@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/weapon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"battle_staff"
+display_name = "Battle Staff"
+description = "Arcane caster — Arcane Bolt (LMB), Fireball (RMB), spells via Arcana"
+damage = 8.0
+swing_time = 0.5
+can_block = false
+scene_path = "res://weapons/Staff.tscn"
+unlock_ability = &"weapon_staff"
+grants_abilities = Array[StringName]([&"firebolt"])

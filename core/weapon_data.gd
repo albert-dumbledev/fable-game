@@ -15,3 +15,7 @@ extends Resource
 @export_file("*.tscn") var scene_path := ""
 ## Ability flag that unlocks this weapon in the loadout (empty = always available).
 @export var unlock_ability: StringName = &""
+## Ability flags granted to the player while this weapon is mounted (e.g. the
+## staff grants &"firebolt"). This keeps spell flags as the single mechanism —
+## the spell arrives from the mount instead of the shop.
+@export var grants_abilities: Array[StringName] = []

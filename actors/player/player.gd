@@ -163,6 +163,8 @@ func _mount_weapon(data: WeaponData) -> void:
 	weapon.weapon_data = data
 	weapon_mount.add_child(weapon)
 	weapon.setup(stats, self)
+	for ability: StringName in data.grants_abilities:
+		grant_ability(ability)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -218,11 +220,8 @@ func _physics_process(delta: float) -> void:
 			weapon.try_secondary()
 		if Input.is_action_pressed("attack"):
 			weapon.try_attack()
-		if has_ability(&"firebolt") and Input.is_action_just_pressed("cast") \
-				and _fireball_charges > 0:
-			_begin_cast()
-		if has_ability(&"frost_nova") and Input.is_action_just_pressed("cast_2") \
-				and _nova_cooldown <= 0.0:
+		if weapon is Staff and has_ability(&"frost_nova") \
+				and Input.is_action_just_pressed("cast_2") and _nova_cooldown <= 0.0:
 			_cast_frost_nova()
 
 	if Input.is_action_just_pressed("jump") and is_on_floor():
@@ -413,7 +412,6 @@ func _begin_cast() -> void:
 	_charging = true
 	_charge_time = 0.0
 	_charge_duration = FIREBALL_CHARGE_TIME * maxf(0.2, stats.get_stat(Stats.CAST_TIME))
-	weapon.set_stowed(true)
 	# Growing orb in front of the camera telegraphs the charge.
 	_charge_orb = MeshInstance3D.new()
 	var sphere := SphereMesh.new()
@@ -433,7 +431,6 @@ func _begin_cast() -> void:
 
 func _finish_cast() -> void:
 	_charging = false
-	weapon.set_stowed(false)
 	if _charge_orb != null:
 		_charge_orb.queue_free()
 		_charge_orb = null
@@ -443,8 +440,10 @@ func _finish_cast() -> void:
 	AudioManager.play(&"fireball_shoot")
 	var ball := FIREBALL_SCENE.instantiate() as Fireball
 	var dir := -camera.global_transform.basis.z
+	var ball_damage := (FIREBALL_BASE_DAMAGE + stats.get_stat(Stats.DAMAGE) * 1.5) \
+			* stats.get_stat(Stats.SPELL_DAMAGE)
 	ball.setup(
-		AttackInfo.new(self, FIREBALL_BASE_DAMAGE + stats.get_stat(Stats.DAMAGE) * 1.5),
+		AttackInfo.new(self, ball_damage),
 		dir, stats.get_stat(Stats.FIREBALL_AOE), has_ability(&"burning_ground"))
 	get_tree().current_scene.add_child(ball)
 	ball.global_position = camera.global_position + dir * 0.8
@@ -464,7 +463,8 @@ func _nova_echo() -> void:
 
 
 func _do_nova(damage_mult: float, slow_mult: float, slow_time: float) -> void:
-	var damage := (FROST_NOVA_DAMAGE + stats.get_stat(Stats.DAMAGE) * 0.4) * damage_mult
+	var damage := (FROST_NOVA_DAMAGE + stats.get_stat(Stats.DAMAGE) * 0.4) * damage_mult \
+			* stats.get_stat(Stats.SPELL_DAMAGE)
 	for enemy: EnemyBase in EnemyBase.alive.duplicate():
 		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
 			continue
@@ -561,6 +561,23 @@ func get_cooldown_max(id: StringName) -> float:
 		&"hammer_wave":
 			return Warhammer.WAVE_COOLDOWN
 	return 0.0
+
+
+## Fired by the staff's RMB (try_secondary). Spells are the staff's alone, so
+## the fireball trigger lives here rather than on a global key.
+func try_cast_fireball() -> void:
+	if _charging or _fireball_charges <= 0:
+		return
+	_begin_cast()
+
+
+## Aim ray for staff projectiles — the camera's world position and forward.
+func aim_origin() -> Vector3:
+	return camera.global_position
+
+
+func aim_direction() -> Vector3:
+	return -camera.global_transform.basis.z
 
 
 func get_charges(id: StringName) -> int:

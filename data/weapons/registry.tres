@@ -1,10 +1,11 @@
-[gd_resource type="Resource" script_class="WeaponRegistry" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="WeaponRegistry" load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://core/weapon_registry.gd" id="1_script"]
 [ext_resource type="Script" path="res://core/weapon_data.gd" id="2_type"]
 [ext_resource type="Resource" path="res://data/weapons/sword.tres" id="3_sword"]
 [ext_resource type="Resource" path="res://data/weapons/warhammer.tres" id="4_hammer"]
+[ext_resource type="Resource" path="res://data/weapons/staff.tres" id="5_staff"]
 
 [resource]
 script = ExtResource("1_script")
-weapons = Array[ExtResource("2_type")]([ExtResource("3_sword"), ExtResource("4_hammer")])
+weapons = Array[ExtResource("2_type")]([ExtResource("3_sword"), ExtResource("4_hammer"), ExtResource("5_staff")])

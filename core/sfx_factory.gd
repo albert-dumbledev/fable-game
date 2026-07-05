@@ -33,6 +33,7 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"level_up"] = _level_up()
 	sounds[&"unlock_claim"] = _unlock_claim()
 	sounds[&"boon"] = _boon()
+	sounds[&"arcane_bolt"] = _arcane_bolt()
 	sounds[&"fireball_shoot"] = _fireball_shoot()
 	sounds[&"explosion"] = _explosion()
 	sounds[&"frost_nova"] = _frost_nova()
@@ -204,6 +205,15 @@ static func _boon() -> AudioStreamWAV:
 	var out := _env(_tone(0.2, 523.25, 525.0, 0.5, SINE), 0.004, 1.5)
 	out = _overlay(out, _env(_tone(0.28, 784.0, 786.0, 0.5, SINE), 0.004, 1.5), 0.08)
 	return _to_wav(out, 0.55)
+
+
+## Arcane bolt: a quick descending zap over a soft low body-tick — bright
+## transient but the fundamentals stay low, so it reads as distinct from the
+## heavier _fireball_shoot rather than competing with it up in pitch.
+static func _arcane_bolt() -> AudioStreamWAV:
+	var zap := _env(_tone(0.09, 950.0, 220.0, 0.5, SAW), 0.002, 1.8)
+	var tick := _env(_noise(0.03, 2200.0, 500.0, 0.4), 0.001, 2.0)
+	return _to_wav(_overlay(zap, tick, 0.0), 0.5)
 
 
 ## Fireball release: ignition puff and a low saw roar with fiery crackle
