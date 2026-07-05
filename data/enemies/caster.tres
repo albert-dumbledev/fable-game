@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://cvhx1w0y3n7q"]
+
+[ext_resource type="Script" uid="uid://b7careyj8tn88" path="res://core/enemy_data.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://actors/enemies/CasterBoss.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "THE HIEROPHANT"
+scene = ExtResource("2_scene")
+max_health = 420.0
+move_speed = 2.4
+damage = 20.0
+attack_range = 18.0
+windup_time = 0.8
+recover_time = 0.8
+knockback = 4.0
+gold_reward = 150
+xp_reward = 90
+spawn_weight = 0.0
+tags = Array[StringName]([&"boss"])
+unlock_drops = Array[StringName]([&"weapon_staff"])
