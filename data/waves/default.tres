@@ -8,6 +8,7 @@
 [ext_resource type="Resource" path="res://data/enemies/spitter.tres" id="6_spitter"]
 [ext_resource type="Script" uid="uid://cs5y5yhlxd13f" path="res://core/wave_event.gd" id="7_event"]
 [ext_resource type="Resource" uid="uid://bkognv01ld0bw" path="res://data/enemies/juggernaut.tres" id="8_boss"]
+[ext_resource type="Resource" uid="uid://cvhx1w0y3n7q" path="res://data/enemies/caster.tres" id="9_caster"]
 
 [sub_resource type="Resource" id="Resource_boss1"]
 script = ExtResource("7_event")
@@ -18,9 +19,8 @@ announcement = "THE JUGGERNAUT APPROACHES"
 [sub_resource type="Resource" id="Resource_boss2"]
 script = ExtResource("7_event")
 time = 300.0
-enemy = ExtResource("8_boss")
-count = 2
-announcement = "JUGGERNAUTS APPROACH"
+enemy = ExtResource("9_caster")
+announcement = "THE HIEROPHANT APPROACHES"
 
 [sub_resource type="Resource" id="Resource_swarm_sprinters"]
 script = ExtResource("7_event")

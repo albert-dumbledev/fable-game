@@ -35,7 +35,10 @@ func _ready() -> void:
 	next_run_button.pressed.connect(_on_next_run)
 	menu_button.pressed.connect(_on_menu)
 	var run_stats := GameManager.last_run_stats
-	if run_stats.get("abandoned", false):
+	if run_stats.get("victory", false):
+		title_label.text = "VICTORY"
+		title_label.add_theme_color_override(&"font_color", Color(1.0, 0.85, 0.4))
+	elif run_stats.get("abandoned", false):
 		title_label.text = "RUN ABANDONED"
 		title_label.add_theme_color_override(&"font_color", Color(0.75, 0.7, 0.6))
 	var time := float(run_stats.get("time", 0.0))

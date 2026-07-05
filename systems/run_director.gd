@@ -182,6 +182,22 @@ func _spawn_relic(ability: StringName, position: Vector3) -> void:
 	relic.global_position = position + Vector3(0.0, 1.2, 0.0)
 
 
-## The relic was claimed — resume the wave.
-func _on_unlock_claimed(_ability: StringName) -> void:
+## The relic was claimed. The staff is the run-ending prize — leave spawning
+## paused and let the ClaimScreen's "RUN COMPLETE" acknowledgement drive the
+## victory handoff (finish_victory), so an immediate scene change can't yank the
+## overlay away. Any other relic just resumes the wave.
+func _on_unlock_claimed(ability: StringName) -> void:
+	if ability == &"weapon_staff":
+		return
 	_spawning_paused = false
+
+
+## Called by the ClaimScreen's Continue on the staff claim: bank the run and hand
+## off to the victory screen. The arena is already cleared and spawning paused,
+## so nothing can kill the player in between. Idempotent against a double-press.
+func finish_victory() -> void:
+	if not _run_active:
+		return
+	_run_active = false
+	MetaProgression.save_game()
+	GameManager.end_run({"time": elapsed, "kills": kills, "gold": gold_earned, "victory": true})

@@ -8,6 +8,14 @@ extends CanvasLayer
 @onready var subtitle: Label = $Center/Box/Subtitle
 @onready var continue_button: Button = $Center/Box/ContinueButton
 
+## Collecting the staff ends the run (victory): swap the framing to run-complete
+## and let Continue finish the run instead of resuming the arena.
+const STAFF_ABILITY := &"weapon_staff"
+const DEFAULT_SUBTITLE := "Equip it from your loadout on the death screen"
+const STAFF_SUBTITLE := "THE STAFF IS YOURS — RUN COMPLETE"
+
+var _pending_ability: StringName = &""
+
 
 func _ready() -> void:
 	continue_button.pressed.connect(_on_continue)
@@ -21,7 +29,11 @@ func _on_unlock_claimed(ability: StringName) -> void:
 
 
 func _show(ability: StringName) -> void:
+	_pending_ability = ability
 	item_label.text = _weapon_name(ability)
+	var is_staff := ability == STAFF_ABILITY
+	subtitle.text = STAFF_SUBTITLE if is_staff else DEFAULT_SUBTITLE
+	continue_button.text = "Finish" if is_staff else "Continue"
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	visible = true
@@ -32,6 +44,12 @@ func _on_continue() -> void:
 	AudioManager.play(&"click")
 	visible = false
 	get_tree().paused = false
+	if _pending_ability == STAFF_ABILITY:
+		# Victory: hand off to the run-complete screen rather than resuming.
+		var director := get_tree().get_first_node_in_group(&"run_director")
+		if director != null:
+			director.finish_victory()
+		return
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
