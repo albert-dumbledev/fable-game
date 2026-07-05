@@ -17,11 +17,15 @@ Design rule from PLAN.md §3 held: **a new enemy is a `.tres` file + (usually) a
 
 `stun(duration)` is called duck-typed from `Player.mitigate_hit` and **can land synchronously inside `hitbox.activate()`** — `_begin_attack` re-checks its state after activating before lunging. Bosses should override `stun()` (resistance/diminishing returns) rather than the parry code. The minimap reads `enemy.state` directly: orange blip = winding up/attacking, blue = stunned.
 
+**Parry scaling (Expose Weakness):** `mitigate_hit(info)` scales incoming damage ×1.35 while a vulnerable window is open (`mark_vulnerable` sets the deadline to the parry-stun duration; returns a fresh `AttackInfo`, never mutates the shared one).
+
 **Slows (Frost Nova):** `apply_slow(mult, duration)` scales *movement only* — chase, kiting, and attack lunges — never windup/recover timings, so telegraphs stay readable. All steering must route through `move_speed()` (variant `_chase()` overrides included) or it silently ignores slows. Reapplying overwrites the previous slow; the icy tint rides on `_resting_color()` so it never fights the windup/stun color tweens. The boss's committed charge deliberately ignores slows (it's `CHARGE_SPEED`, not `move_speed()`-based).
+
+**Shove & Bone Breaker:** `apply_shove(impulse, wall_damage, source)` physically flings an enemy (no damage); impulse decays over ~a second. Bone Breaker carries an optional wall-damage payload: if the shoved enemy hits a wall while the impulse is still strong (≥5.0 u/s), it takes that damage once (via the hurtbox, so vulnerability/scaling apply), then the payload clears. No stun on wall impact — damage only.
 
 ## EnemyData (`core/enemy_data.gd`) and the four types
 
-Fields: `display_name`, `scene`, `max_health`, `move_speed`, `damage`, `attack_range`, `windup_time`, `recover_time`, `knockback` (impulse shoving the player on a landed hit), `gold_reward`, `xp_reward`, `spawn_weight`, `min_elapsed` (time gate, seconds), `tags`.
+Fields: `display_name`, `scene`, `max_health`, `move_speed`, `damage`, `attack_range`, `windup_time`, `recover_time`, `knockback` (impulse shoving the player on a landed hit), `gold_reward`, `xp_reward`, `spawn_weight`, `min_elapsed` (time gate, seconds), `tags`, `unlock_drops` (ordered `Array[StringName]` of ability flags; on a boss wave clearing, the first flag the player doesn't own drops as a weapon-relic pickup).
 
 | | Chaser | Sprinter | Brute | Spitter |
 |---|---|---|---|---|
@@ -35,7 +39,7 @@ Fields: `display_name`, `scene`, `max_health`, `move_speed`, `damage`, `attack_r
 | Gold / XP | 5 / 4 | 4 / 3 | 15 / 10 | 8 / 6 |
 | Spawn weight | 1.0 | 0.8 | 0.35 | 0.5 |
 
-Numbers were re-tuned in the chaos/lethality pass (2026-07-03): every hit is meant to matter against a fresh 80-HP player (~4 chaser hits early), telegraphs are ~25% snappier across the board, and the Spitter's recovery halved so it genuinely suppresses.
+Numbers were re-tuned in the chaos/lethality pass (2026-07-03): every hit is meant to matter against a fresh 100-HP player (~5 chaser hits early), telegraphs are ~25% snappier across the board, and the Spitter's recovery halved so it genuinely suppresses.
 
 Roles: Chaser is the baseline; Sprinter forces backpedal discipline (fast, fragile, quick windup); Brute is the parry tutor (long telegraph, big hit, worst recovery); Spitter breaks camping. Only the Spitter has a script (`spitter_enemy.gd`, ~45 lines): overrides `_chase()` — kites away inside `RETREAT_RANGE 4.0`, closes to 9.0 — and `_begin_attack()` — spawns a `Projectile` (speed 12, lifetime 4s) aimed at the player, through the same hurtbox pipeline so shields work. Everything else inherits.
 
@@ -58,23 +62,27 @@ Multipliers are baked per-enemy at spawn via `enemy.setup(data, hp_mult, dmg_mul
 
 `WaveTable.events` is an `Array[WaveEvent]` (`time`, `enemy`, `count`, `announcement`, `repeat_every`), fired by `RunDirector` off a per-event next-fire clock, **bypassing the alive cap**. `repeat_every = 0` means one-shot; anything greater re-arms the event that many seconds after each firing — that's the SWARM mechanism. An event whose enemy is tagged `boss` also emits `EventBus.boss_spawned` — the HUD binds a name + health bar to it; announcements show a fading banner.
 
-Default table: one Juggernaut at **150s**, two at **360s** (one-shots), plus **12 Sprinters at 60s repeating every 75s** ("A SWARM APPROACHES") and **16 Chasers at 180s repeating every 150s** ("THEY POUR IN").
+Default table: one Juggernaut at **150s** (drops `weapon_warhammer`), two Juggernauts at **300s** (drops `weapon_staff`, one-shots), **12 Sprinters at 45s repeating every 50s** ("A SWARM APPROACHES"), **16 Chasers at 120s repeating every 80s** ("THEY POUR IN"), and **24 Spitters at 120s repeating every 360s** ("THEY'RE EVERYWHERE").
 
-**Juggernaut** (`boss_enemy.gd` extends EnemyBase; `juggernaut.tres`): 500 HP base (× wave HP mult at spawn), 4.6m tall, melee slam with 3.4 reach / 0.6 windup / 0.6 recover / knockback 12. Signature: every **5.5s** it telegraphs (yellow tween + fist cock, 0.7s) then **charges** at 24 u/s for 1.5s — effectively wall to wall:
+**Juggernaut** (`boss_enemy.gd` extends EnemyBase; `juggernaut.tres`): 500 HP base (× wave HP mult at spawn), melee slam with 3.4 reach / 0.6 windup / 0.6 recover / knockback 12. Signature: every **5.5s** it telegraphs (yellow tween + fist cock, 0.7s) then **charges** at 24 u/s for 1.5s — effectively wall to wall:
 
 - During the rush its collision mask drops to **world-only**: it phases through the player (the live hitbox at 1.5× damage + knockback 18 does the work) and through minions, flinging any minion within 2.8m sideways out of its path via `EnemyBase.apply_shove` (damage-free decaying impulse — also used by the fireball explosion).
 - Counterplay is skill-expressive twice over: a **perfect block cancels the charge** outright (overridden `stun()` → `_end_charge()`) and stuns it; **dash** blinks through it untouched.
 - Ends on wall impact, timeout, or parry; mask restores in `_end_charge()` in all cases.
 
+**Boss-loot flow:** the weapon relic drops from `RunDirector`, not the boss, and only once EVERY boss of the wave is dead (the second boss wave spawns two juggernauts — `count = 2`). When the last boss falls and a relic is owed, the arena clears its remaining minions and **spawning PAUSES** (run timer keeps advancing) so the player can walk to the relic in peace. The HUD shows one health bar PER living boss. The relic is an infinite-lifetime pickup; collecting it opens a paused claim-screen modal (`ClaimScreen`) and resumes spawning on acknowledge. See `RunDirector._track_boss`, `_on_boss_died`, `_on_boss_wave_cleared`, `_spawn_relic`, `_on_unlock_claimed`; `EventBus.unlock_claimed`; and `Pickup` kind `&"unlock"`.
+
 ## Death → pickups (`actors/pickups/pickup.gd`)
 
 On death, an enemy emits `EventBus.enemy_killed` and explodes its gold and XP rewards (× reward_mult) into physical pickups — up to **8 pieces per resource**, value split evenly with remainder spread. Rewards are granted **on collection** (`EventBus.pickup_collected` → RunDirector), not on kill.
 
+Pickup kinds: **gold** (standard drop), **xp** (standard drop), **magnet** (walk to it — on collect, force-magnets every other pickup in the arena), **health** (heals 25% max health, ignored while at full HP), **unlock** (boss weapon relic — infinite lifetime, walk to it, once collected opens a paused claim modal).
+
 Pickup lifecycle (manual motion, no physics body — hundreds stay cheap):
 1. **Burst:** launched up/outward (3–6.5 lateral, 7–11 vertical), gravity 18, damped floor bounce, clamped to the arena.
-2. **Grace period:** no magnet/collection for `MAGNET_DELAY 0.6s`, so melee-kill fountains visibly play out instead of vacuuming on frame one.
-3. **Magnet:** within `MAGNET_RADIUS 4.5` of the player, accelerates (50/s²) toward them at up to 13 u/s; collects at 0.85.
-4. **Expiry:** despawns after 30s — uncollected loot is lost. That's the risk/reward point; don't extend it casually.
+2. **Grace period:** no magnet/collection for `MAGNET_DELAY 0.4s`, so melee-kill fountains visibly play out instead of vacuuming on frame one.
+3. **Magnet:** within `MAGNET_RADIUS 4.5` of the player, accelerates (50/s²) toward them at up to 13 u/s; collects at `COLLECT_RADIUS 1.1`. An overshoot guard prevents a laggy frame from skimming a magneted pickup past the player — if this frame's step would cross into the collect zone, it collects now instead of orbiting.
+4. **Expiry:** despawns after 30s (boss loot: 60s, magnets: 45s) — uncollected loot is lost. That's the risk/reward point; don't extend it casually.
 
 ## Authoring a new enemy
 
