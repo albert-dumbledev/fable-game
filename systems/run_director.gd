@@ -19,6 +19,11 @@ const SCAVENGER_DATA := preload("res://data/enemies/scavenger.tres")
 const SCAVENGER_LOOT_THRESHOLD := 20
 const SCAVENGER_COOLDOWN := 25.0
 
+## Placeholder finale: surviving to 7:30 wins the run. Temporary until a 3rd
+## boss lands here and owns the win condition (as the Hierophant's staff used
+## to at 5:00 — that's now just a normal weapon unlock).
+const VICTORY_TIME := 450.0
+
 var elapsed := 0.0
 var kills := 0
 var gold_earned := 0
@@ -54,6 +59,12 @@ func _physics_process(delta: float) -> void:
 	if not _run_active:
 		return
 	elapsed += delta
+	# Placeholder 7:30 finale: survive to the clock and the run is won (until a
+	# 3rd boss owns this moment). Checked before the pause return so it still
+	# fires if the player is mid-relic-walk at the buzzer.
+	if elapsed >= VICTORY_TIME:
+		finish_victory()
+		return
 	# Spawning pauses after a boss wave clears, so the player can collect the
 	# relic in peace; the run timer keeps advancing.
 	if _spawning_paused:
@@ -224,22 +235,20 @@ func _spawn_relic(ability: StringName, position: Vector3) -> void:
 	relic.global_position = position + Vector3(0.0, 1.2, 0.0)
 
 
-## The relic was claimed. The staff is the run-ending prize — leave spawning
-## paused and let the ClaimScreen's "RUN COMPLETE" acknowledgement drive the
-## victory handoff (finish_victory), so an immediate scene change can't yank the
-## overlay away. Any other relic just resumes the wave.
-func _on_unlock_claimed(ability: StringName) -> void:
-	if ability == &"weapon_staff":
-		return
+## A relic was claimed — resume the wave. Every relic (including the staff, which
+## is now a normal weapon unlock rather than the run-ender) just continues the
+## run; victory is the 7:30 finale (finish_victory), not a weapon drop.
+func _on_unlock_claimed(_ability: StringName) -> void:
 	_spawning_paused = false
 
 
-## Called by the ClaimScreen's Continue on the staff claim: bank the run and hand
-## off to the victory screen. The arena is already cleared and spawning paused,
-## so nothing can kill the player in between. Idempotent against a double-press.
+## The 7:30 placeholder finale (see VICTORY_TIME): bank the run and hand off to
+## the victory screen. Deferred + idempotent so it's safe to fire from
+## _physics_process mid-frame. A 3rd boss will eventually own this handoff.
 func finish_victory() -> void:
 	if not _run_active:
 		return
 	_run_active = false
 	MetaProgression.save_game()
-	GameManager.end_run({"time": elapsed, "kills": kills, "gold": gold_earned, "victory": true})
+	GameManager.end_run.call_deferred(
+			{"time": elapsed, "kills": kills, "gold": gold_earned, "victory": true})

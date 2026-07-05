@@ -15,4 +15,4 @@ knockback = 0.0
 gold_reward = 0
 xp_reward = 0
 spawn_weight = 0.0
-min_elapsed = 150.0
+min_elapsed = 300.0

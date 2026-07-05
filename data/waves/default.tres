@@ -50,14 +50,14 @@ repeat_every = 60.0
 
 [sub_resource type="Resource" id="Resource_brood_event"]
 script = ExtResource("7_event")
-time = 240.0
+time = 390.0
 enemy = ExtResource("10_broodmother")
 count = 3
 announcement = "THE BROOD COMES"
 
 [sub_resource type="Resource" id="Resource_gilded"]
 script = ExtResource("7_event")
-time = 90.0
+time = 315.0
 enemy = ExtResource("12_gilded")
 count = 1
 repeat_every = 70.0
@@ -72,5 +72,5 @@ min_interval = 0.25
 interval_ramp_time = 210.0
 dmg_growth_per_min = 0.3
 max_alive_start = 24
-max_alive_end = 90
-max_alive_ramp_time = 270.0
+max_alive_end = 120
+max_alive_ramp_time = 390.0
