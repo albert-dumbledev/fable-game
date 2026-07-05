@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://actors/enemies/boss_enemy.gd" id="1_script"]
 [ext_resource type="Script" path="res://components/health_component.gd" id="2_health"]
@@ -25,12 +25,18 @@ height = 0.44
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fist"]
 albedo_color = Color(0.15, 0.02, 0.02, 1)
+metallic = 0.4
 roughness = 0.5
 
-[sub_resource type="SphereMesh" id="SphereMesh_fist"]
+[sub_resource type="CylinderMesh" id="CylinderMesh_handle"]
 material = SubResource("StandardMaterial3D_fist")
-radius = 0.6
-height = 1.2
+top_radius = 0.12
+bottom_radius = 0.12
+height = 2.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_head"]
+material = SubResource("StandardMaterial3D_fist")
+size = Vector3(0.9, 0.8, 1.4)
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_attack"]
 radius = 1.7
@@ -59,8 +65,13 @@ mesh = SubResource("SphereMesh_eye")
 [node name="FistPivot" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.0, 2.5, -0.9)
 
-[node name="Fist" type="MeshInstance3D" parent="FistPivot"]
-mesh = SubResource("SphereMesh_fist")
+[node name="HandleMesh" type="MeshInstance3D" parent="FistPivot"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, -0.3, 0.6)
+mesh = SubResource("CylinderMesh_handle")
+
+[node name="HeadMesh" type="MeshInstance3D" parent="FistPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.3, 1.7)
+mesh = SubResource("BoxMesh_head")
 
 [node name="Health" type="Node" parent="."]
 script = ExtResource("2_health")

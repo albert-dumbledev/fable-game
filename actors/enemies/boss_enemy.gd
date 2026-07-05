@@ -20,6 +20,20 @@ const NORMAL_COLLISION_MASK := 7
 const SHOVE_RADIUS := 2.8
 const SHOVE_FORCE := 14.0
 
+const SLAM_RANGE := 4.5
+## Hammer slam: routes through the base WINDUP->ATTACK->RECOVER path
+## (data.windup_time=0.9, recover_time=1.0). Boss-sized mirror of the player's
+## warhammer slam, delivered to the player hurtbox so block/parry work.
+const SLAM_IMPACT_DISTANCE := 3.2
+const SLAM_INNER_RADIUS := 3.0
+const SLAM_OUTER_RADIUS := 5.5
+const SLAM_INNER_KNOCKBACK := 14.0
+const SLAM_SPLASH_MULT := 0.4
+## Boss-local hammer poses (FistPivot positions; the scene default is REST).
+const BOSS_FIST_REST := Vector3(1.0, 2.5, -0.9)
+const BOSS_FIST_SLAM_WINDUP := Vector3(0.6, 4.3, 0.4)
+const BOSS_FIST_SLAM_DOWN := Vector3(0.35, 1.2, -2.3)
+
 ## Death spectacle: slow-mo while the boss flashes white-hot and swells,
 ## then a detonation and three radial waves of loot. All timings are
 ## real-time seconds (the choreography tween ignores Engine.time_scale,
@@ -47,19 +61,30 @@ var _charge_phase := ChargePhase.NONE
 var _charge_cooldown := CHARGE_INTERVAL
 var _charge_time := 0.0
 var _charge_dir := Vector3.ZERO
+var _slam_locked := false
+var _slam_point := Vector3.ZERO
 
 
 func _chase() -> void:
 	var delta := get_physics_process_delta_time()
 	match _charge_phase:
 		ChargePhase.NONE:
+			_slam_locked = false  # back to chasing — release the facing lock
 			_charge_cooldown -= delta
 			var to_target := _target.global_position - global_position
 			to_target.y = 0.0
-			if _charge_cooldown <= 0.0 and to_target.length() >= CHARGE_MIN_RANGE:
+			var dist := to_target.length()
+			if _charge_cooldown <= 0.0 and dist >= CHARGE_MIN_RANGE:
 				_begin_charge_windup()
 				return
-			super()
+			if dist <= SLAM_RANGE:
+				_begin_windup()  # base WINDUP path == the slam
+				return
+			# Out of slam range: walk the player down. (A ranged boulder attack will
+			# slot in here in a later milestone.)
+			var dir := to_target.normalized()
+			velocity.x = dir.x * move_speed()
+			velocity.z = dir.z * move_speed()
 		ChargePhase.WINDUP:
 			_hold_still()
 			_charge_time += delta
@@ -74,6 +99,75 @@ func _chase() -> void:
 				_end_charge()
 
 
+func _face_target() -> void:
+	if _slam_locked:
+		return
+	super()
+
+
+func _begin_windup() -> void:
+	_slam_locked = true
+	var forward := -global_transform.basis.z
+	forward.y = 0.0
+	forward = forward.normalized()
+	_slam_point = global_position + forward * SLAM_IMPACT_DISTANCE
+	_slam_point.y = 0.05
+	GroundTelegraph.spawn(get_tree().current_scene, _slam_point,
+			SLAM_INNER_RADIUS, data.windup_time)
+	super()  # colour tween + eye ignite + FIST_WINDUP pose...
+	_tween_fist(BOSS_FIST_SLAM_WINDUP, data.windup_time)  # ...overridden to overhead raise
+
+
+func _begin_attack() -> void:
+	_set_state(State.ATTACK)
+	if _material != null:
+		_kill_color_tween()
+		_material.albedo_color = _resting_color()
+	_reset_eyes()
+	_tween_fist(BOSS_FIST_SLAM_DOWN, 0.12)
+	_slam_impact()
+
+
+func _begin_recover() -> void:
+	_set_state(State.RECOVER)
+	_tween_fist(BOSS_FIST_REST, 0.3)
+
+
+## The slam lands as a ground AoE, not a hitbox — VFX and minion shoves land
+## first, the player hit lands last (a perfect block can synchronously stun
+## us mid receive_hit(), so hitting the player last means a parry can't skip
+## the rest of the feedback).
+func _slam_impact() -> void:
+	AudioManager.play(&"hammer_slam")  # placeholder cue; a dedicated one lands in the SFX pass
+	BlastVfx.spawn(get_tree().current_scene, _slam_point, SLAM_OUTER_RADIUS,
+			GroundTelegraph.ENEMY_COLOR, 0.12, 0.3)
+	ShardBurst.spawn(get_tree().current_scene, _slam_point + Vector3(0.0, 0.2, 0.0),
+			Color(0.4, 0.35, 0.32), 12, 7.0, 0.14)
+	var player := get_tree().get_first_node_in_group(&"player") as Player
+	if player != null:
+		player.add_shake(0.4)
+	# Shove minions caught in the inner radius (flavour, no damage).
+	for minion: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(minion) or minion == self or not minion.is_inside_tree():
+			continue
+		var off := minion.global_position - _slam_point
+		off.y = 0.0
+		if off.length() <= SLAM_INNER_RADIUS and off.length() > 0.01:
+			minion.apply_shove(off.normalized() * SLAM_INNER_KNOCKBACK)
+	# Player hit last — full damage + knockback inside, splash outside.
+	if player != null:
+		var pd := player.global_position - _slam_point
+		pd.y = 0.0
+		var d := pd.length()
+		if d <= SLAM_OUTER_RADIUS:
+			var full := data.damage * _dmg_mult
+			var dmg := full if d <= SLAM_INNER_RADIUS else full * SLAM_SPLASH_MULT
+			var kb := SLAM_INNER_KNOCKBACK if d <= SLAM_INNER_RADIUS else 0.0
+			var hurtbox := player.get_node_or_null(^"Hurtbox") as HurtboxComponent
+			if hurtbox != null:
+				hurtbox.receive_hit(AttackInfo.new(self, dmg, kb))
+
+
 func _begin_charge_windup() -> void:
 	_charge_phase = ChargePhase.WINDUP
 	_charge_time = 0.0
@@ -84,7 +178,7 @@ func _begin_charge_windup() -> void:
 		_color_tween.tween_property(_material, "albedo_color", CHARGE_COLOR, CHARGE_WINDUP)
 	# Eyes stay lit through the rush — reset in _end_charge.
 	_flash_eyes(CHARGE_WINDUP)
-	_tween_fist(FIST_WINDUP, CHARGE_WINDUP)
+	_tween_fist(BOSS_FIST_SLAM_WINDUP, CHARGE_WINDUP)
 
 
 func _begin_charge_rush() -> void:
@@ -96,7 +190,7 @@ func _begin_charge_rush() -> void:
 	_charge_dir = _target.global_position - global_position
 	_charge_dir.y = 0.0
 	_charge_dir = _charge_dir.normalized()
-	_tween_fist(FIST_PUNCH, 0.15)
+	_tween_fist(BOSS_FIST_SLAM_DOWN, 0.15)
 	collision_mask = CHARGE_COLLISION_MASK
 	hitbox.activate(
 		AttackInfo.new(self, data.damage * _dmg_mult * CHARGE_DAMAGE_MULT, CHARGE_KNOCKBACK),
@@ -109,7 +203,7 @@ func _end_charge() -> void:
 	collision_mask = NORMAL_COLLISION_MASK
 	_reset_eyes()
 	hitbox.deactivate()
-	_tween_fist(FIST_REST, 0.3)
+	_tween_fist(BOSS_FIST_REST, 0.3)
 	velocity.x = 0.0
 	velocity.z = 0.0
 
@@ -131,11 +225,14 @@ func _shove_minions() -> void:
 		minion.apply_shove(impulse)
 
 
-## A parry cancels the charge entirely and restarts its cooldown.
+## A parry cancels the charge entirely and restarts its cooldown, and
+## releases the slam's facing lock so a stunned boss can be walked around.
 func stun(duration: float) -> void:
 	if _charge_phase != ChargePhase.NONE:
 		_end_charge()
+	_slam_locked = false
 	super(duration)
+	_tween_fist(BOSS_FIST_REST, 0.2)
 
 
 ## Bosses don't just shrink away — the world slows, the body flashes
