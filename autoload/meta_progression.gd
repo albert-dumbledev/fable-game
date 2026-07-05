@@ -197,7 +197,22 @@ func _migrate_legacy_unlocks() -> bool:
 			add_currency(&"gold", 250)
 		upgrade_levels.erase(&"warhammer_unlock")
 		changed = true
-	# NOTE (M5): extend this pass — firebolt/frost_nova -> weapon_staff.
+	# Staff split (v1 -> v2): fireball is now built into the staff and Frost
+	# Nova is a staff-gated Arcana purchase. A veteran who bought fireball keeps
+	# the caster fantasy (gets the staff) and is refunded the 150 gold, since
+	# fireball no longer costs a shop slot.
+	if upgrade_levels.has(&"firebolt"):
+		if upgrade_levels[&"firebolt"] > 0:
+			if not unlocked_abilities.has(&"weapon_staff"):
+				unlocked_abilities.append(&"weapon_staff")
+			add_currency(&"gold", 150)
+		upgrade_levels.erase(&"firebolt")
+		changed = true
+	# Frost Nova stays a valid purchase (level kept, not refunded), just re-gated
+	# behind the staff they now own — so grant the staff without erasing it.
+	if upgrade_levels.get(&"frost_nova", 0) > 0 and not unlocked_abilities.has(&"weapon_staff"):
+		unlocked_abilities.append(&"weapon_staff")
+		changed = true
 	return changed
 
 

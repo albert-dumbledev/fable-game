@@ -6,11 +6,12 @@
 [ext_resource type="Resource" uid="uid://2d0j3fdi8nqo" path="res://data/upgrades/health_up.tres" id="4_hp"]
 [ext_resource type="Resource" uid="uid://cvyd0phelo40w" path="res://data/upgrades/attack_speed_up.tres" id="5_as"]
 [ext_resource type="Resource" uid="uid://cjwvhhv1h154s" path="res://data/upgrades/move_speed_up.tres" id="6_ms"]
-[ext_resource type="Resource" path="res://data/upgrades/firebolt.tres" id="7_fb"]
 [ext_resource type="Resource" path="res://data/upgrades/frost_nova.tres" id="8_fn"]
 [ext_resource type="Resource" path="res://data/upgrades/counterweight.tres" id="9_cw"]
 [ext_resource type="Resource" path="res://data/upgrades/heavyweight.tres" id="10_hw"]
+[ext_resource type="Resource" path="res://data/upgrades/attunement.tres" id="11_at"]
+[ext_resource type="Resource" path="res://data/upgrades/overcharge.tres" id="12_oc"]
 
 [resource]
 script = ExtResource("1_script")
-upgrades = Array[ExtResource("2_type")]([ExtResource("3_dmg"), ExtResource("4_hp"), ExtResource("5_as"), ExtResource("6_ms"), ExtResource("7_fb"), ExtResource("8_fn"), ExtResource("9_cw"), ExtResource("10_hw")])
+upgrades = Array[ExtResource("2_type")]([ExtResource("3_dmg"), ExtResource("4_hp"), ExtResource("5_as"), ExtResource("6_ms"), ExtResource("8_fn"), ExtResource("9_cw"), ExtResource("10_hw"), ExtResource("11_at"), ExtResource("12_oc")])

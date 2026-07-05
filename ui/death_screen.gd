@@ -48,7 +48,11 @@ func _refresh() -> void:
 	var placed := 0
 	for branch: Dictionary in BRANCHES:
 		var column := _make_column(branch, gold)
-		placed += int(column.get_meta(&"card_count", 0))
+		var count := int(column.get_meta(&"card_count", 0))
+		placed += count
+		if count == 0:
+			column.queue_free()
+			continue
 		branches_box.add_child(column)
 	var hidden := 0
 	for upgrade: UpgradeData in MetaProgression.registry.upgrades:
