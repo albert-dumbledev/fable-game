@@ -1,5 +1,7 @@
 # Progression Rework — rare drops, boss-drop unlocks, loadout identity
 
+> **Status: ✅ Implemented (Phase 5).** All milestones M1–M5 shipped, plus two rounds of playtest-feedback balance/UX (see PLAN.md §5). This is now the design reference; two things landed differently from the draft below: (1) the per-loadout upgrade **split needed no save migration** — the sword loadout reuses the existing upgrade ids, so veteran purchases carry over automatically and only hammer/staff get fresh trees; (2) spells are **staff-only**, gated on the staff being mounted (`weapon is Staff`) plus `requires_weapon = &"battle_staff"` on the spell boons.
+
 Restructures three progression systems: (A) rare utility drops (magnet, health), (B) weapon unlocks move from the gold shop to boss drops, and (C) each loadout gets its own stat/boon identity — sword = parry/duelist, hammer = AoE/crowd-control, and a new staff loadout that takes the spells with it.
 
 Guiding constraint: everything below rides on machinery that already exists — `Pickup` kinds are plain StringNames, unlocks are ability flags, boons already gate per-weapon, and shoves/stuns are the CC primitives. No new subsystems; mostly new `.tres` files, a handful of new stat ids, and small hooks at existing effect sites.
