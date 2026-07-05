@@ -1,9 +1,11 @@
 class_name BossEnemy
 extends EnemyBase
-## Boss: keeps the base melee slam, and periodically telegraphs a long
-## charge — freezing bright, then rushing the player's position at high
-## speed with its hitbox live. A perfect block still stuns it, which
-## cancels the charge (the parry reward stays the answer to everything).
+## Boss: keeps the base melee slam, periodically telegraphs a long charge —
+## freezing bright, then rushing the player's position at high speed with its
+## hitbox live — and lobs a ranged boulder mortar at a committed landing point
+## when the player camps outside slam range. A perfect block still stuns it,
+## which cancels the charge or the boulder windup (the parry reward stays the
+## answer to everything).
 
 const CHARGE_INTERVAL := 5.5
 const CHARGE_WINDUP := 0.7
@@ -34,6 +36,19 @@ const BOSS_FIST_REST := Vector3(1.0, 2.5, -0.9)
 const BOSS_FIST_SLAM_WINDUP := Vector3(0.6, 4.3, 0.4)
 const BOSS_FIST_SLAM_DOWN := Vector3(0.35, 1.2, -2.3)
 
+## Boulder throw — the ranged default when the player is beyond SLAM_RANGE.
+## Modelled like the charge: its own phase, own const timings.
+const BOULDER_WINDUP := 1.0
+const BOULDER_FLIGHT := 0.9
+const BOULDER_COOLDOWN := 3.5
+const BOULDER_IMPACT_RADIUS := 2.8
+const BOULDER_DAMAGE_MULT := 0.75
+const BOULDER_KNOCKBACK := 8.0
+const BOULDER_LEAD_MAX := 6.0
+const BOULDER_ARENA_HALF := 18.5
+const BOSS_FIST_THROW_WINDUP := Vector3(1.5, 3.0, 1.4)  # arm cocked back
+const BOSS_FIST_THROW := Vector3(0.2, 2.8, -2.2)        # arm snapped forward
+
 ## Death spectacle: slow-mo while the boss flashes white-hot and swells,
 ## then a detonation and three radial waves of loot. All timings are
 ## real-time seconds (the choreography tween ignores Engine.time_scale,
@@ -56,6 +71,7 @@ const LOOT_MAGNET_RADIUS := 6.5
 const LOOT_RING_COLOR := Color(1.0, 0.8, 0.3, 0.6)
 
 enum ChargePhase { NONE, WINDUP, RUSH }
+enum BoulderPhase { NONE, WINDUP }
 
 var _charge_phase := ChargePhase.NONE
 var _charge_cooldown := CHARGE_INTERVAL
@@ -63,14 +79,22 @@ var _charge_time := 0.0
 var _charge_dir := Vector3.ZERO
 var _slam_locked := false
 var _slam_point := Vector3.ZERO
+var _boulder_phase := BoulderPhase.NONE
+var _boulder_cooldown := BOULDER_COOLDOWN
+var _boulder_time := 0.0
+var _boulder_landing := Vector3.ZERO
 
 
 func _chase() -> void:
 	var delta := get_physics_process_delta_time()
 	match _charge_phase:
 		ChargePhase.NONE:
+			if _boulder_phase == BoulderPhase.WINDUP:
+				_tick_boulder(delta)
+				return
 			_slam_locked = false  # back to chasing — release the facing lock
 			_charge_cooldown -= delta
+			_boulder_cooldown -= delta
 			var to_target := _target.global_position - global_position
 			to_target.y = 0.0
 			var dist := to_target.length()
@@ -80,8 +104,11 @@ func _chase() -> void:
 			if dist <= SLAM_RANGE:
 				_begin_windup()  # base WINDUP path == the slam
 				return
-			# Out of slam range: walk the player down. (A ranged boulder attack will
-			# slot in here in a later milestone.)
+			if _boulder_cooldown <= 0.0:
+				_begin_boulder_windup()
+				return
+			# Between throws it keeps advancing — the boulder suppresses camping,
+			# the walk keeps the pressure.
 			var dir := to_target.normalized()
 			velocity.x = dir.x * move_speed()
 			velocity.z = dir.z * move_speed()
@@ -208,6 +235,64 @@ func _end_charge() -> void:
 	velocity.z = 0.0
 
 
+## Commit the landing point up front: lead the player's horizontal velocity over
+## the whole windup+flight, clamped to a lead cap and the arena — an honest "spot
+## in front of you". The telegraph then covers the full threat window.
+func _begin_boulder_windup() -> void:
+	_boulder_phase = BoulderPhase.WINDUP
+	_boulder_time = 0.0
+	_hold_still()
+	var lead_time := BOULDER_WINDUP + BOULDER_FLIGHT
+	var target_vel := Vector3.ZERO
+	if _target is CharacterBody3D:
+		target_vel = (_target as CharacterBody3D).velocity
+	var lead := target_vel
+	lead.y = 0.0
+	lead *= lead_time
+	if lead.length() > BOULDER_LEAD_MAX:
+		lead = lead.normalized() * BOULDER_LEAD_MAX
+	_boulder_landing = _target.global_position + lead
+	_boulder_landing.x = clampf(_boulder_landing.x, -BOULDER_ARENA_HALF, BOULDER_ARENA_HALF)
+	_boulder_landing.z = clampf(_boulder_landing.z, -BOULDER_ARENA_HALF, BOULDER_ARENA_HALF)
+	_boulder_landing.y = 0.05
+	GroundTelegraph.spawn(get_tree().current_scene, _boulder_landing,
+			BOULDER_IMPACT_RADIUS, lead_time)
+	# Standard windup tells + an arm-back throw pose.
+	if _material != null:
+		_kill_color_tween()
+		_color_tween = create_tween()
+		_color_tween.tween_property(_material, "albedo_color", WINDUP_COLOR, BOULDER_WINDUP)
+	_flash_eyes(BOULDER_WINDUP)
+	_tween_fist(BOSS_FIST_THROW_WINDUP, BOULDER_WINDUP)
+
+
+func _tick_boulder(delta: float) -> void:
+	_hold_still()
+	_boulder_time += delta
+	if _boulder_time >= BOULDER_WINDUP:
+		_throw_boulder()
+
+
+func _throw_boulder() -> void:
+	_boulder_phase = BoulderPhase.NONE
+	_boulder_cooldown = BOULDER_COOLDOWN
+	if _material != null:
+		_kill_color_tween()
+		_material.albedo_color = _resting_color()
+	_reset_eyes()
+	# Snap the arm forward, then settle back to rest over the next beat.
+	if _fist_tween != null:
+		_fist_tween.kill()
+	_fist_tween = create_tween()
+	_fist_tween.tween_property(fist_pivot, "position", BOSS_FIST_THROW, 0.12) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_fist_tween.tween_property(fist_pivot, "position", BOSS_FIST_REST, 0.4) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	var info := AttackInfo.new(self, data.damage * _dmg_mult * BOULDER_DAMAGE_MULT, BOULDER_KNOCKBACK)
+	BoulderProjectile.spawn(get_tree().current_scene, fist_pivot.global_position,
+			_boulder_landing, BOULDER_FLIGHT, BOULDER_IMPACT_RADIUS, info)
+
+
 ## Fling nearby minions sideways out of the charge path — pure flavor,
 ## no damage. Side is whichever one they're already leaning toward, with
 ## a little forward carry so they tumble along the rush.
@@ -230,6 +315,9 @@ func _shove_minions() -> void:
 func stun(duration: float) -> void:
 	if _charge_phase != ChargePhase.NONE:
 		_end_charge()
+	if _boulder_phase != BoulderPhase.NONE:
+		_boulder_phase = BoulderPhase.NONE
+		_boulder_cooldown = BOULDER_COOLDOWN
 	_slam_locked = false
 	super(duration)
 	_tween_fist(BOSS_FIST_REST, 0.2)
