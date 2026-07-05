@@ -226,7 +226,7 @@ func _erupt(pos: Vector3) -> void:
 	if not is_inside_tree() or state == State.DEAD:
 		return
 	var scene := get_tree().current_scene
-	AudioManager.play_at(&"explosion", pos)  # placeholder crack until the M4 SFX pass
+	AudioManager.play_at(&"eruption", pos)
 	BlastVfx.spawn(scene, pos, ERUPTION_RADIUS, ERUPTION_COLOR, 0.5, 0.35)
 	ShardBurst.spawn(scene, pos + Vector3(0.0, 0.2, 0.0), Color(0.6, 0.4, 1.0), 12, 8.0, 0.14)
 	var player := get_tree().get_first_node_in_group(&"player") as Node3D
@@ -311,7 +311,7 @@ func _fire_repulse() -> void:
 	var away := to_player.normalized() if dist > 0.01 else Vector3(0.0, 0.0, 1.0)
 	player.apply_shove(away * REPULSE_IMPULSE)
 	player.add_shake(0.3)
-	AudioManager.play_at(&"magnet_collect", global_position)  # placeholder whoomp until M4
+	AudioManager.play_at(&"repulse", global_position)
 	BlastVfx.spawn(get_tree().current_scene, global_position + Vector3(0.0, 0.5, 0.0),
 			6.0, Color(0.6, 0.4, 1.0, 0.6), 0.5, 0.4)
 

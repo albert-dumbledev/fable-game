@@ -40,6 +40,9 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"dash"] = _dash()
 	sounds[&"boss_horn"] = _boss_horn()
 	sounds[&"boss_death"] = _boss_death()
+	sounds[&"boulder_impact"] = _boulder_impact()
+	sounds[&"repulse"] = _repulse()
+	sounds[&"eruption"] = _eruption()
 	sounds[&"alarm"] = _alarm()
 	sounds[&"click"] = _click()
 	sounds[&"player_death"] = _player_death()
@@ -287,6 +290,41 @@ static func _boss_death() -> AudioStreamWAV:
 	var out := _overlay(blast, sub, 0.0)
 	out = _overlay(out, rumble, 0.05)
 	return _to_wav(_overlay(out, horn, 0.1), 0.95)
+
+
+## Juggernaut boulder impact: a heavy stone thud — deep boom collapsing into a
+## short gritty debris rumble with a dry rock crack on the front. Rockier and
+## shorter than the hammer slam so the two heavy impacts read apart. Low.
+static func _boulder_impact() -> AudioStreamWAV:
+	var boom := _env(_tone(0.5, 95.0, 30.0, 1.0, SINE), 0.004, 1.2)
+	var debris := _env(_noise(0.4, 500.0, 80.0, 0.8), 0.006, 1.1)
+	var crack := _env(_noise(0.07, 1400.0, 300.0, 0.5), 0.002, 2.0)
+	var out := _overlay(boom, debris, 0.0)
+	return _to_wav(_overlay(out, crack, 0.0), 0.9)
+
+
+## Caster repulse: a low outward whoomp — a soft sine body dropping in pitch
+## under a filtered-noise swell whose cutoff RISES (air shoved outward), with a
+## sub thump under it. A push, not an impact; all low per the audio direction.
+static func _repulse() -> AudioStreamWAV:
+	var whoomp := _env(_tone(0.4, 120.0, 40.0, 1.0, SINE), 0.008, 1.2)
+	var swell := _env(_noise(0.34, 200.0, 1100.0, 0.6), 0.05, 1.3)
+	var sub := _env(_tone(0.45, 70.0, 24.0, 0.7, SINE), 0.006, 1.1)
+	var out := _overlay(whoomp, swell, 0.02)
+	return _to_wav(_overlay(out, sub, 0.0), 0.7)
+
+
+## Arcane eruption: a ground crack/geyser — a sharp filtered-noise crack over a
+## low sub thump and a brief rumble, with a faint rising tone for the upward
+## burst. Sharper and thinner than the boulder thud; fundamentals stay low.
+static func _eruption() -> AudioStreamWAV:
+	var crack := _env(_noise(0.12, 1500.0, 220.0, 1.0), 0.002, 1.7)
+	var thump := _env(_tone(0.45, 85.0, 28.0, 0.9, SINE), 0.005, 1.2)
+	var rumble := _env(_noise(0.4, 240.0, 55.0, 0.55), 0.02, 1.0)
+	var rise := _env(_tone(0.22, 180.0, 320.0, 0.3, SINE), 0.02, 1.3)
+	var out := _overlay(crack, thump, 0.0)
+	out = _overlay(out, rumble, 0.03)
+	return _to_wav(_overlay(out, rise, 0.02), 0.85)
 
 
 ## Wave/swarm announcement: two alternating alarm tones.

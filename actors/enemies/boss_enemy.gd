@@ -144,7 +144,7 @@ func _begin_recover() -> void:
 ## us mid receive_hit(), so hitting the player last means a parry can't skip
 ## the rest of the feedback).
 func _slam_impact() -> void:
-	AudioManager.play(&"hammer_slam")  # placeholder cue; a dedicated one lands in the SFX pass
+	AudioManager.play(&"hammer_slam")  # the slam shares the player warhammer's slam cue
 	BlastVfx.spawn(get_tree().current_scene, _slam_point, SLAM_OUTER_RADIUS,
 			GroundTelegraph.ENEMY_COLOR, 0.12, 0.3)
 	ShardBurst.spawn(get_tree().current_scene, _slam_point + Vector3(0.0, 0.2, 0.0),

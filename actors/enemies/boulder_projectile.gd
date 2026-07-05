@@ -86,7 +86,7 @@ func _impact() -> void:
 		off.y = 0.0
 		if off.length() <= _radius and off.length() > 0.01:
 			minion.apply_shove(off.normalized() * MINION_SHOVE)
-	AudioManager.play_at(&"hammer_slam", _landing)  # placeholder thud until the M4 SFX pass
+	AudioManager.play_at(&"boulder_impact", _landing)
 	BlastVfx.spawn(scene, _landing, _radius, GroundTelegraph.ENEMY_COLOR, 0.12, 0.3)
 	ShardBurst.spawn(scene, _landing + Vector3(0.0, 0.2, 0.0), STONE_COLOR, 14, 8.0, 0.16)
 	queue_free()
