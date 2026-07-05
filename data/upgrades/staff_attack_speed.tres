@@ -5,18 +5,18 @@
 
 [sub_resource type="Resource" id="Resource_mod"]
 script = ExtResource("2_mod")
-stat = &"riposte_damage"
+stat = &"attack_speed"
 kind = 1
 value = 0.1
 
 [resource]
 script = ExtResource("1_script")
-id = &"counterweight"
-display_name = "Counterweight"
-description = "+10% riposte damage per level"
-base_cost = 60
-branch = &"vigor"
-requires_upgrade = &"health_up"
-requires_level = 1
-loadout = &"sword_and_shield"
+id = &"staff_attack_speed"
+display_name = "Quickened Casting"
+description = "+10% attack speed"
+base_cost = 15
+branch = &"might"
+requires_upgrade = &"staff_damage"
+requires_level = 2
+loadout = &"battle_staff"
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])

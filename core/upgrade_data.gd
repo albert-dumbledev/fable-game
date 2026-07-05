@@ -24,6 +24,9 @@ extends Resource
 ## Hidden entirely from the shop until this ability flag is owned (weapon
 ## subtrees appear only after their boss drop). Empty = always visible.
 @export var requires_ability: StringName = &""
+## The loadout this upgrade belongs to (a weapon id). Only applies and only
+## shows in the shop while that loadout is selected. Empty = universal.
+@export var loadout: StringName = &""
 
 
 func cost_at(level: int) -> int:

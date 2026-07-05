@@ -11,7 +11,15 @@
 [ext_resource type="Resource" path="res://data/upgrades/heavyweight.tres" id="10_hw"]
 [ext_resource type="Resource" path="res://data/upgrades/attunement.tres" id="11_at"]
 [ext_resource type="Resource" path="res://data/upgrades/overcharge.tres" id="12_oc"]
+[ext_resource type="Resource" path="res://data/upgrades/hammer_damage.tres" id="13_hd"]
+[ext_resource type="Resource" path="res://data/upgrades/hammer_attack_speed.tres" id="14_has"]
+[ext_resource type="Resource" path="res://data/upgrades/hammer_health.tres" id="15_hh"]
+[ext_resource type="Resource" path="res://data/upgrades/hammer_move_speed.tres" id="16_hms"]
+[ext_resource type="Resource" path="res://data/upgrades/staff_damage.tres" id="17_sd"]
+[ext_resource type="Resource" path="res://data/upgrades/staff_attack_speed.tres" id="18_sas"]
+[ext_resource type="Resource" path="res://data/upgrades/staff_health.tres" id="19_sh"]
+[ext_resource type="Resource" path="res://data/upgrades/staff_move_speed.tres" id="20_sms"]
 
 [resource]
 script = ExtResource("1_script")
-upgrades = Array[ExtResource("2_type")]([ExtResource("3_dmg"), ExtResource("4_hp"), ExtResource("5_as"), ExtResource("6_ms"), ExtResource("8_fn"), ExtResource("9_cw"), ExtResource("10_hw"), ExtResource("11_at"), ExtResource("12_oc")])
+upgrades = Array[ExtResource("2_type")]([ExtResource("3_dmg"), ExtResource("4_hp"), ExtResource("5_as"), ExtResource("6_ms"), ExtResource("8_fn"), ExtResource("9_cw"), ExtResource("10_hw"), ExtResource("11_at"), ExtResource("12_oc"), ExtResource("13_hd"), ExtResource("14_has"), ExtResource("15_hh"), ExtResource("16_hms"), ExtResource("17_sd"), ExtResource("18_sas"), ExtResource("19_sh"), ExtResource("20_sms")])

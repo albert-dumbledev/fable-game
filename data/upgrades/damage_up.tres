@@ -14,4 +14,5 @@ id = &"damage_up"
 display_name = "Damage"
 description = "+2 weapon damage"
 branch = &"might"
+loadout = &"sword_and_shield"
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])

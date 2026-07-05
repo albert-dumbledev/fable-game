@@ -14,4 +14,5 @@ id = &"health_up"
 display_name = "Vitality"
 description = "+10 max health"
 branch = &"vigor"
+loadout = &"sword_and_shield"
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])

@@ -18,4 +18,5 @@ base_cost = 15
 branch = &"vigor"
 requires_upgrade = &"health_up"
 requires_level = 2
+loadout = &"sword_and_shield"
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])

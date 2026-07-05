@@ -12,3 +12,4 @@ max_level = 1
 grants_ability = &"frost_nova"
 branch = &"arcana"
 requires_ability = &"weapon_staff"
+loadout = &"battle_staff"

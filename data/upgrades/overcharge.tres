@@ -19,4 +19,5 @@ branch = &"arcana"
 requires_upgrade = &"frost_nova"
 requires_level = 1
 requires_ability = &"weapon_staff"
+loadout = &"battle_staff"
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])

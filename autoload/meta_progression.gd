@@ -37,6 +37,8 @@ func get_granted_abilities() -> Array[StringName]:
 	var abilities: Array[StringName] = []
 	if registry != null:
 		for upgrade: UpgradeData in registry.upgrades:
+			if upgrade.loadout != &"" and upgrade.loadout != selected_weapon:
+				continue
 			if upgrade.grants_ability != &"" and get_upgrade_level(upgrade.id) > 0:
 				abilities.append(upgrade.grants_ability)
 	for ability: StringName in unlocked_abilities:
@@ -60,6 +62,8 @@ func get_stat_modifiers() -> Array[StatModifier]:
 	if registry == null:
 		return modifiers
 	for upgrade: UpgradeData in registry.upgrades:
+		if upgrade.loadout != &"" and upgrade.loadout != selected_weapon:
+			continue
 		var level := get_upgrade_level(upgrade.id)
 		for i: int in level:
 			modifiers.append_array(upgrade.modifiers)

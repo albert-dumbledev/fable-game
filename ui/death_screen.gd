@@ -169,6 +169,8 @@ func _is_locked(upgrade: UpgradeData) -> bool:
 ## Hidden until its gating ability is owned — the whole card, not just locked
 ## (this is how weapon subtrees appear only after the weapon's boss drop).
 func _is_hidden(upgrade: UpgradeData) -> bool:
+	if upgrade.loadout != &"" and upgrade.loadout != MetaProgression.selected_weapon:
+		return true
 	return upgrade.requires_ability != &"" \
 			and not MetaProgression.get_granted_abilities().has(upgrade.requires_ability)
 
