@@ -7,11 +7,13 @@ extends Node3D
 const MAGNET_RADIUS := 4.5
 const MAGNET_SPEED := 13.0
 const MAGNET_ACCEL := 50.0
-const COLLECT_RADIUS := 0.85
+## Generous so a fast magnet — or a laggy web frame with a big step — still
+## lands inside the collect zone instead of skimming past.
+const COLLECT_RADIUS := 1.1
 ## No magnet/collection until the burst has had time to play out —
 ## melee kills drop loot right on top of the player, and without this
 ## grace period the fountain gets vacuumed on frame one.
-const MAGNET_DELAY := 0.6
+const MAGNET_DELAY := 0.4
 const LIFETIME := 30.0
 const GRAVITY := 18.0
 const REST_Y := 0.3
@@ -107,23 +109,28 @@ func _physics_process(delta: float) -> void:
 		return
 	rotate_y(SPIN_SPEED * delta)
 	if _age >= MAGNET_DELAY and _target != null and is_instance_valid(_target) \
-			and _target.is_inside_tree():
+			and _target.is_inside_tree() and _should_collect():
 		var to_player := _target.global_position + Vector3(0.0, 0.9, 0.0) - global_position
 		var dist := to_player.length()
 		if dist <= COLLECT_RADIUS:
 			if kind == &"unlock":
 				_claim_unlock()
+				queue_free()
 			else:
-				EventBus.pickup_collected.emit(kind, value)
-				if kind == &"magnet":
-					for pickup: Pickup in get_tree().get_nodes_in_group(&"pickups"):
-						if pickup != self:
-							pickup.force_magnet()
-			queue_free()
+				_collect()
 			return
 		if dist <= magnet_radius:
 			_velocity = _velocity.move_toward(to_player / dist * MAGNET_SPEED, MAGNET_ACCEL * delta)
-			global_position += _velocity * delta
+			var step := _velocity * delta
+			# Overshoot guard: if this frame's step would cross into the collect
+			# zone (a big delta on a laggy web frame), collect now instead of
+			# skimming past the player and orbiting without ever landing inside.
+			# This is what makes a magnet reliably *collect* everything, not just
+			# drag it closer.
+			if step.length() >= dist - COLLECT_RADIUS:
+				_collect()
+				return
+			global_position += step
 			return
 	# Ballistic scatter: gravity, then a damped bounce on the floor.
 	_velocity.y -= GRAVITY * delta
@@ -137,6 +144,25 @@ func _physics_process(delta: float) -> void:
 		_velocity.z *= 0.6
 		if absf(_velocity.y) < 0.8:
 			_velocity = Vector3.ZERO
+
+
+## Health pickups are ignored while the player is already at full health, so a
+## heal is never wasted — they rest on the ground until they are needed.
+func _should_collect() -> bool:
+	if kind != &"health":
+		return true
+	var player := _target as Player
+	return player == null or player.health.current < player.health.max_health
+
+
+## Grant the pickup and vanish. A collected magnet vacuums every other pickup.
+func _collect() -> void:
+	EventBus.pickup_collected.emit(kind, value)
+	if kind == &"magnet":
+		for pickup: Pickup in get_tree().get_nodes_in_group(&"pickups"):
+			if pickup != self:
+				pickup.force_magnet()
+	queue_free()
 
 
 ## Claims a weapon-unlock relic: grants the ability (persisted immediately),
