@@ -13,8 +13,7 @@ extends CanvasLayer
 @onready var xp_bar: ProgressBar = $XpRow/XpBar
 @onready var level_label: Label = $XpRow/LevelLabel
 @onready var skill_row: HBoxContainer = $SkillRow
-@onready var boss_bar: ProgressBar = $BossBar
-@onready var boss_name_label: Label = $BossNameLabel
+@onready var boss_bars: VBoxContainer = $BossBars
 @onready var announce_label: Label = $AnnounceLabel
 @onready var streak_label: Label = $StreakLabel
 
@@ -46,7 +45,6 @@ var _elapsed := 0.0
 var _shown_second := -1
 var _kills := 0
 var _running := true
-var _boss_health: HealthComponent
 var _player: Player
 var _skill_slots: Dictionary[StringName, SkillSlot] = {}
 var _health_fill: StyleBoxFlat
@@ -55,12 +53,14 @@ var _heartbeat := 0.0
 var _vignette_material: ShaderMaterial
 var _ghost_tween: Tween
 var _gold_pop_tween: Tween
-var _boss_flash_tween: Tween
 var _gold_target := 0
 var _gold_display := 0.0
 var _streak := 0
 var _streak_time := 0.0
 var _streak_tween: Tween
+
+## One bar per living boss, keyed by its health component.
+var _boss_bars: Dictionary[HealthComponent, ProgressBar] = {}
 
 
 func _ready() -> void:
@@ -292,38 +292,52 @@ func _on_wave_announcement(text: String) -> void:
 
 func _on_boss_spawned(boss: Node) -> void:
 	var enemy := boss as EnemyBase
-	if enemy == null:
+	if enemy == null or _boss_bars.has(enemy.health):
 		return
-	# Rebind to the newest boss; the bar hides when it dies.
-	if _boss_health != null and is_instance_valid(_boss_health):
-		_boss_health.health_changed.disconnect(_on_boss_health_changed)
-		_boss_health.died.disconnect(_on_boss_died)
-	_boss_health = enemy.health
-	_boss_health.health_changed.connect(_on_boss_health_changed)
-	_boss_health.died.connect(_on_boss_died)
-	boss_name_label.text = enemy.data.display_name
-	boss_name_label.visible = true
-	boss_bar.visible = true
-	boss_bar.max_value = _boss_health.max_health
-	boss_bar.value = _boss_health.current
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override(&"separation", 2)
+	var label := Label.new()
+	label.text = enemy.data.display_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override(&"font_size", 18)
+	label.add_theme_color_override(&"font_color", Color(1.0, 0.35, 0.3))
+	box.add_child(label)
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(0.0, 16.0)
+	bar.show_percentage = false
+	bar.modulate = BOSS_BAR_COLOR
+	bar.max_value = enemy.health.max_health
+	bar.value = enemy.health.current
+	box.add_child(bar)
+	boss_bars.add_child(box)
+	_boss_bars[enemy.health] = bar
+	enemy.health.health_changed.connect(_on_boss_health_changed.bind(enemy.health))
+	enemy.health.died.connect(_on_boss_died.bind(enemy.health))
 
 
-func _on_boss_health_changed(current: float, max_health: float) -> void:
-	var decreased := current < boss_bar.value
-	boss_bar.max_value = max_health
-	boss_bar.value = current
+func _on_boss_health_changed(current: float, max_health: float,
+		health: HealthComponent) -> void:
+	var bar: ProgressBar = _boss_bars.get(health)
+	if bar == null:
+		return
+	var decreased := current < bar.value
+	bar.max_value = max_health
+	bar.value = current
 	if decreased:
 		# Brief white-hot flash so boss damage registers at a glance.
-		boss_bar.modulate = Color(1.7, 1.1, 1.0)
-		if _boss_flash_tween != null:
-			_boss_flash_tween.kill()
-		_boss_flash_tween = create_tween()
-		_boss_flash_tween.tween_property(boss_bar, "modulate", BOSS_BAR_COLOR, 0.18)
+		bar.modulate = Color(1.7, 1.1, 1.0)
+		var tween := create_tween()
+		tween.tween_property(bar, "modulate", BOSS_BAR_COLOR, 0.18)
 
 
-func _on_boss_died() -> void:
-	boss_bar.visible = false
-	boss_name_label.visible = false
+func _on_boss_died(health: HealthComponent) -> void:
+	var bar: ProgressBar = _boss_bars.get(health)
+	if bar == null:
+		return
+	var box := bar.get_parent()
+	if box != null:
+		box.queue_free()
+	_boss_bars.erase(health)
 
 
 func _on_player_died() -> void:

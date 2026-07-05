@@ -91,30 +91,13 @@ theme_override_colors/font_color = Color(0.95, 0.8, 0.35, 1)
 theme_override_font_sizes/font_size = 22
 text = "Gold: 0"
 
-[node name="BossNameLabel" type="Label" parent="." unique_id=807941213]
-visible = false
+[node name="BossBars" type="VBoxContainer" parent="."]
 anchors_preset = -1
 anchor_left = 0.3
 anchor_right = 0.7
-offset_top = 92.0
-offset_bottom = 116.0
-theme_type_variation = &"TitleLabel"
-theme_override_colors/font_color = Color(1, 0.35, 0.3, 1)
-theme_override_font_sizes/font_size = 18
-text = "BOSS"
-horizontal_alignment = 1
-
-[node name="BossBar" type="ProgressBar" parent="." unique_id=118505064]
-visible = false
-modulate = Color(1, 0.4, 0.35, 1)
-anchors_preset = -1
-anchor_left = 0.3
-anchor_right = 0.7
-offset_top = 118.0
-offset_bottom = 134.0
-max_value = 400.0
-value = 400.0
-show_percentage = false
+offset_top = 90.0
+offset_bottom = 220.0
+theme_override_constants/separation = 8
 
 [node name="AnnounceLabel" type="Label" parent="." unique_id=408682361]
 modulate = Color(1, 1, 1, 0)
