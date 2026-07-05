@@ -17,7 +17,7 @@ extends Resource
 @export var reward_growth_per_min := 0.3
 
 @export var max_alive_start := 15
-@export var max_alive_end := 60
+@export var max_alive_end := 120
 @export var max_alive_ramp_time := 300.0
 
 

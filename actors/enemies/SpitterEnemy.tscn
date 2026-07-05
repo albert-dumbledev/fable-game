@@ -1,9 +1,9 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene format=3 uid="uid://5pj1uhtmyr3f"]
 
-[ext_resource type="Script" path="res://actors/enemies/spitter_enemy.gd" id="1_script"]
-[ext_resource type="Script" path="res://components/health_component.gd" id="2_health"]
-[ext_resource type="Script" path="res://components/hurtbox_component.gd" id="3_hurtbox"]
-[ext_resource type="Script" path="res://components/hitbox_component.gd" id="4_hitbox"]
+[ext_resource type="Script" uid="uid://bdqa8oo0ek37k" path="res://actors/enemies/spitter_enemy.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://blucif7uth0gi" path="res://components/health_component.gd" id="2_health"]
+[ext_resource type="Script" uid="uid://b644v2rrbvyod" path="res://components/hurtbox_component.gd" id="3_hurtbox"]
+[ext_resource type="Script" uid="uid://csfkvj8kmkrmx" path="res://components/hitbox_component.gd" id="4_hitbox"]
 [ext_resource type="PackedScene" path="res://actors/enemies/Projectile.tscn" id="5_projectile"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
@@ -15,9 +15,9 @@ albedo_color = Color(0.25, 0.5, 0.18, 1)
 roughness = 0.85
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
+material = SubResource("StandardMaterial3D_body")
 radius = 0.4
 height = 1.6
-material = SubResource("StandardMaterial3D_body")
 
 [sub_resource type="SphereMesh" id="SphereMesh_eye"]
 radius = 0.09
@@ -28,62 +28,62 @@ albedo_color = Color(0.5, 0.85, 0.3, 1)
 roughness = 0.5
 
 [sub_resource type="SphereMesh" id="SphereMesh_gland"]
+material = SubResource("StandardMaterial3D_gland")
 radius = 0.18
 height = 0.36
-material = SubResource("StandardMaterial3D_gland")
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_attack"]
 radius = 0.6
 
-[node name="SpitterEnemy" type="CharacterBody3D"]
+[node name="SpitterEnemy" type="CharacterBody3D" unique_id=1456923115]
 collision_layer = 4
 collision_mask = 7
 script = ExtResource("1_script")
 projectile_scene = ExtResource("5_projectile")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1602222322]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 shape = SubResource("CapsuleShape3D_body")
 
-[node name="Mesh" type="MeshInstance3D" parent="."]
+[node name="Mesh" type="MeshInstance3D" parent="." unique_id=451560542]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 mesh = SubResource("CapsuleMesh_body")
 
-[node name="EyeL" type="MeshInstance3D" parent="Mesh"]
+[node name="EyeL" type="MeshInstance3D" parent="Mesh" unique_id=1409931318]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.14, 0.42, -0.35)
 mesh = SubResource("SphereMesh_eye")
 
-[node name="EyeR" type="MeshInstance3D" parent="Mesh"]
+[node name="EyeR" type="MeshInstance3D" parent="Mesh" unique_id=1185369269]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.14, 0.42, -0.35)
 mesh = SubResource("SphereMesh_eye")
 
-[node name="FistPivot" type="Node3D" parent="."]
+[node name="FistPivot" type="Node3D" parent="." unique_id=2071715399]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, -0.35)
 
-[node name="Fist" type="MeshInstance3D" parent="FistPivot"]
+[node name="Fist" type="MeshInstance3D" parent="FistPivot" unique_id=1140847213]
 mesh = SubResource("SphereMesh_gland")
 
-[node name="Health" type="Node" parent="."]
+[node name="Health" type="Node" parent="." unique_id=1490224304]
 script = ExtResource("2_health")
 max_health = 20.0
 
-[node name="Hurtbox" type="Area3D" parent="." node_paths=PackedStringArray("health")]
+[node name="Hurtbox" type="Area3D" parent="." unique_id=398457983 node_paths=PackedStringArray("health")]
 collision_layer = 16
 collision_mask = 0
 monitoring = false
 script = ExtResource("3_hurtbox")
 health = NodePath("../Health")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Hurtbox"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hurtbox" unique_id=1943979956]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 shape = SubResource("CapsuleShape3D_body")
 
-[node name="AttackHitbox" type="Area3D" parent="."]
+[node name="AttackHitbox" type="Area3D" parent="." unique_id=879007140]
 collision_layer = 0
 collision_mask = 8
 monitorable = false
 script = ExtResource("4_hitbox")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="AttackHitbox"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AttackHitbox" unique_id=664492792]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -0.9)
 shape = SubResource("SphereShape3D_attack")
