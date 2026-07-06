@@ -1,4 +1,4 @@
-9f3b39645df2d1ee0f39c8baf96f94f01fd7d0fb playthrough (with uncommitted changes):
+e16d96356b950fc0847c82cff880ad3836afea7b playthrough:
 * Overall, duelist still feels too weak relative to warhammer and spell caster builder.
     * The main issue is how overtuned AoE damage is.
     * Warhammer should only damage on the central AoE, also make it smaller. The outer effect is purely to shove / create space.
