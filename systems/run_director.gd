@@ -19,10 +19,14 @@ const SCAVENGER_DATA := preload("res://data/enemies/scavenger.tres")
 const SCAVENGER_LOOT_THRESHOLD := 20
 const SCAVENGER_COOLDOWN := 25.0
 
-## Placeholder finale: surviving to 7:30 wins the run. Temporary until a 3rd
-## boss lands here and owns the win condition (as the Hierophant's staff used
-## to at 5:00 — that's now just a normal weapon unlock).
+## The finale boss (THE REVENANT, tagged &"finale") spawns at this clock time
+## (see data/waves/default.tres); kept here as the reference for that spawn
+## time, no longer an auto-win. The win now fires on the finale boss's death
+## (see _track_boss / _on_finale_boss_died) — see finish_victory().
 const VICTORY_TIME := 450.0
+## Lets the boss death spectacle (slow-mo, detonation, 3 loot waves — ~2s,
+## see BossBase._on_died) play out before the victory handoff cuts the scene.
+const FINALE_VICTORY_DELAY := 2.5
 
 var elapsed := 0.0
 var kills := 0
@@ -59,12 +63,6 @@ func _physics_process(delta: float) -> void:
 	if not _run_active:
 		return
 	elapsed += delta
-	# Placeholder 7:30 finale: survive to the clock and the run is won (until a
-	# 3rd boss owns this moment). Checked before the pause return so it still
-	# fires if the player is mid-relic-walk at the buzzer.
-	if elapsed >= VICTORY_TIME:
-		finish_victory()
-		return
 	# Spawning pauses after a boss wave clears, so the player can collect the
 	# relic in peace; the run timer keeps advancing.
 	if _spawning_paused:
@@ -184,8 +182,13 @@ func abandon_run() -> void:
 			{"time": elapsed, "kills": kills, "gold": gold_earned, "abandoned": true})
 
 
-## Register a spawned boss so the wave can tell when the last one falls.
+## Register a spawned boss so the wave can tell when the last one falls. The
+## finale boss (tagged &"finale") wins the run on death instead of joining the
+## normal wave-clear/relic tracking.
 func _track_boss(boss: EnemyBase, boss_data: EnemyData) -> void:
+	if boss_data.tags.has(&"finale"):
+		boss.health.died.connect(_on_finale_boss_died)
+		return
 	_alive_bosses.append(boss)
 	_last_boss_data = boss_data
 	boss.health.died.connect(_on_boss_died.bind(boss))
@@ -237,14 +240,23 @@ func _spawn_relic(ability: StringName, position: Vector3) -> void:
 
 ## A relic was claimed — resume the wave. Every relic (including the staff, which
 ## is now a normal weapon unlock rather than the run-ender) just continues the
-## run; victory is the 7:30 finale (finish_victory), not a weapon drop.
+## run; victory is the finale boss kill (finish_victory), not a weapon drop.
 func _on_unlock_claimed(_ability: StringName) -> void:
 	_spawning_paused = false
 
 
-## The 7:30 placeholder finale (see VICTORY_TIME): bank the run and hand off to
-## the victory screen. Deferred + idempotent so it's safe to fire from
-## _physics_process mid-frame. A 3rd boss will eventually own this handoff.
+## The finale boss (THE REVENANT) just died — let its death spectacle and loot
+## fountain play out (BossBase._on_died runs ~2s of slow-mo/detonation/3 loot
+## waves before queue_free) before cutting to the victory screen.
+## finish_victory() guards on _run_active, so this is safe even if the player
+## also dies in the same window (whichever handoff lands first wins).
+func _on_finale_boss_died() -> void:
+	get_tree().create_timer(FINALE_VICTORY_DELAY, false).timeout.connect(finish_victory)
+
+
+## The finale-boss-kill win (see _on_finale_boss_died): bank the run and hand
+## off to the victory screen. Deferred + idempotent so it's safe to fire from
+## a timer callback or mid-physics-frame.
 func finish_victory() -> void:
 	if not _run_active:
 		return

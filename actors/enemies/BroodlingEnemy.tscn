@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://0cr4kw53ydmu7"]
+[gd_scene format=3 uid="uid://b5cv1lnlk5ecm"]
 
 [ext_resource type="Script" uid="uid://1afchhbopyxb" path="res://actors/enemies/enemy_base.gd" id="1_script"]
 [ext_resource type="Script" uid="uid://blucif7uth0gi" path="res://components/health_component.gd" id="2_health"]

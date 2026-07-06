@@ -52,6 +52,10 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"alarm"] = _alarm()
 	sounds[&"click"] = _click()
 	sounds[&"player_death"] = _player_death()
+	sounds[&"revenant_blink"] = _revenant_blink()
+	sounds[&"revenant_slash"] = _revenant_slash()
+	sounds[&"revenant_overhead"] = _revenant_overhead()
+	sounds[&"revenant_crescent"] = _revenant_crescent()
 	return sounds
 
 
@@ -415,6 +419,51 @@ static func _player_death() -> AudioStreamWAV:
 	var fall := _env(_tone(0.9, 220.0, 55.0, 0.8, SINE), 0.01, 1.1)
 	var tail := _env(_noise(0.7, 500.0, 80.0, 0.5), 0.05, 1.2)
 	return _to_wav(_overlay(fall, tail, 0.05), 0.75)
+
+
+## Revenant blink (in and out): a reverse-swish — filtered noise whose cutoff
+## RISES like an inhale (the stalker-disengage precedent) but colder/airier
+## (higher end cutoff, shorter swell) with a low whoomp body underneath so it
+## reads as a teleport rather than a retreat-step. Distinct from `_dash()`,
+## which is a bright zip riding a falling rush; this one inhales then cuts.
+static func _revenant_blink() -> AudioStreamWAV:
+	var inhale := _env(_noise(0.16, 300.0, 3200.0, 1.0), 0.11, 0.6)
+	var whoomp := _env(_tone(0.24, 110.0, 38.0, 0.55, SINE), 0.02, 1.3)
+	return _to_wav(_overlay(inhale, whoomp, 0.06), 0.55)
+
+
+## Revenant combo slash (hits 1-2): a fast bladed whoosh — a short, airy
+## filtered-noise sweep with a sharp attack and a quick low body, brisker and
+## thinner than the sword's own `_swing()` arc so the boss's blade reads
+## apart from the player's.
+static func _revenant_slash() -> AudioStreamWAV:
+	var air := _env(_noise(0.13, 900.0, 3400.0, 1.0), 0.006, 1.6)
+	var body := _env(_tone(0.1, 130.0, 60.0, 0.4, SINE), 0.003, 1.8)
+	return _to_wav(_overlay(air, body, 0.0), 0.5)
+
+
+## Revenant overhead finisher: a weighty downward strike into a metallic/edged
+## crack over a low thud — heavier and darker than `_revenant_slash()`, but
+## sharper and drier than `_boulder_impact()` (rock) or `_hammer_slam()`
+## (rumbling boom), so the boss's own committed hit reads apart from both.
+static func _revenant_overhead() -> AudioStreamWAV:
+	var crack := _env(_noise(0.1, 2600.0, 400.0, 0.6), 0.002, 2.2)
+	var edge := _env(_tone(0.09, 700.0, 220.0, 0.3, SAW), 0.002, 2.0)
+	var thud := _env(_tone(0.4, 90.0, 30.0, 0.9, SINE), 0.006, 1.2)
+	var out := _overlay(crack, edge, 0.0)
+	return _to_wav(_overlay(out, thud, 0.0), 0.85)
+
+
+## Revenant crescent (throw + pass): a whirring, rotating airy tone — a
+## detuned pair of tones sweeping past each other for a doppler-ish body, over
+## a thin noise whirr, low fundamentals throughout. Distinct from
+## `_arcane_bolt()`'s quick descending zap by being sustained and rotating.
+static func _revenant_crescent() -> AudioStreamWAV:
+	var whirr := _env(_noise(0.4, 500.0, 1400.0, 0.5), 0.03, 1.1)
+	var doppler_a := _env(_tone(0.4, 220.0, 160.0, 0.4, SINE), 0.02, 1.0)
+	var doppler_b := _env(_tone(0.4, 235.0, 150.0, 0.3, SINE), 0.02, 1.0)
+	var out := _overlay(whirr, doppler_a, 0.0)
+	return _to_wav(_overlay(out, doppler_b, 0.015), 0.5)
 
 
 # --- Synthesis primitives ---------------------------------------------------

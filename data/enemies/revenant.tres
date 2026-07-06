@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://c5x8q2h1m4t7r"]
+
+[ext_resource type="Script" uid="uid://b7careyj8tn88" path="res://core/enemy_data.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://actors/enemies/RevenantBoss.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_script")
+display_name = "THE REVENANT"
+scene = ExtResource("2_scene")
+max_health = 380.0
+move_speed = 4.5
+damage = 22.0
+attack_range = 26.0
+windup_time = 0.45
+recover_time = 0.30
+knockback = 6.0
+gold_reward = 180
+xp_reward = 110
+spawn_weight = 0.0
+tags = Array[StringName]([&"boss", &"finale"])

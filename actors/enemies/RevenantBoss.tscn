@@ -1,0 +1,108 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://actors/enemies/revenant_boss.gd" id="1_script"]
+[ext_resource type="Script" path="res://components/health_component.gd" id="2_health"]
+[ext_resource type="Script" path="res://components/hurtbox_component.gd" id="3_hurtbox"]
+[ext_resource type="Script" path="res://components/hitbox_component.gd" id="4_hitbox"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+radius = 0.55
+height = 3.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_body"]
+albedo_color = Color(0.04, 0.05, 0.06, 1)
+roughness = 0.55
+metallic = 0.2
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
+material = SubResource("StandardMaterial3D_body")
+radius = 0.55
+height = 3.4
+
+[sub_resource type="SphereMesh" id="SphereMesh_eye"]
+radius = 0.1
+height = 0.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_trim"]
+albedo_color = Color(0.3, 0.9, 0.95, 1)
+emission_enabled = true
+emission = Color(0.3, 0.9, 0.95, 1)
+emission_energy_multiplier = 1.8
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_trim"]
+material = SubResource("StandardMaterial3D_trim")
+top_radius = 0.62
+bottom_radius = 0.5
+height = 0.15
+
+[sub_resource type="BoxMesh" id="BoxMesh_blade_l"]
+material = SubResource("StandardMaterial3D_trim")
+size = Vector3(0.1, 1.3, 0.28)
+
+[sub_resource type="BoxMesh" id="BoxMesh_blade_r"]
+material = SubResource("StandardMaterial3D_trim")
+size = Vector3(0.1, 1.3, 0.28)
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_attack"]
+radius = 0.5
+
+[node name="RevenantBoss" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 7
+script = ExtResource("1_script")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)
+mesh = SubResource("CapsuleMesh_body")
+
+[node name="EyeL" type="MeshInstance3D" parent="Mesh"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2, 1.4, -0.58)
+mesh = SubResource("SphereMesh_eye")
+
+[node name="EyeR" type="MeshInstance3D" parent="Mesh"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 1.4, -0.58)
+mesh = SubResource("SphereMesh_eye")
+
+[node name="TrimRing" type="MeshInstance3D" parent="Mesh"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.2, 0)
+mesh = SubResource("CylinderMesh_trim")
+
+[node name="FistPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 2.2, -0.6)
+
+[node name="BladeL" type="MeshInstance3D" parent="FistPivot"]
+transform = Transform3D(0.906308, 0, 0.422618, 0, 1, 0, -0.422618, 0, 0.906308, -0.35, 0.6, 0)
+mesh = SubResource("BoxMesh_blade_l")
+
+[node name="BladeR" type="MeshInstance3D" parent="FistPivot"]
+transform = Transform3D(0.906308, 0, -0.422618, 0, 1, 0, 0.422618, 0, 0.906308, 0.35, 0.6, 0)
+mesh = SubResource("BoxMesh_blade_r")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("2_health")
+max_health = 380.0
+
+[node name="Hurtbox" type="Area3D" parent="." node_paths=PackedStringArray("health")]
+collision_layer = 16
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_hurtbox")
+health = NodePath("../Health")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hurtbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="AttackHitbox" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 8
+monitorable = false
+script = ExtResource("4_hitbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AttackHitbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, -0.6)
+shape = SubResource("SphereShape3D_attack")

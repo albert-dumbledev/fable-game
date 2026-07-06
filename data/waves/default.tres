@@ -12,6 +12,7 @@
 [ext_resource type="Resource" path="res://data/enemies/broodmother.tres" id="10_broodmother"]
 [ext_resource type="Resource" path="res://data/enemies/stalker.tres" id="11_stalker"]
 [ext_resource type="Resource" path="res://data/enemies/gilded.tres" id="12_gilded"]
+[ext_resource type="Resource" uid="uid://c5x8q2h1m4t7r" path="res://data/enemies/revenant.tres" id="13_revenant"]
 
 [sub_resource type="Resource" id="Resource_boss1"]
 script = ExtResource("7_event")
@@ -63,10 +64,16 @@ count = 1
 repeat_every = 70.0
 chance = 0.6
 
+[sub_resource type="Resource" id="Resource_boss3"]
+script = ExtResource("7_event")
+time = 450.0
+enemy = ExtResource("13_revenant")
+announcement = "THE REVENANT STIRS"
+
 [resource]
 script = ExtResource("1_script")
 enemies = Array[ExtResource("2_type")]([ExtResource("3_chaser"), ExtResource("4_sprinter"), ExtResource("5_brute"), ExtResource("6_spitter"), ExtResource("10_broodmother"), ExtResource("11_stalker")])
-events = Array[ExtResource("7_event")]([SubResource("Resource_boss1"), SubResource("Resource_boss2"), SubResource("Resource_swarm_sprinters"), SubResource("Resource_swarm_chasers"), SubResource("Resource_swarm_spitters"), SubResource("Resource_gilded"), SubResource("Resource_brood_event")])
+events = Array[ExtResource("7_event")]([SubResource("Resource_boss1"), SubResource("Resource_boss2"), SubResource("Resource_swarm_sprinters"), SubResource("Resource_swarm_chasers"), SubResource("Resource_swarm_spitters"), SubResource("Resource_gilded"), SubResource("Resource_brood_event"), SubResource("Resource_boss3")])
 start_interval = 2.2
 min_interval = 0.25
 interval_ramp_time = 210.0

@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://07e304nfrm3j3"]
+[gd_scene format=3 uid="uid://c0xvhr4weft0i"]
 
 [ext_resource type="Script" path="res://actors/enemies/stalker_enemy.gd" id="1_script"]
 [ext_resource type="Script" uid="uid://blucif7uth0gi" path="res://components/health_component.gd" id="2_health"]
