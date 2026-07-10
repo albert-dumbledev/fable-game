@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"split_shot"
+display_name = "Split Shot"
+description = "Bolts that strike an enemy split into 3 weaker bolts, fanning onward"
+weight = 0.3
+unique = true
+grants_ability = &"split_shot"
+requires_weapon = &"battle_staff"

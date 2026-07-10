@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"scatter_shot"
+display_name = "Scatter Shot"
+description = "Arcane Bolt fires a 3-bolt spread -- more damage up close, weaker at range"
+weight = 0.3
+unique = true
+grants_ability = &"scatter_shot"
+requires_weapon = &"battle_staff"

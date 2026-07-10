@@ -619,10 +619,11 @@ func _deny_cast() -> void:
 	EventBus.mana_cast_denied.emit()
 
 
-## Arcane Bolt landed on an enemy: refund mana. This is the staff's generator
-## loop — land bolts to earn the mana that big casts spend.
-func on_bolt_hit_enemy() -> void:
-	_mana = minf(MANA_MAX, _mana + BOLT_MANA_RESTORE)
+## Refund mana into the pool. Arcane Bolt enemy hits call this through a
+## shared per-volley BoltManaBudget (which enforces the per-trigger cap), so
+## scatter + split can't print mana. Only the staff loadout ever calls it.
+func restore_mana(amount: float) -> void:
+	_mana = minf(MANA_MAX, _mana + amount)
 
 
 func get_mana() -> float:

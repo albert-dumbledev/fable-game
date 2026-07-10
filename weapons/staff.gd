@@ -4,12 +4,30 @@ extends Weapon
 ## RMB casts the player's Fireball (the staff is the cast focus, so it does not
 ## stow). Frost Nova and future spells arrive as Arcana purchases, gated on the
 ## staff being mounted. All spell damage scales with the spell_damage stat.
+##
+## Bolt boons reshape the LMB: Scatter Shot fires a spread, Burst Fire fires a
+## timed 3-round burst, Split Shot splits bolts on enemy hits, and Arcane Surge
+## buffs bolt damage while mana is banked high. They stack -- a burst fires
+## scatters, whose bolts can split.
 
 const REST_POS := Vector3(0.32, -0.26, 0.0)
 const REST_ROT := Vector3(10.0, -8.0, 4.0)
 const RECOIL_POS := Vector3(0.30, -0.24, 0.12)
 const BOLT_SCENE := preload("res://weapons/ArcaneBolt.tscn")
 const ORB_FLARE := 5.0
+## Scatter Shot: a flat horizontal fan of weaker bolts.
+const SCATTER_COUNT := 3
+const SCATTER_DAMAGE_MULT := 0.55
+const SCATTER_FAN_DEG := 6.0
+## Burst Fire: a rapid 3-round burst, then a longer committed pause. The burst
+## interval tightens with attack_speed; the cycle length is tuned for ~+25%
+## throughput over single fire (3 rounds across BURST_CYCLE_MULT swing-times).
+const BURST_COUNT := 3
+const BURST_INTERVAL := 0.08
+const BURST_CYCLE_MULT := 2.4
+## Arcane Surge: bolts hit harder while mana is at least this full.
+const SURGE_MANA_FRACTION := 0.8
+const SURGE_DAMAGE_MULT := 1.3
 
 @onready var staff_pivot: Node3D = $StaffPivot
 @onready var orb: MeshInstance3D = $StaffPivot/Orb
@@ -31,18 +49,72 @@ func _swing_sound() -> StringName:
 	return &"arcane_bolt"
 
 
-func _do_attack(_duration: float) -> void:
+func _do_attack(duration: float) -> void:
 	var player := wielder as Player
 	if player == null:
 		return
-	var damage := (weapon_data.damage + stats.get_stat(Stats.DAMAGE) * 0.8) \
-			* stats.get_stat(Stats.SPELL_DAMAGE)
+	if player.has_ability(&"burst_fire"):
+		_fire_burst(player, duration)
+	else:
+		_fire_volley(player)
+
+
+## One trigger pull's worth of bolts: a single bolt, or a Scatter Shot spread.
+## All bolts (and their split children) share one mana budget so the refund is
+## capped per volley. Each volley kicks the viewmodel.
+func _fire_volley(player: Player) -> void:
+	var base_damage := _bolt_damage(player)
+	var budget := BoltManaBudget.new(player, Player.BOLT_MANA_RESTORE)
+	var can_split := player.has_ability(&"split_shot")
 	var dir := player.aim_direction()
+	if player.has_ability(&"scatter_shot"):
+		for i: int in SCATTER_COUNT:
+			var t := float(i) - float(SCATTER_COUNT - 1) * 0.5
+			var spread := dir.rotated(Vector3.UP, deg_to_rad(SCATTER_FAN_DEG * t))
+			_spawn_bolt(player, spread, base_damage * SCATTER_DAMAGE_MULT, budget, can_split)
+	else:
+		_spawn_bolt(player, dir, base_damage, budget, can_split)
+	_recoil()
+
+
+## Burst Fire: fire now and schedule the remaining rounds, then hold the primary
+## on a longer cooldown so the burst reads as a committed cycle.
+func _fire_burst(player: Player, duration: float) -> void:
+	_fire_volley(player)
+	var atk := maxf(0.1, stats.get_stat(Stats.ATTACK_SPEED))
+	var interval := BURST_INTERVAL / atk
+	for i: int in range(1, BURST_COUNT):
+		get_tree().create_timer(interval * float(i), false).timeout.connect(
+				_burst_round.bind(player))
+	_cooldown = duration * BURST_CYCLE_MULT
+
+
+func _burst_round(player: Player) -> void:
+	if not is_instance_valid(player) or not is_inside_tree():
+		return
+	# Don't keep firing if the loadout changed out from under the timer.
+	if player.weapon != self:
+		return
+	_fire_volley(player)
+
+
+func _spawn_bolt(player: Player, dir: Vector3, damage: float, budget: BoltManaBudget,
+		can_split: bool) -> void:
 	var bolt := BOLT_SCENE.instantiate() as ArcaneBolt
-	bolt.setup(AttackInfo.new(wielder, damage), dir)
+	bolt.setup(AttackInfo.new(wielder, damage), dir, budget, Player.BOLT_MANA_RESTORE, can_split)
 	get_tree().current_scene.add_child(bolt)
 	bolt.global_position = player.aim_origin() + dir * 0.8
-	_recoil()
+
+
+## Base per-bolt damage, before any scatter/split fraction. Arcane Surge adds a
+## flat multiplier while mana is banked high, rewarding not hoarding casts.
+func _bolt_damage(player: Player) -> float:
+	var damage := (weapon_data.damage + stats.get_stat(Stats.DAMAGE) * 0.8) \
+			* stats.get_stat(Stats.SPELL_DAMAGE)
+	if player.has_ability(&"arcane_surge") \
+			and player.get_mana() >= player.get_mana_max() * SURGE_MANA_FRACTION:
+		damage *= SURGE_DAMAGE_MULT
+	return damage
 
 
 func _do_secondary() -> void:
