@@ -101,7 +101,7 @@ func _skip_gold() -> int:
 
 func _roll_offers(count: int) -> Array[Offer]:
 	var player := get_tree().get_first_node_in_group(&"player") as Player
-	var director := get_tree().get_first_node_in_group(&"run_director")
+	var director := get_tree().get_first_node_in_group(&"run_director") as RunDirector
 	var elapsed := director.elapsed if director != null else 0.0
 	var pool: Array[BoonData] = []
 	for boon: BoonData in _registry.boons:
