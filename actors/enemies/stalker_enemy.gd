@@ -12,10 +12,14 @@ enum Mode { ENGAGE, DISENGAGE }
 ## the Stalker curves onto the flank instead of joining the conga line.
 const ARC_UNTIL := 4.0
 const ARC_BLEND := 0.6
+## Pounce: ENGAGE-mode approach (both the flank arc and the final straight)
+## runs at this multiple of move speed, reading clearly faster than chaser
+## traffic. Frost slow still stacks underneath via move_speed().
+const ENGAGE_SPEED_MULT := 1.4
 ## Orbit distance held during the disengage.
 const ORBIT_RANGE := 8.0
-const DISENGAGE_MIN := 2.5
-const DISENGAGE_MAX := 3.5
+const DISENGAGE_MIN := 1.2
+const DISENGAGE_MAX := 2.0
 ## Steady eye glow while disengaged — the "I'm still watching you" tell.
 const WATCH_GLOW := 2.0
 
@@ -48,8 +52,8 @@ func _chase() -> void:
 	var dir := toward
 	if dist > ARC_UNTIL:
 		dir = (toward + tangent * ARC_BLEND).normalized()
-	velocity.x = dir.x * move_speed()
-	velocity.z = dir.z * move_speed()
+	velocity.x = dir.x * move_speed() * ENGAGE_SPEED_MULT
+	velocity.z = dir.z * move_speed() * ENGAGE_SPEED_MULT
 
 
 ## Back off to orbit range with lateral drift, watching, until the timer runs
