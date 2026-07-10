@@ -69,6 +69,8 @@ var _shove_wall_damage := 0.0
 var _shove_source: Node3D
 var _slow_mult := 1.0
 var _slow_time := 0.0
+var _frenzy_mult := 1.0
+var _frenzy_time := 0.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -136,6 +138,10 @@ func _physics_process(delta: float) -> void:
 		if _slow_time <= 0.0:
 			_slow_mult = 1.0
 			_refresh_resting_color()
+	if _frenzy_time > 0.0:
+		_frenzy_time -= delta
+		if _frenzy_time <= 0.0:
+			_frenzy_mult = 1.0
 	if state != State.STUNNED:
 		_face_target()
 	match state:
@@ -217,10 +223,19 @@ func apply_slow(mult: float, duration: float) -> void:
 	_refresh_resting_color()
 
 
-## data.move_speed with the current slow applied. All steering — base and
-## variant overrides — must route through this.
+## Hatch frenzy (broodlings): a temporary speed burst applied when hatched
+## from a death-burst. Decays after `duration` like the slow does.
+func apply_spawn_frenzy(mult: float, duration: float) -> void:
+	if state == State.DEAD:
+		return
+	_frenzy_mult = mult
+	_frenzy_time = duration
+
+
+## data.move_speed with the current slow and hatch frenzy applied. All
+## steering — base and variant overrides — must route through this.
 func move_speed() -> float:
-	return data.move_speed * _slow_mult
+	return data.move_speed * _slow_mult * _frenzy_mult
 
 
 func _chase() -> void:
@@ -428,8 +443,13 @@ func _spawn_death_children() -> void:
 		child.scale = Vector3.ONE * 0.2
 		parent.add_child(child)
 		child.global_position = pos
-		# Hatch beat: hold in RECOVER and pop up to full scale before chasing.
-		child._set_state(State.RECOVER)
+		# Hatch beat: normally hold in RECOVER and pop up before chasing.
+		# Frenzied hatchlings (broodlings) skip the stagger and burst in.
+		if data.death_spawns.death_spawn_frenzy_time > 0.0:
+			child.apply_spawn_frenzy(data.death_spawns.death_spawn_frenzy_mult,
+				data.death_spawns.death_spawn_frenzy_time)
+		else:
+			child._set_state(State.RECOVER)
 		var pop := child.create_tween()
 		pop.tween_property(child, "scale", Vector3.ONE, 0.3) \
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

@@ -29,3 +29,9 @@ extends Resource
 ## a child's own death_spawns is ignored.
 @export var death_spawns: EnemyData
 @export var death_spawn_count := 0
+
+## Hatch frenzy: when this enemy is spawned as a death-child, it skips the
+## RECOVER stagger and gets its move speed multiplied by this for the first
+## `death_spawn_frenzy_time` seconds (0 time = no frenzy, normal stagger).
+@export var death_spawn_frenzy_mult := 1.0
+@export var death_spawn_frenzy_time := 0.0
