@@ -6,7 +6,7 @@
 script = ExtResource("1_script")
 id = &"battle_staff"
 display_name = "Battle Staff"
-description = "Arcane caster — Arcane Bolt (LMB), Fireball (RMB), spells via Arcana"
+description = "Arcane caster — Arcane Bolt (LMB), Fireball (RMB), spells via Arcana. Shift: Levitate and rain spells."
 damage = 8.0
 swing_time = 0.5
 can_block = false

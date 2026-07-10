@@ -6,7 +6,7 @@
 script = ExtResource("1_script")
 id = &"warhammer"
 display_name = "Warhammer"
-description = ""
+description = "Two-handed slam — no shield. Shift: Crashing Leap, a ballistic hop into a 360° slam."
 damage = 20.0
 swing_time = 1.4
 can_block = false

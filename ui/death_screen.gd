@@ -12,9 +12,9 @@ const BRANCHES: Array[Dictionary] = [
 ## Signature colour + identity name per loadout, so the shop visibly re-themes
 ## when you switch weapons in the picker.
 const LOADOUT_THEMES: Dictionary = {
-	&"sword_and_shield": {"name": "DUELIST", "color": Color(0.55, 0.72, 0.95)},
-	&"warhammer": {"name": "EARTHSHAKER", "color": Color(0.95, 0.62, 0.32)},
-	&"battle_staff": {"name": "ARCANIST", "color": Color(0.72, 0.55, 1.0)},
+	&"sword_and_shield": {"name": "DUELIST", "color": Color(0.55, 0.72, 0.95), "mobility": "Shift: Phantom Step"},
+	&"warhammer": {"name": "EARTHSHAKER", "color": Color(0.95, 0.62, 0.32), "mobility": "Shift: Crashing Leap"},
+	&"battle_staff": {"name": "ARCANIST", "color": Color(0.72, 0.55, 1.0), "mobility": "Shift: Levitate"},
 }
 const DEFAULT_LOADOUT_COLOR := Color(0.8, 0.8, 0.85)
 
@@ -88,6 +88,11 @@ func _loadout_name() -> String:
 	return theme.get("name", "")
 
 
+func _loadout_mobility() -> String:
+	var theme: Dictionary = LOADOUT_THEMES.get(MetaProgression.selected_weapon, {})
+	return theme.get("mobility", "")
+
+
 ## Identity banner shown above the upgrade tree, themed to match the
 ## selected loadout's signature colour. Created lazily and kept just above
 ## branches_box in the Box VBoxContainer.
@@ -101,7 +106,8 @@ func _refresh_loadout_banner() -> void:
 		box.move_child(_loadout_banner, branches_box.get_index())
 	var identity := _loadout_name()
 	_loadout_banner.visible = identity != ""
-	_loadout_banner.text = identity
+	var mobility := _loadout_mobility()
+	_loadout_banner.text = "%s\n%s" % [identity, mobility] if mobility != "" else identity
 	_loadout_banner.add_theme_color_override(&"font_color", _loadout_color())
 
 

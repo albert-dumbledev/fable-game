@@ -6,7 +6,7 @@
 script = ExtResource("1_script")
 id = &"sword_and_shield"
 display_name = "Sword & Shield"
-description = "Balanced melee with a raiseable shield - block, parry, counter"
+description = "Balanced melee with a raiseable shield - block, parry, counter. Shift: Phantom Step blink."
 damage = 10.0
 swing_time = 0.7
 can_block = true
