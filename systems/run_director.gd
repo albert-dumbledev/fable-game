@@ -19,6 +19,11 @@ const SCAVENGER_DATA := preload("res://data/enemies/scavenger.tres")
 const SCAVENGER_LOOT_THRESHOLD := 20
 const SCAVENGER_COOLDOWN := 25.0
 
+## Aspect drops (Phase 9 M2): only the first elites per run reward an Aspect
+## relic — later elites fall back to the M1 magnet-or-health bounty. Cutting
+## this to 1 is the first lever if runs feel Aspect-flooded (see BOON_DROPS.md).
+const ASPECT_ELITE_CAP := 2
+
 ## The finale boss (THE REVENANT, tagged &"finale") spawns at this clock time
 ## (see data/waves/default.tres); kept here as the reference for that spawn
 ## time, no longer an auto-win. The win now fires on the finale boss's death
@@ -46,6 +51,10 @@ var _alive_bosses: Array[EnemyBase] = []
 var _last_boss_data: EnemyData
 var _last_boss_pos := Vector3.ZERO
 
+## Elite Aspect budget: counts elite kills so only the first ASPECT_ELITE_CAP
+## reward a relic (later elites use the bounty fallback).
+var _elite_kills := 0
+
 
 func _ready() -> void:
 	GameManager.state = GameManager.State.IN_RUN
@@ -54,6 +63,7 @@ func _ready() -> void:
 	EventBus.pickup_collected.connect(_on_pickup_collected)
 	EventBus.player_died.connect(_on_player_died)
 	EventBus.unlock_claimed.connect(_on_unlock_claimed)
+	EventBus.elite_died.connect(_on_elite_died)
 	EventBus.run_started.emit()
 	# Deferred so the HUD (readied after us) catches the initial state.
 	EventBus.xp_changed.emit.call_deferred(xp, _xp_required(level), level)
@@ -202,19 +212,32 @@ func _on_boss_died(boss: EnemyBase) -> void:
 		_on_boss_wave_cleared()
 
 
-## The last boss of a wave just died. If a weapon relic is owed, clear the
-## remaining minions and pause spawning so the player can walk to it in peace,
-## then drop the relic where the boss fell. Nothing special if all owned.
+## The last boss of a wave just died. A weapon relic takes priority: if one is
+## owed, clear the remaining minions, pause spawning, and drop it where the boss
+## fell. Once every weapon is owned, an Aspect relic drops instead via the same
+## arena-clear + spawn-pause spectacle (M2) — the progression arc is weapons
+## first, Aspects after. If neither has anything to give, nothing drops.
 func _on_boss_wave_cleared() -> void:
 	var ability := _next_unlock_drop(_last_boss_data)
-	if ability == &"":
+	if ability != &"":
+		_clear_for_relic()
+		_spawn_relic(ability, _last_boss_pos)
 		return
+	# No weapon owed — offer an Aspect if the pool still has candidates.
+	var player := get_tree().get_first_node_in_group(&"player") as Player
+	if AspectPool.available(player).is_empty():
+		return
+	_clear_for_relic()
+	_spawn_aspect_relic(_last_boss_pos, true)
+
+
+## Pause spawning and clear the remaining minions so the player can collect a
+## boss relic in peace (the dying bosses still finish their loot choreography).
+func _clear_for_relic() -> void:
 	_spawning_paused = true
-	# Clear minions (but let the dying bosses finish their loot choreography).
 	for enemy: EnemyBase in EnemyBase.alive.duplicate():
 		if is_instance_valid(enemy) and not (enemy is BossEnemy):
 			enemy.queue_free()
-	_spawn_relic(ability, _last_boss_pos)
 
 
 func _next_unlock_drop(boss_data: EnemyData) -> StringName:
@@ -236,6 +259,61 @@ func _spawn_relic(ability: StringName, position: Vector3) -> void:
 	relic.setup(&"unlock", 1, Vector3(0.0, 6.0, 0.0))
 	scene.add_child(relic)
 	relic.global_position = position + Vector3(0.0, 1.2, 0.0)
+
+
+## An elite just died (Aspect Drops M2). The first ASPECT_ELITE_CAP elites per
+## run drop an Aspect relic (when the pool still has candidates); later elites,
+## or an exhausted pool, fall back to the M1 magnet-or-health bounty. Elite
+## relics never pause spawning or clear the arena — walking to one is the
+## decision, so it can sit unclaimed while the fight continues.
+func _on_elite_died(position: Vector3) -> void:
+	if not _run_active:
+		return
+	_elite_kills += 1
+	var player := get_tree().get_first_node_in_group(&"player") as Player
+	if _elite_kills <= ASPECT_ELITE_CAP and not AspectPool.available(player).is_empty():
+		_spawn_aspect_relic(position, false)
+	elif Pickup.magnets.is_empty():
+		_spawn_utility_pickup(&"magnet", 1, EnemyBase.MAGNET_LIFETIME, position)
+	else:
+		_spawn_utility_pickup(&"health", EnemyBase.HEALTH_HEAL_PCT, 0.0, position)
+
+
+## Drop an Aspect relic where an elite/boss fell. The relic carries no ability —
+## the AspectScreen decides which Aspect on claim. `paused` documents the boss
+## path (the caller already set _spawning_paused + cleared minions); the elite
+## path passes false and leaves spawning running.
+func _spawn_aspect_relic(position: Vector3, _paused: bool) -> void:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	var relic := PICKUP_SCENE.instantiate() as Pickup
+	relic.setup(&"aspect", 1, Vector3(0.0, 6.0, 0.0))
+	scene.add_child(relic)
+	relic.global_position = position + Vector3(0.0, 1.2, 0.0)
+
+
+## The elite bounty fallback: one utility pickup (magnet or health) with a gentle
+## upward burst, mirroring EnemyBase._spawn_single_pickup. `lifetime` overrides
+## the pickup default when > 0.
+func _spawn_utility_pickup(kind: StringName, value: int, lifetime: float, position: Vector3) -> void:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	var pickup := PICKUP_SCENE.instantiate() as Pickup
+	var burst := Vector3(randf_range(-1.5, 1.5), randf_range(6.0, 9.0), randf_range(-1.5, 1.5))
+	pickup.setup(kind, value, burst)
+	if lifetime > 0.0:
+		pickup.lifetime = lifetime
+	scene.add_child(pickup)
+	pickup.global_position = position + Vector3(0.0, 1.2, 0.0)
+
+
+## An Aspect was picked from the relic modal — resume boss-paused spawning.
+## Mirrors _on_unlock_claimed; called by AspectScreen after the pick (not on the
+## relic touch), so elite relics never pause the run while they sit unclaimed.
+func resume_from_aspect() -> void:
+	_spawning_paused = false
 
 
 ## A relic was claimed — resume the wave. Every relic (including the staff, which

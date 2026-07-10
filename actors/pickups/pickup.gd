@@ -26,6 +26,8 @@ const MAGNET_PULSE_HIGH := 3.5
 const MAGNET_PULSE_TIME := 0.6
 const UNLOCK_PULSE_LOW := 1.5
 const UNLOCK_PULSE_HIGH := 4.0
+const ASPECT_PULSE_LOW := 1.5
+const ASPECT_PULSE_HIGH := 4.5
 
 ## Every magnet pickup currently alive, so the minimap can ping them without
 ## a group scan.
@@ -53,6 +55,7 @@ var _target: Node3D
 @onready var magnet_mesh: MeshInstance3D = $MagnetMesh
 @onready var health_mesh: Node3D = $HealthMesh
 @onready var unlock_mesh: MeshInstance3D = $UnlockMesh
+@onready var aspect_mesh: MeshInstance3D = $AspectMesh
 
 
 ## Call before adding to the tree.
@@ -71,6 +74,7 @@ func _ready() -> void:
 	magnet_mesh.visible = kind == &"magnet"
 	health_mesh.visible = kind == &"health"
 	unlock_mesh.visible = kind == &"unlock"
+	aspect_mesh.visible = kind == &"aspect"
 	_target = get_tree().get_first_node_in_group(&"player") as Node3D
 	if kind == &"magnet":
 		magnets.append(self)
@@ -83,6 +87,12 @@ func _ready() -> void:
 		magnet_radius = 0.0
 		lifetime = INF
 		_start_pulse(unlock_mesh, UNLOCK_PULSE_LOW, UNLOCK_PULSE_HIGH)
+	if kind == &"aspect":
+		# An Aspect relic: same theft-proof, walk-to-it contract as &"unlock" —
+		# walking onto it IS the decision, so it never magnets or expires.
+		magnet_radius = 0.0
+		lifetime = INF
+		_start_pulse(aspect_mesh, ASPECT_PULSE_LOW, ASPECT_PULSE_HIGH)
 
 
 func _exit_tree() -> void:
@@ -131,6 +141,9 @@ func _physics_process(delta: float) -> void:
 			if kind == &"unlock":
 				_claim_unlock()
 				queue_free()
+			elif kind == &"aspect":
+				_claim_aspect()
+				queue_free()
 			else:
 				_collect()
 			return
@@ -178,6 +191,14 @@ func _collect() -> void:
 			if pickup != self:
 				pickup.force_magnet()
 	queue_free()
+
+
+## Claims an Aspect relic: unlike the weapon relic, the pickup carries no
+## ability — walking onto it just opens the AspectScreen, which does the
+## pick-1-of-2 roll and applies the chosen Aspect. Reuses the unlock stinger.
+func _claim_aspect() -> void:
+	AudioManager.play(&"unlock_claim")
+	EventBus.aspect_relic_claimed.emit()
 
 
 ## Claims a weapon-unlock relic: grants the ability (persisted immediately),

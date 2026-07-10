@@ -439,15 +439,12 @@ func _on_died() -> void:
 			Color(_base_color.r, _base_color.g, _base_color.b, 0.4), 0.1, 0.25)
 	_spawn_pickups(&"gold", int(round(data.gold_reward * _reward_mult)))
 	_spawn_pickups(&"xp", int(round(data.xp_reward * _reward_mult)))
-	# Elite bounty (Aspect Drops M1): a guaranteed utility drop on top of the
-	# ×3 gold/XP the reward mult already grants — a magnet if the arena has
-	# none, else a health pickup. (M2 upgrades the first elites to Aspect
-	# relics; this stays the fallback for later elites.)
+	# Elite death (Aspect Drops M2): the drop decision now lives in RunDirector —
+	# the first elites per run drop an Aspect relic, later elites fall back to the
+	# M1 magnet-or-health bounty. RunDirector owns that split (it counts kills and
+	# checks the Aspect pool), so this just reports where the elite fell.
 	if is_elite:
-		if Pickup.magnets.is_empty():
-			_spawn_single_pickup(&"magnet", 1, MAGNET_LIFETIME)
-		else:
-			_spawn_single_pickup(&"health", HEALTH_HEAL_PCT, 0.0)
+		EventBus.elite_died.emit(global_position)
 	if Pickup.magnets.is_empty() and randf() < MAGNET_DROP_CHANCE:
 		_spawn_single_pickup(&"magnet", 1, MAGNET_LIFETIME)
 	if randf() < HEALTH_DROP_CHANCE:

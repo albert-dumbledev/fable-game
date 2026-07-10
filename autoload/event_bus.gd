@@ -67,3 +67,13 @@ signal player_dashed
 ## so the HUD can flash the mana bar.
 @warning_ignore("unused_signal")
 signal mana_cast_denied
+
+## Emitted when the player walks onto an Aspect relic. No args — the AspectScreen
+## does the pick-1-of-2 roll itself. Opening the screen is the whole payload.
+@warning_ignore("unused_signal")
+signal aspect_relic_claimed
+
+## Emitted when an elite enemy dies. `position` is where it fell; RunDirector
+## decides the drop (Aspect relic for the first elites, bounty fallback after).
+@warning_ignore("unused_signal")
+signal elite_died(position: Vector3)
