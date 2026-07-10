@@ -22,6 +22,7 @@ const SKILLS: Array[Dictionary] = [
 	{"id": &"block", "key": "RMB", "name": "Block"},
 	{"id": &"hammer_wave", "key": "RMB", "name": "Shockwave"},
 	{"id": &"dash", "key": "SHIFT", "name": "Dash"},
+	{"id": &"hammer_leap", "key": "SHIFT", "name": "Leap"},
 	{"id": &"firebolt", "key": "RMB", "name": "Fireball"},
 	{"id": &"frost_nova", "key": "E", "name": "Frost Nova"},
 ]
@@ -190,10 +191,21 @@ func _skill_owned(id: StringName) -> bool:
 					and _player.weapon.weapon_data.can_block
 		&"hammer_wave":
 			return _player.weapon is Warhammer
+		&"dash":
+			return _player.has_ability(&"dash") and _player_mobility() == &"dash"
+		&"hammer_leap":
+			return _player.has_ability(&"dash") and _player_mobility() == &"hammer_leap"
 		&"firebolt", &"frost_nova":
 			return _player.weapon is Staff and _player.has_ability(id)
 		_:
 			return _player.has_ability(id)
+
+
+## The mounted loadout's Shift mobility id (dash / hammer_leap / levitate).
+func _player_mobility() -> StringName:
+	if _player.weapon != null:
+		return _player.weapon.mobility_id()
+	return &"dash"
 
 
 ## Heartbeat vignette: invisible until health is critical, then a red edge

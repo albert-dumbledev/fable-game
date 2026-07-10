@@ -44,6 +44,12 @@ const WAVE_RAISED_ROT := Vector3(95.0, 0.0, 0.0)
 ## Real-time freeze frame when the slam actually catches something —
 ## longer than the sword's: this is the heavy weapon.
 const HIT_PAUSE := 0.05
+## Crashing Leap (Shift mobility): the landing slam hits a full 360° circle for
+## a fraction of the primary's damage — it is an attack, not an escape. Core
+## enemies are briefly staggered so leaping into a pack is not a suicide of
+## instant retaliation windups (same lesson as the Phase 5 gather-stun guards).
+const LEAP_DAMAGE_MULT := 0.8
+const LEAP_STAGGER := 0.3
 
 @onready var hammer_pivot: Node3D = $HammerPivot
 @onready var handle_mesh: MeshInstance3D = $HammerPivot/HandleMesh
@@ -53,6 +59,10 @@ var _swing_tween: Tween
 
 func _swing_sound() -> StringName:
 	return &"hammer_swing"
+
+
+func mobility_id() -> StringName:
+	return &"hammer_leap"
 
 
 func _ready() -> void:
@@ -139,6 +149,28 @@ func _wave_impact(damage: float) -> void:
 		player.add_shake(0.6)
 
 
+## Crashing Leap payoff: on landing, a 360° slam centered on the player — 0.8×
+## primary damage in the core, full outer-ring shove, and a brief core stagger.
+## Called by Player._land_leap once the ballistic hop touches down.
+func leap_slam() -> void:
+	if wielder == null or not is_inside_tree():
+		return
+	var forward := -wielder.global_transform.basis.z
+	forward.y = 0.0
+	forward = forward.normalized()
+	var point := wielder.global_position
+	point.y = 0.1
+	var damage := (weapon_data.damage + stats.get_stat(Stats.DAMAGE)) * LEAP_DAMAGE_MULT
+	var aoe := stats.get_stat(Stats.HAMMER_AOE)
+	var shove := SHOVE_FORCE * stats.get_stat(Stats.HAMMER_SHOVE)
+	AudioManager.play(&"hammer_slam")
+	if _slam(point, forward, damage, aoe, shove, 180.0, LEAP_STAGGER) > 0:
+		FreezeFrame.hit_pause(HIT_PAUSE)
+	var player := wielder as Player
+	if player != null:
+		player.add_shake(0.6)
+
+
 ## The slam is a ground AoE, not a hitbox sweep: full damage inside
 ## INNER_RADIUS of the impact point, splash out to OUTER_RADIUS, and a
 ## radial shove for everything caught. Damage flows through hurtboxes so
@@ -175,7 +207,8 @@ func _aftershock(point: Vector3, forward: Vector3, damage: float, aoe: float,
 ## Returns how many enemies took damage, so callers can gate impact
 ## feedback on the slam actually catching something.
 func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
-		shove: float) -> int:
+		shove: float, arc_half_deg: float = SLAM_ARC_HALF_DEG,
+		stagger: float = 0.0) -> int:
 	var inner := INNER_RADIUS * aoe_mult
 	var outer := OUTER_RADIUS * aoe_mult
 	var hit_count := 0
@@ -195,7 +228,7 @@ func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
 		var to_enemy := enemy.global_position - wielder.global_position
 		to_enemy.y = 0.0
 		if to_enemy.length() > 0.1 \
-				and rad_to_deg(forward.angle_to(to_enemy)) > SLAM_ARC_HALF_DEG:
+				and rad_to_deg(forward.angle_to(to_enemy)) > arc_half_deg:
 			continue
 		if dist <= inner:
 			# Damage core: full damage, meaty contact sound, full-force shove.
@@ -207,6 +240,8 @@ func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
 				hit_count += 1
 			if dist > 0.01:
 				enemy.apply_shove(offset.normalized() * shove, wall_damage, wielder)
+			if stagger > 0.0:
+				enemy.stun(stagger)
 		else:
 			# Outer control ring: no damage, shove only, at reduced force.
 			# Bone Breaker's wall_damage still applies here — that's the

@@ -39,6 +39,7 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"frost_nova"] = _frost_nova()
 	sounds[&"mana_empty"] = _mana_empty()
 	sounds[&"dash"] = _dash()
+	sounds[&"hammer_leap"] = _hammer_leap()
 	sounds[&"boss_horn"] = _boss_horn()
 	sounds[&"boss_death"] = _boss_death()
 	sounds[&"boulder_impact"] = _boulder_impact()
@@ -288,6 +289,15 @@ static func _dash() -> AudioStreamWAV:
 	var drop := _env(_tone(0.22, 220.0, 85.0, 0.35, SINE), 0.01, 1.4)
 	var out := _overlay(zip, rush, 0.0)
 	return _to_wav(_overlay(out, drop, 0.02), 0.55)
+
+
+## Crashing Leap takeoff: a heavy upward launch — a low body thump under a
+## rising-cutoff noise whoosh (air rushing as the earthshaker springs). All
+## low-fundamental per the audio direction; the landing plays hammer_slam.
+static func _hammer_leap() -> AudioStreamWAV:
+	var thump := _env(_tone(0.18, 130.0, 60.0, 1.0, SINE), 0.006, 1.5)
+	var whoosh := _env(_noise(0.26, 200.0, 1300.0, 0.7), 0.08, 0.9)
+	return _to_wav(_overlay(thump, whoosh, 0.0), 0.7)
 
 
 ## Boss spawn: low detuned horn blast, slow attack.

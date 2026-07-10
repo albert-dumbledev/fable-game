@@ -43,6 +43,12 @@ const DASH_KICK_PITCH := 4.0
 ## parry_stun) and primes a riposte.
 const SHIELD_DASH_RADIUS := 1.3
 const SHIELD_DASH_STUN := 0.8
+## Crashing Leap (Earthshaker Shift): a fixed ballistic hop toward facing; the
+## warhammer's landing slam is the payoff. No intangibility — being airborne
+## already dodges melee, so projectiles can still tag you. Cooldown on launch.
+const LEAP_REACH := 7.0
+const LEAP_AIRTIME := 0.5
+const LEAP_COOLDOWN := 5.0
 ## Real-time freeze frame on a perfect block — the parry should feel like
 ## the world flinches.
 const PARRY_HIT_PAUSE := 0.09
@@ -121,6 +127,8 @@ var _shake := 0.0
 var _abilities: Dictionary[StringName, bool] = {}
 var _dash_time := 0.0
 var _dash_charges := 1
+var _leaping := false
+var _leap_airborne := false
 var _mobility_cooldown := 0.0
 var _dash_dir := Vector3.ZERO
 var _dash_fov_tween: Tween
@@ -274,7 +282,7 @@ func _physics_process(delta: float) -> void:
 			if _dash_charges < _max_dash_charges():
 				_mobility_cooldown = DASH_COOLDOWN
 	if has_ability(&"dash") and Input.is_action_just_pressed("dash") \
-			and _dash_charges > 0:
+			and _dash_charges > 0 and _dash_time <= 0.0 and not _leaping:
 		_begin_mobility(direction)
 	if _dash_time > 0.0:
 		_dash_time -= delta
@@ -283,6 +291,17 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		if _dash_time <= 0.0:
 			_end_dash()
+		return
+
+	if _leaping:
+		# Fixed ballistic arc: gravity (applied at the top of this function while
+		# airborne) carries the hop down; no air control. Landing triggers the
+		# slam. No early velocity zeroing — the arc must complete.
+		move_and_slide()
+		if not is_on_floor():
+			_leap_airborne = true
+		elif _leap_airborne:
+			_land_leap()
 		return
 
 	var speed := stats.get_stat(Stats.MOVE_SPEED)
@@ -410,6 +429,8 @@ func apply_boon(boon: BoonData, value_mult: float = 1.0) -> void:
 ## added with their weapons.
 func _begin_mobility(direction: Vector3) -> void:
 	match weapon.mobility_id() if weapon != null else &"dash":
+		&"hammer_leap":
+			_begin_leap(direction)
 		_:
 			_begin_dash(direction)
 
@@ -497,6 +518,37 @@ func _end_dash() -> void:
 	BlastVfx.spawn(get_tree().current_scene,
 			global_position + Vector3(0.0, 0.1, 0.0), 1.2, DASH_DUST_COLOR, 0.12, 0.25)
 	add_shake(0.12)
+
+
+## Crashing Leap: launch a fixed ballistic hop toward facing. Velocity is set
+## once and normal gravity brings the earthshaker down; landing runs the slam.
+func _begin_leap(_direction: Vector3) -> void:
+	var facing := -global_transform.basis.z
+	facing.y = 0.0
+	facing = facing.normalized()
+	_leaping = true
+	_leap_airborne = false
+	_dash_charges -= 1
+	if _mobility_cooldown <= 0.0:
+		_mobility_cooldown = LEAP_COOLDOWN
+	_knockback = Vector3.ZERO
+	velocity = facing * (LEAP_REACH / LEAP_AIRTIME)
+	velocity.y = _gravity * LEAP_AIRTIME * 0.5
+	AudioManager.play(&"hammer_leap")
+	add_shake(0.15)
+	# Takeoff dust ring underfoot.
+	BlastVfx.spawn(get_tree().current_scene,
+			global_position + Vector3(0.0, 0.1, 0.0), 1.4, DASH_DUST_COLOR, 0.1, 0.25)
+
+
+## Touchdown: stop dead and let the warhammer crash its 360° slam.
+func _land_leap() -> void:
+	_leaping = false
+	_leap_airborne = false
+	velocity.x = 0.0
+	velocity.z = 0.0
+	if weapon is Warhammer:
+		(weapon as Warhammer).leap_slam()
 
 
 func _begin_cast() -> void:
@@ -631,6 +683,8 @@ func get_cooldown_remaining(id: StringName) -> float:
 		&"dash":
 			# A banked charge means dashable now, whatever the refill timer says.
 			return 0.0 if _dash_charges > 0 else _mobility_cooldown
+		&"hammer_leap":
+			return 0.0 if _dash_charges > 0 else _mobility_cooldown
 		&"firebolt":
 			# A banked charge means castable now, whatever the refill timer says.
 			return 0.0 if _fireball_charges > 0 else _cast_cooldown
@@ -649,6 +703,8 @@ func get_cooldown_max(id: StringName) -> float:
 	match id:
 		&"dash":
 			return DASH_COOLDOWN
+		&"hammer_leap":
+			return LEAP_COOLDOWN
 		&"firebolt":
 			return _spell_cooldown(FIREBALL_COOLDOWN)
 		&"frost_nova":
