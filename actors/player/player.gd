@@ -59,6 +59,14 @@ const FROST_NOVA_SLOW_MULT := 0.35
 const FROST_NOVA_SLOW_TIME := 3.5
 const FROST_NOVA_COOLDOWN := 8.0
 const FROST_NOVA_COLOR := Color(0.55, 0.85, 1.0, 0.6)
+## Staff mana economy: spells spend mana, Arcane Bolt hits refund it. These
+## fields are only meaningful while the staff is mounted (like the frost-nova
+## gate). Mana starts full so a fight can open with a banked cast.
+const MANA_MAX := 100.0
+const MANA_REGEN := 4.0
+const BOLT_MANA_RESTORE := 8.0
+const FIREBALL_MANA_COST := 40.0
+const FROST_NOVA_MANA_COST := 30.0
 ## Echo Nova (unique boon): a second, weaker pulse after the first.
 const NOVA_ECHO_DELAY := 1.0
 const NOVA_ECHO_DAMAGE_MULT := 0.5
@@ -114,6 +122,7 @@ var _dash_kick_tween: Tween
 var _cast_cooldown := 0.0
 var _fireball_charges := 1
 var _nova_cooldown := 0.0
+var _mana := MANA_MAX
 var _charging := false
 var _charge_time := 0.0
 var _charge_duration := FIREBALL_CHARGE_TIME
@@ -200,6 +209,9 @@ func _physics_process(delta: float) -> void:
 			if _fireball_charges < _max_fireball_charges():
 				_cast_cooldown = _spell_cooldown(FIREBALL_COOLDOWN)
 	_nova_cooldown = maxf(0.0, _nova_cooldown - delta)
+	# Mana only ticks up for the staff loadout; other weapons ignore it.
+	if weapon is Staff:
+		_mana = minf(MANA_MAX, _mana + MANA_REGEN * delta)
 	if weapon != null and weapon.is_blocking:
 		_drain_guard(delta)
 	else:
@@ -233,7 +245,11 @@ func _physics_process(delta: float) -> void:
 			weapon.try_attack()
 		if weapon is Staff and has_ability(&"frost_nova") \
 				and Input.is_action_just_pressed("cast_2") and _nova_cooldown <= 0.0:
-			_cast_frost_nova()
+			if _mana >= FROST_NOVA_MANA_COST:
+				_mana -= FROST_NOVA_MANA_COST
+				_cast_frost_nova()
+			else:
+				_deny_cast()
 
 	if Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = JUMP_VELOCITY
@@ -588,7 +604,43 @@ func get_cooldown_max(id: StringName) -> float:
 func try_cast_fireball() -> void:
 	if _charging or _fireball_charges <= 0:
 		return
+	if _mana < FIREBALL_MANA_COST:
+		_deny_cast()
+		return
+	_mana -= FIREBALL_MANA_COST
 	_begin_cast()
+
+
+## A spell was triggered without the mana to pay for it: a dull thunk and a
+## mana-bar flash. Crucially no cooldown or charge is consumed — the input is
+## simply refused.
+func _deny_cast() -> void:
+	AudioManager.play(&"mana_empty")
+	EventBus.mana_cast_denied.emit()
+
+
+## Arcane Bolt landed on an enemy: refund mana. This is the staff's generator
+## loop — land bolts to earn the mana that big casts spend.
+func on_bolt_hit_enemy() -> void:
+	_mana = minf(MANA_MAX, _mana + BOLT_MANA_RESTORE)
+
+
+func get_mana() -> float:
+	return _mana
+
+
+func get_mana_max() -> float:
+	return MANA_MAX
+
+
+## Mana cost for a HUD spell-slot id (0 if that skill doesn't cost mana).
+func get_mana_cost(id: StringName) -> float:
+	match id:
+		&"firebolt":
+			return FIREBALL_MANA_COST
+		&"frost_nova":
+			return FROST_NOVA_MANA_COST
+	return 0.0
 
 
 ## Aim ray for staff projectiles — the camera's world position and forward.

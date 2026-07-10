@@ -48,6 +48,7 @@ var _running := true
 var _player: Player
 var _skill_slots: Dictionary[StringName, SkillSlot] = {}
 var _health_fill: StyleBoxFlat
+var _mana_bar: ProgressBar
 var _health_fraction := 1.0
 var _heartbeat := 0.0
 var _vignette_material: ShaderMaterial
@@ -74,6 +75,7 @@ func _ready() -> void:
 	EventBus.level_up.connect(_on_level_up)
 	EventBus.wave_announcement.connect(_on_wave_announcement)
 	EventBus.boss_spawned.connect(_on_boss_spawned)
+	EventBus.mana_cast_denied.connect(_on_cast_denied)
 	_gold_target = MetaProgression.get_currency(&"gold")
 	_gold_display = float(_gold_target)
 	gold_label.text = "Gold: %d" % _gold_target
@@ -91,6 +93,25 @@ func _ready() -> void:
 	ghost_fill.bg_color = Color(0.95, 0.93, 0.85, 0.8)
 	ghost_fill.set_corner_radius_all(4)
 	ghost_bar.add_theme_stylebox_override(&"fill", ghost_fill)
+	# Mana bar: a slim strip beneath the skill row, shown only for the staff.
+	_mana_bar = ProgressBar.new()
+	_mana_bar.show_percentage = false
+	_mana_bar.custom_minimum_size = Vector2(300.0, 10.0)
+	_mana_bar.max_value = 100.0
+	_mana_bar.value = 100.0
+	_mana_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_mana_bar.anchor_left = 0.5
+	_mana_bar.anchor_right = 0.5
+	_mana_bar.offset_left = -150.0
+	_mana_bar.offset_right = 150.0
+	_mana_bar.offset_top = -16.0
+	_mana_bar.offset_bottom = -6.0
+	var mana_fill := StyleBoxFlat.new()
+	mana_fill.bg_color = Color(0.35, 0.6, 1.0)
+	mana_fill.set_corner_radius_all(4)
+	_mana_bar.add_theme_stylebox_override(&"fill", mana_fill)
+	_mana_bar.visible = false
+	add_child(_mana_bar)
 	_bind_player.call_deferred()
 
 
@@ -105,6 +126,7 @@ func _process(delta: float) -> void:
 		_shown_second = second
 		timer_label.text = "%02d:%02d" % [floori(second / 60.0), second % 60]
 	_update_skill_slots()
+	_update_mana()
 	# Gold ticker: races toward the target, faster the further behind, so
 	# fountains read as a stream rather than a teleporting number.
 	if int(_gold_display) != _gold_target:
@@ -144,6 +166,20 @@ func _update_skill_slots() -> void:
 		slot.update_cooldown(
 			_player.get_cooldown_remaining(id), _player.get_cooldown_max(id))
 		slot.update_charges(_player.get_charges(id), _player.get_max_charges(id))
+		var cost := _player.get_mana_cost(id)
+		slot.set_cost(int(cost))
+		slot.set_affordable(cost <= 0.0 or _player.get_mana() >= cost)
+
+
+## Mana bar tracks the staff's mana; hidden for every other loadout.
+func _update_mana() -> void:
+	if _player == null or not is_instance_valid(_player):
+		return
+	var is_staff := _player.weapon is Staff
+	_mana_bar.visible = is_staff
+	if is_staff:
+		_mana_bar.max_value = _player.get_mana_max()
+		_mana_bar.value = _player.get_mana()
 
 
 ## Most skills are ability flags; block/shockwave come with the weapon.
@@ -258,6 +294,15 @@ func _on_perfect_block() -> void:
 	damage_flash.color = Color(1.0, 0.85, 0.3, 0.25)
 	var tween := create_tween()
 	tween.tween_property(damage_flash, "color:a", 0.0, 0.35)
+
+
+## The mana bar flashes white when a cast is refused for lack of mana.
+func _on_cast_denied() -> void:
+	if _mana_bar == null:
+		return
+	_mana_bar.modulate = Color(1.7, 1.5, 1.5)
+	var tween := create_tween()
+	tween.tween_property(_mana_bar, "modulate", Color.WHITE, 0.35)
 
 
 func _on_xp_changed(current: int, required: int, level: int) -> void:

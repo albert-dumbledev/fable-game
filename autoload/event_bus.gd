@@ -62,3 +62,8 @@ signal unlock_claimed(ability: StringName)
 ## Emitted the moment the player's dash begins (drives screen feedback).
 @warning_ignore("unused_signal")
 signal player_dashed
+
+## Emitted when the player triggers a spell they can't afford (mana too low),
+## so the HUD can flash the mana bar.
+@warning_ignore("unused_signal")
+signal mana_cast_denied

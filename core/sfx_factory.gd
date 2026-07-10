@@ -37,6 +37,7 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"fireball_shoot"] = _fireball_shoot()
 	sounds[&"explosion"] = _explosion()
 	sounds[&"frost_nova"] = _frost_nova()
+	sounds[&"mana_empty"] = _mana_empty()
 	sounds[&"dash"] = _dash()
 	sounds[&"boss_horn"] = _boss_horn()
 	sounds[&"boss_death"] = _boss_death()
@@ -268,6 +269,15 @@ static func _frost_nova() -> AudioStreamWAV:
 				randf_range(0.25, 0.45)), 0.001, 1.8)
 		out = _overlay(out, tick, randf_range(0.05, 0.4))
 	return _to_wav(out, 0.55)
+
+
+## Denied cast (not enough mana): a hollow, low thunk that sags downward — the
+## classic "can't-do" cadence — with a soft muffled noise pad and no bright
+## attack, so it reads as a refusal rather than an action.
+static func _mana_empty() -> AudioStreamWAV:
+	var sag := _env(_tone(0.16, 180.0, 120.0, 0.7, SINE), 0.006, 1.7)
+	var pad := _env(_noise(0.1, 500.0, 180.0, 0.3), 0.004, 1.9)
+	return _to_wav(_overlay(sag, pad, 0.0), 0.55)
 
 
 ## Dash blink: the original bright zip riding on a low falling air rush —

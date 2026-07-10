@@ -11,6 +11,8 @@ var skill_id: StringName
 var _overlay: ColorRect
 var _cooldown_label: Label
 var _charges_label: Label
+var _cost_label: Label
+var _unafford_overlay: ColorRect
 var _was_cooling := false
 var _ping_tween: Tween
 
@@ -38,6 +40,15 @@ func setup(id: StringName, key_text: String, display_name: String) -> void:
 	_overlay.visible = false
 	panel.add_child(_overlay)
 
+	# Dark tint shown when the player can't currently afford this skill's mana
+	# cost. Sits above the cooldown overlay but below the text labels.
+	_unafford_overlay = ColorRect.new()
+	_unafford_overlay.color = Color(0.1, 0.15, 0.35, 0.5)
+	_unafford_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_unafford_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_unafford_overlay.visible = false
+	panel.add_child(_unafford_overlay)
+
 	_cooldown_label = Label.new()
 	_cooldown_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_cooldown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -55,6 +66,16 @@ func setup(id: StringName, key_text: String, display_name: String) -> void:
 	_charges_label.add_theme_color_override(&"font_color", Color(1.0, 0.85, 0.4))
 	_charges_label.visible = false
 	panel.add_child(_charges_label)
+
+	# Mana cost (top-left), shown only for skills that spend mana.
+	_cost_label = Label.new()
+	_cost_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_cost_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_cost_label.add_theme_font_size_override(&"font_size", 13)
+	_cost_label.add_theme_color_override(&"font_color", Color(0.55, 0.75, 1.0))
+	_cost_label.visible = false
+	panel.add_child(_cost_label)
 
 	var name_label := Label.new()
 	name_label.text = display_name
@@ -101,3 +122,15 @@ func _ready_ping() -> void:
 func update_charges(current: int, maximum: int) -> void:
 	_charges_label.visible = maximum > 1
 	_charges_label.text = str(current)
+
+
+## Mana cost badge; pass 0 to hide it (skills that don't spend mana).
+func set_cost(cost: int) -> void:
+	_cost_label.visible = cost > 0
+	if cost > 0:
+		_cost_label.text = str(cost)
+
+
+## Darkens the slot when the player can't currently pay the mana cost.
+func set_affordable(affordable: bool) -> void:
+	_unafford_overlay.visible = not affordable

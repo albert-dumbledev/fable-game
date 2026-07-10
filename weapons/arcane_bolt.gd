@@ -40,6 +40,11 @@ func _on_area_entered(area: Area3D) -> void:
 	if hurtbox == null or _info == null:
 		return
 	hurtbox.receive_hit(_info)
+	# The staff's generator loop: a bolt that lands on an enemy refunds mana.
+	# (_info.source is null for enemy-fired bolts, so this no-ops for them.)
+	var caster := _info.source as Player
+	if caster != null:
+		caster.on_bolt_hit_enemy()
 	_impact()
 
 
