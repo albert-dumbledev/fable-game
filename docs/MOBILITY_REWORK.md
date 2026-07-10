@@ -69,9 +69,10 @@ Replaces the blink when the staff is mounted:
 - Descent is a soft fall (no fall damage exists), cooldown ~8s starting on landing.
 - **Anti-degenerate guards:** melee can't reach you up there, so — duration short, cooldown
   long, and spitter/caster/boss projectiles and the Hierophant's repulse still connect
-  (hurtbox stays live; no intangibility). If Phase 8A's mana ships first, levitate drains
-  ~8 mana/s while airborne, tying flight time to the same economy as the spells you're
-  raining — this is the preferred coupling, flagged as a soft dependency.
+  (hurtbox stays live; no intangibility). Horizontal position is clamped to the arena bound
+  while hovering, so you can't float out past the walls. If Phase 8A's mana ships first,
+  levitate drains ~8 mana/s while airborne, tying flight time to the same economy as the
+  spells you're raining — this is the preferred coupling, flagged as a soft dependency.
 - Feel: FOV lift + slight camera tilt-down bias so aiming at the ground feels intended;
   dust ring on takeoff/landing reusing the dash VFX.
 

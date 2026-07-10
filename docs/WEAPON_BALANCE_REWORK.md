@@ -84,11 +84,12 @@ These make the *generator* the build canvas, which the mana economy now rewards 
 - **Split Shot** (unique): a bolt that hits an enemy splits into 3 mini-bolts (`40%` damage)
   fanning onward from the impact point. No split on walls/ground; children never re-split;
   children restore half mana on hit.
-- **Scatter Shot** (unique): LMB fires 3 bolts in a flat ±6° fan, each `55%` damage. More total
-  damage up close, worse at range — a positioning trade.
-- **Burst Fire** (unique): LMB fires a 3-round burst (0.08s apart) then a longer pause; the
-  whole cycle scales with `attack_speed`, per the feedback. ~+25% throughput with a rhythm
-  you have to aim around.
+- **Scatter Shot** (unique): LMB fires 3 bolts in a flat ±16° fan, each `55%` damage. More total
+  damage up close, bolts splay across multiple targets at range — a positioning trade.
+- **Burst Fire** (unique): LMB fires a burst (0.08s per round) with round count that scales per
+  `attack_speed` — one extra round per +1.0 speed above baseline. At baseline (speed 1.0) it
+  fires 3 rounds; attack-speed builds fire longer bursts, widening throughput over single fire.
+  Never a DPS downgrade at any speed.
 - **Arcane Surge** (stat boon, own idea): while mana ≥ 80%, bolts deal `+30%` damage —
   rewards *not* hoarding casts and gives a "bolt-primary" build a capstone.
 
