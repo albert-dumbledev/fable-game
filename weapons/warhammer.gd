@@ -13,27 +13,30 @@ const SLAM_POS := Vector3(0.0, -0.5, -0.35)
 const SLAM_ROT := Vector3(-75.0, 0.0, 0.0)
 ## Where the head lands: this far in front of the player, at ground level.
 const IMPACT_DISTANCE := 2.2
-const INNER_RADIUS := 2.0
+const INNER_RADIUS := 1.6
 const OUTER_RADIUS := 3.6
 ## Primary slam covers a 210° frontal arc (this is the half-angle), so there
 ## is a ~150° blind wedge directly behind the player to punish careless facing.
 const SLAM_ARC_HALF_DEG := 105.0
-const SPLASH_DAMAGE_MULT := 0.4
+## The outer ring deals no damage — it only shoves, at reduced force, to
+## create space rather than pile on damage.
+const OUTER_SHOVE_MULT := 0.6
 const SHOVE_FORCE := 9.0
 const SHOCKWAVE_COLOR := Color(1.0, 0.75, 0.35, 0.55)
+const DUST_COLOR := Color(0.7, 0.62, 0.52, 0.32)
 ## Aftershock (unique boon): a second, weaker shock at the same spot.
 const AFTERSHOCK_DELAY := 0.45
-const AFTERSHOCK_DAMAGE_MULT := 0.5
-const AFTERSHOCK_AOE_MULT := 0.8
+const AFTERSHOCK_DAMAGE_MULT := 0.4
+const AFTERSHOCK_AOE_MULT := 0.7
 const AFTERSHOCK_SHOVE_MULT := 0.6
 ## Bone Breaker (unique boon): fraction of slam damage dealt when a shoved
 ## enemy slams into a wall.
 const BONE_BREAKER_MULT := 0.3
 ## Seismic Slam (RMB): a long committed overhead windup, then a slam that
 ## sends a GroundShockwave forward in a straight line.
-const WAVE_WINDUP := 1.1
+const WAVE_WINDUP := 0.6
 const WAVE_SLAM_TIME := 0.15
-const WAVE_SETTLE_TIME := 0.45
+const WAVE_SETTLE_TIME := 0.35
 const WAVE_COOLDOWN := 6.0
 const WAVE_DAMAGE_MULT := 1.2
 const WAVE_RAISED_POS := Vector3(0.05, 0.45, 0.2)
@@ -129,7 +132,7 @@ func _wave_impact(damage: float) -> void:
 	var wave_pull := wave_player != null and wave_player.has_ability(&"slam_pull")
 	GroundShockwave.spawn(get_tree().current_scene, origin,
 			AttackInfo.new(wielder, damage), forward, stats.get_stat(Stats.HAMMER_AOE),
-			wave_shove, wave_drag, wave_pull)
+			wave_shove, wave_drag, wave_pull, 40.0)  # 40.0 crosses the whole arena
 	BlastVfx.spawn(get_tree().current_scene, origin, 1.6, SHOCKWAVE_COLOR, 0.15, 0.2)
 	var player := wielder as Player
 	if player != null:
@@ -194,17 +197,24 @@ func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
 		if to_enemy.length() > 0.1 \
 				and rad_to_deg(forward.angle_to(to_enemy)) > SLAM_ARC_HALF_DEG:
 			continue
-		var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
-		if hurtbox != null:
-			var dealt := damage if dist <= inner else damage * SPLASH_DAMAGE_MULT
-			var info := AttackInfo.new(wielder, dealt)
-			if dist <= inner:
-				# Direct contact under the hammer head sounds meaty;
-				# splash keeps the generic hit.
+		if dist <= inner:
+			# Damage core: full damage, meaty contact sound, full-force shove.
+			var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
+			if hurtbox != null:
+				var info := AttackInfo.new(wielder, damage)
 				info.hit_sound = &"melee_hit"
-			hurtbox.receive_hit(info)
-			hit_count += 1
-		if dist <= inner and dist > 0.01:
-			enemy.apply_shove(offset.normalized() * shove, wall_damage, wielder)
-	BlastVfx.spawn(get_tree().current_scene, point, outer, SHOCKWAVE_COLOR, 0.12, 0.3)
+				hurtbox.receive_hit(info)
+				hit_count += 1
+			if dist > 0.01:
+				enemy.apply_shove(offset.normalized() * shove, wall_damage, wielder)
+		else:
+			# Outer control ring: no damage, shove only, at reduced force.
+			# Bone Breaker's wall_damage still applies here — that's the
+			# intended way to convert control into damage.
+			if dist > 0.01:
+				enemy.apply_shove(offset.normalized() * shove * OUTER_SHOVE_MULT,
+						wall_damage, wielder)
+	# Hot core flash for the damage ring, dusty ripple for the control ring.
+	BlastVfx.spawn(get_tree().current_scene, point, inner, SHOCKWAVE_COLOR, 0.12, 0.22)
+	BlastVfx.spawn(get_tree().current_scene, point, outer, DUST_COLOR, 0.05, 0.4)
 	return hit_count

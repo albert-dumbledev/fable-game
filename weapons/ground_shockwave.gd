@@ -25,6 +25,7 @@ var _info: AttackInfo
 var _dir := Vector3.FORWARD
 var _radius := HIT_RADIUS
 var _traveled := 0.0
+var _range := RANGE
 var _hit: Dictionary[int, bool] = {}
 var _shove := SHOVE
 var _drag := false
@@ -36,7 +37,7 @@ var _origin := Vector3.ZERO
 
 static func spawn(parent: Node, position: Vector3, info: AttackInfo,
 		direction: Vector3, radius_mult: float = 1.0, shove: float = SHOVE,
-		drag: bool = false, pull: bool = false) -> void:
+		drag: bool = false, pull: bool = false, range_dist: float = RANGE) -> void:
 	if parent == null:
 		return
 	var wave := GroundShockwave.new()
@@ -46,6 +47,7 @@ static func spawn(parent: Node, position: Vector3, info: AttackInfo,
 	wave._shove = shove
 	wave._drag = drag
 	wave._pull = pull
+	wave._range = range_dist
 	wave._origin = position
 	parent.add_child(wave)
 	wave.global_position = position
@@ -102,7 +104,7 @@ func _physics_process(delta: float) -> void:
 			_dragged.append(enemy)
 		else:
 			enemy.apply_shove(_dir * _shove)
-	if _traveled >= RANGE:
+	if _traveled >= _range:
 		if _drag:
 			_stagger_dragged()
 		queue_free()
