@@ -35,19 +35,20 @@ implemented entirely in [player.gd](../actors/player/player.gd) (`_begin_dash` �
 - **Shield Dash** (unique boon, from feedback): blinking through enemies stuns them (~0.8s,
   scaled by `parry_stun`) and **primes a riposte** (`_prime_riposte()` — the existing window,
   so it composes with Ruthless Riposte, Blade Cyclone, Second Wind for free). Detection:
-  sphere-sweep the dash segment against `EnemyBase.alive`, reusing the seismic wave's
+  sphere-sweep the dash segment against `EnemyBase.alive` (catches enemies within ~1.3m of the
+  line) plus a wider ~2.0m radius around the landing point, reusing the seismic wave's
   segment-hit math.
 
 ## M3 — Earthshaker: Crashing Leap
 
 Replaces the blink when the warhammer is mounted:
 
-- Shift launches a ballistic hop toward facing: ~7m reach, ~0.45s airtime, fixed arc
+- Shift launches a ballistic hop toward facing: ~7m reach, ~0.9s airtime, fixed arc
   (velocity set once; normal gravity brings you down — works with the existing
   `move_and_slide` flow).
 - Landing runs the hammer's `_slam()` at the impact point with **360° arc** (pass an
-  arc-half override of 180°), ~0.8× primary damage in the (post-8A, smaller) core, full
-  outer-ring shove. Camera shake + the heavy `HIT_PAUSE`.
+  arc-half override of 180°), 0.8× primary damage across the entire radius, plus shove
+  and a brief stagger on everything caught. Camera shake + the heavy `HIT_PAUSE`.
 - **No intangibility** — being airborne already dodges melee naturally; projectiles can still
   tag you mid-leap. That keeps the escape-tool crown on the duelist.
 - Cooldown ~5s. **Seismic-slam follow-up** (from feedback): the leap is usable during the

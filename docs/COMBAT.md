@@ -93,7 +93,7 @@ The viewmodel is a **rigid arm-swing around a virtual shoulder** (`SHOULDER`, `A
 | Phase | Time | What happens |
 |---|---|---|
 | 1. Windup | 25% | Arm cocks back **past** the arc start (`WINDUP_ANGLE 0.55 rad`), opposite the swing |
-| 2. Attack sweep | 30% | One cut from windup through to arc end; **hitbox activates here, for 35%** of duration — hits land with the visible cut, never the windup. If a riposte is primed, the sweep is replaced with `_sweep_hit` (Blade Cyclone: radial strike in a ~2.8m circle) |
+| 2. Attack sweep | 30% | One cut from windup through to arc end; **hitbox activates here, for 35%** of duration — hits land with the visible cut, never the windup. If a riposte is primed, the sweep is replaced with `_sweep_hit` (Blade Cyclone: radial strike in a ~3.64m circle) |
 | 3. Backswing | 45% | Settle to the low bottom-right ready stance |
 
 **Sword-only boons (Duelist family):**
@@ -102,7 +102,7 @@ The viewmodel is a **rigid arm-swing around a virtual shoulder** (`SHOULDER`, `A
 - **Retribution** (`parry_nova`): perfect block detonates a ~3m radial pulse dealing ~50% weapon damage + a shove to everything caught
 - **Expose Weakness** (`exposing_parry`): parried enemies take +35% damage from all sources while stunned
 - **Second Wind** (`parry_heal`): a perfect block primes lifesteal on the next swing — 25% of the damage dealt goes back to the player's health, plus a guard-meter refund
-- **Blade Cyclone** (`riposte_sweep`): a riposte swing strikes a full circle (~2.8m radius) instead of an arc
+- **Blade Cyclone** (`riposte_sweep`): a riposte swing strikes a full circle (~3.64m radius) instead of an arc
 - **Reflex Guard** (`omni_block`): for ~0.15s after raising the shield, it guards **all directions** (omnidirectional block), then goes on cooldown so it can't be spammed by re-tapping
 
 History (see git log): handle-pivot → bezier arc → shoulder-orbit, and 0.45s → 0.7s base swing. The shoulder-orbit version is the keeper; the others fought themselves.

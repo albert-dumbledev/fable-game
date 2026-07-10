@@ -164,7 +164,8 @@ func leap_windup(airtime: float) -> void:
 
 
 ## Crashing Leap payoff: on landing, a 360° slam centered on the player — 0.8×
-## primary damage in the core, full outer-ring shove, and a brief core stagger.
+## primary damage across the WHOLE radius (full-damage circle, no dead outer
+## ring), full shove, and a brief stagger on everything caught.
 ## Called by Player._land_leap once the ballistic hop touches down.
 func leap_slam() -> void:
 	if wielder == null or not is_inside_tree():
@@ -178,7 +179,9 @@ func leap_slam() -> void:
 	var aoe := stats.get_stat(Stats.HAMMER_AOE)
 	var shove := SHOVE_FORCE * stats.get_stat(Stats.HAMMER_SHOVE)
 	AudioManager.play(&"hammer_slam")
-	if _slam(point, forward, damage, aoe, shove, 180.0, LEAP_STAGGER) > 0:
+	# Full-damage circle: the leap is a committed nuke, so the whole radius
+	# deals damage (full_damage=true), not the primary slam's inner-core-only split.
+	if _slam(point, forward, damage, aoe, shove, 180.0, LEAP_STAGGER, true) > 0:
 		FreezeFrame.hit_pause(HIT_PAUSE)
 	var player := wielder as Player
 	if player != null:
@@ -233,9 +236,11 @@ func _aftershock(point: Vector3, forward: Vector3, damage: float, aoe: float,
 
 ## Returns how many enemies took damage, so callers can gate impact
 ## feedback on the slam actually catching something.
+## `full_damage` collapses the inner/outer split so the whole radius out to
+## OUTER_RADIUS deals full damage + full shove (used by the Crashing Leap).
 func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
 		shove: float, arc_half_deg: float = SLAM_ARC_HALF_DEG,
-		stagger: float = 0.0) -> int:
+		stagger: float = 0.0, full_damage: bool = false) -> int:
 	var inner := INNER_RADIUS * aoe_mult
 	var outer := OUTER_RADIUS * aoe_mult
 	var hit_count := 0
@@ -257,7 +262,7 @@ func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
 		if to_enemy.length() > 0.1 \
 				and rad_to_deg(forward.angle_to(to_enemy)) > arc_half_deg:
 			continue
-		if dist <= inner:
+		if dist <= inner or full_damage:
 			# Damage core: full damage, meaty contact sound, full-force shove.
 			var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 			if hurtbox != null:
