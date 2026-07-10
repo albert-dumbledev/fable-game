@@ -14,10 +14,10 @@ const UNIQUE_COLOR := Color(1.0, 0.5, 0.15)
 
 ## Rolled per offer slot; mult scales the boon's modifier values.
 const RARITIES: Array[Dictionary] = [
-	{"tag": "COMMON", "chance": 0.55, "mult": 1.0, "color": Color(0.85, 0.85, 0.85)},
-	{"tag": "RARE", "chance": 0.27, "mult": 1.6, "color": Color(0.4, 0.65, 1.0)},
-	{"tag": "EPIC", "chance": 0.13, "mult": 2.4, "color": Color(0.8, 0.45, 1.0)},
-	{"tag": "LEGENDARY", "chance": 0.05, "mult": 3.5, "color": Color(1.0, 0.78, 0.2)},
+	{"tag": "COMMON", "chance": 0.58, "mult": 1.0, "color": Color(0.85, 0.85, 0.85)},
+	{"tag": "RARE", "chance": 0.27, "mult": 1.4, "color": Color(0.4, 0.65, 1.0)},
+	{"tag": "EPIC", "chance": 0.13, "mult": 1.9, "color": Color(0.8, 0.45, 1.0)},
+	{"tag": "LEGENDARY", "chance": 0.02, "mult": 3.5, "color": Color(1.0, 0.78, 0.2)},
 ]
 
 
@@ -101,6 +101,8 @@ func _skip_gold() -> int:
 
 func _roll_offers(count: int) -> Array[Offer]:
 	var player := get_tree().get_first_node_in_group(&"player") as Player
+	var director := get_tree().get_first_node_in_group(&"run_director")
+	var elapsed := director.elapsed if director != null else 0.0
 	var pool: Array[BoonData] = []
 	for boon: BoonData in _registry.boons:
 		if _is_offerable(boon, player):
@@ -124,7 +126,7 @@ func _roll_offers(count: int) -> Array[Offer]:
 			offer.tag = "UNIQUE"
 			offer.color = UNIQUE_COLOR
 		else:
-			var ri := _roll_rarity_index()
+			var ri := _roll_rarity_index(elapsed)
 			var rarity: Dictionary = RARITIES[ri]
 			offer.tag = rarity["tag"]
 			offer.color = rarity["color"]
@@ -158,11 +160,20 @@ func _is_offerable(boon: BoonData, player: Player) -> bool:
 	return true
 
 
-## The rolled rarity's index into RARITIES (weighted by chance).
-func _roll_rarity_index() -> int:
+## The rolled rarity's index into RARITIES, weighted by chance. Weight
+## shifts from COMMON toward RARE/EPIC as the run goes on (t=0 -> t=1 over
+## a 7:30 run) so late level-ups stay exciting as enemies harden, without
+## touching the fixed LEGENDARY jackpot rate.
+const RARITY_CHANCE_LATE: Array[float] = [0.40, 0.36, 0.22, 0.02]
+const RARITY_RAMP_DURATION := 450.0
+
+
+func _roll_rarity_index(elapsed: float) -> int:
+	var t := clampf(elapsed / RARITY_RAMP_DURATION, 0.0, 1.0)
 	var roll := randf()
 	for i: int in RARITIES.size():
-		var chance: float = RARITIES[i]["chance"]
+		var base_chance: float = RARITIES[i]["chance"]
+		var chance := lerpf(base_chance, RARITY_CHANCE_LATE[i], t)
 		if roll < chance:
 			return i
 		roll -= chance

@@ -7,12 +7,12 @@
 script = ExtResource("2_mod")
 stat = &"attack_speed"
 kind = 1
-value = 0.2
+value = 0.16
 
 [resource]
 script = ExtResource("1_script")
 id = &"frenzy"
 display_name = "Frenzy"
-description = "+20% attack speed"
+description = "+16% attack speed"
 weight = 0.8
 modifiers = Array[ExtResource("2_mod")]([SubResource("Resource_mod")])
