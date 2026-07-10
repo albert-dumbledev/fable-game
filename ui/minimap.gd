@@ -15,6 +15,9 @@ const ENEMY_STUNNED_COLOR := Color(0.55, 0.7, 1.0)
 ## Rare bounty enemy (the Gilded One): a gold blip regardless of state.
 const RARE_COLOR := Color(1.0, 0.84, 0.2)
 const MAGNET_PING_COLOR := Color(0.85, 0.3, 0.95)
+## Elite bounty (Aspect Drops M1): a hot pink-magenta ping, distinct from the
+## magnet's lavender and the red/orange enemy blips, drawn over the plain blip.
+const ELITE_PING_COLOR := Color(1.0, 0.2, 0.55)
 ## Blips don't need 60 Hz; redrawing every frame was measurable on web.
 const REDRAW_INTERVAL := 0.05
 
@@ -66,6 +69,20 @@ func _draw() -> void:
 		var blip_radius := BLIP_RADIUS
 		if enemy.state == EnemyBase.State.WINDUP or enemy.state == EnemyBase.State.ATTACK:
 			blip_radius = BLIP_RADIUS * 1.4
+		var edge := radius - blip_radius - 2.0
+		if map_pos.length() > edge:
+			map_pos = map_pos.normalized() * edge
+			color.a = 0.5
+		draw_circle(center + map_pos, blip_radius, color)
+	# Elite enemies: an oversized hot-magenta ping drawn over the plain enemy
+	# blip so the ×4-HP bounty reads instantly across the arena.
+	for enemy: EnemyBase in EnemyBase.alive:
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree() or not enemy.is_elite:
+			continue
+		var offset := Vector2(enemy.global_position.x, enemy.global_position.z) - origin
+		var map_pos := Vector2(offset.dot(right), -offset.dot(forward)) * scale_factor
+		var color := ELITE_PING_COLOR
+		var blip_radius := BLIP_RADIUS * 1.6
 		var edge := radius - blip_radius - 2.0
 		if map_pos.length() > edge:
 			map_pos = map_pos.normalized() * edge

@@ -25,6 +25,16 @@ const DEATH_SPAWN_RADIUS := 1.2
 const DEATH_SPAWN_ARENA_HALF := 18.5
 const DEATH_SPAWN_HEIGHT := 1.0
 
+## Elite variants (Aspect Drops M1): a rare buffed pool spawn — a visible
+## ×4-HP bounty. The spawner gates the roll (rate + time); make_elite() only
+## folds in the stat mults, and _ready applies the look. Emission is a hot
+## magenta that persists through windup/stun (those drive albedo, not emission).
+const ELITE_HP_MULT := 4.0
+const ELITE_REWARD_MULT := 3.0
+const ELITE_SCALE := 1.3
+const ELITE_EMISSION := Color(1.0, 0.15, 0.6)
+const ELITE_EMISSION_ENERGY := 2.5
+
 const ATTACK_ACTIVE_TIME := 0.25
 const WINDUP_COLOR := Color(1.0, 0.55, 0.35)
 const STUN_COLOR := Color(0.55, 0.7, 1.0)
@@ -48,6 +58,9 @@ const WALL_IMPACT_MIN_SPEED := 5.0
 
 var data: EnemyData
 var state: State = State.CHASE
+## Elite bounty (Aspect Drops M1): set by make_elite() before _ready; read by
+## the spawner (rate limit), the minimap (ping), and _on_died (guaranteed drop).
+var is_elite := false
 
 var _state_time := 0.0
 var _hp_mult := 1.0
@@ -83,6 +96,16 @@ func setup(enemy_data: EnemyData, hp_mult: float, dmg_mult: float,
 	_reward_mult = reward_mult
 
 
+## Promote this spawn to an elite. Must be called after setup() and before the
+## enemy enters the tree: it folds ×4 into _hp_mult (which _ready reads for max
+## health) and ×3 into _reward_mult, so no re-application is needed. The bigger
+## scale and emissive glow are applied in _ready, once _material exists.
+func make_elite() -> void:
+	is_elite = true
+	_hp_mult *= ELITE_HP_MULT
+	_reward_mult *= ELITE_REWARD_MULT
+
+
 func _ready() -> void:
 	add_to_group(&"enemies")
 	alive.append(self)
@@ -112,6 +135,19 @@ func _ready() -> void:
 		_eye_material.emission_energy_multiplier = 0.0
 		for eye: MeshInstance3D in _eyes:
 			eye.material_override = _eye_material
+	if is_elite:
+		_apply_elite_look()
+
+
+## Elite look: scale the whole body up and ignite the emissive tint on the
+## shared material. Emission (unlike albedo) is untouched by the windup/stun
+## color logic, so the glow reads constantly for the enemy's whole life.
+func _apply_elite_look() -> void:
+	scale = Vector3.ONE * ELITE_SCALE
+	if _material != null:
+		_material.emission_enabled = true
+		_material.emission = ELITE_EMISSION
+		_material.emission_energy_multiplier = ELITE_EMISSION_ENERGY
 
 
 func _exit_tree() -> void:
@@ -403,6 +439,15 @@ func _on_died() -> void:
 			Color(_base_color.r, _base_color.g, _base_color.b, 0.4), 0.1, 0.25)
 	_spawn_pickups(&"gold", int(round(data.gold_reward * _reward_mult)))
 	_spawn_pickups(&"xp", int(round(data.xp_reward * _reward_mult)))
+	# Elite bounty (Aspect Drops M1): a guaranteed utility drop on top of the
+	# ×3 gold/XP the reward mult already grants — a magnet if the arena has
+	# none, else a health pickup. (M2 upgrades the first elites to Aspect
+	# relics; this stays the fallback for later elites.)
+	if is_elite:
+		if Pickup.magnets.is_empty():
+			_spawn_single_pickup(&"magnet", 1, MAGNET_LIFETIME)
+		else:
+			_spawn_single_pickup(&"health", HEALTH_HEAL_PCT, 0.0)
 	if Pickup.magnets.is_empty() and randf() < MAGNET_DROP_CHANCE:
 		_spawn_single_pickup(&"magnet", 1, MAGNET_LIFETIME)
 	if randf() < HEALTH_DROP_CHANCE:

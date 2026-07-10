@@ -53,6 +53,7 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"scavenger_gulp"] = _scavenger_gulp()
 	sounds[&"scavenger_burrow"] = _scavenger_burrow()
 	sounds[&"alarm"] = _alarm()
+	sounds[&"elite_spawn"] = _elite_spawn()
 	sounds[&"click"] = _click()
 	sounds[&"player_death"] = _player_death()
 	sounds[&"revenant_blink"] = _revenant_blink()
@@ -437,6 +438,27 @@ static func _alarm() -> AudioStreamWAV:
 	out = _overlay(out, _env(_tone(0.14, 440.0, 440.0, 0.4, SQUARE), 0.01, 1.0), 0.32)
 	out = _overlay(out, _env(_tone(0.18, 587.0, 587.0, 0.4, SQUARE), 0.01, 1.4), 0.48)
 	return _to_wav(out, 0.4)
+
+
+## Elite spawn cue: a short menacing snarl — two low detuned saws beating
+## against each other for a rough growl, over a gritty falling-cutoff noise
+## swell and a sub thump, with a slow tremolo wobble so it reads as "a tougher
+## one just walked in." Distinct from the boss horn (longer, purer horn) and the
+## bright square alarm; all fundamentals stay low — the menace is timbre, not
+## pitch.
+static func _elite_spawn() -> AudioStreamWAV:
+	var growl := _env(_tone(0.5, 110.0, 92.0, 0.8, SAW), 0.02, 1.2)
+	var beat := _env(_tone(0.5, 117.0, 99.0, 0.6, SAW), 0.02, 1.2)
+	var grit := _env(_noise(0.34, 700.0, 170.0, 0.5), 0.03, 1.3)
+	var sub := _env(_tone(0.45, 58.0, 42.0, 0.6, SINE), 0.01, 1.1)
+	var out := _overlay(growl, beat, 0.0)
+	out = _overlay(out, grit, 0.02)
+	out = _overlay(out, sub, 0.0)
+	# Slow tremolo — the wobble is what sells the snarl.
+	for i: int in out.size():
+		var t := float(i) / float(RATE)
+		out[i] *= 0.7 + 0.3 * sin(TAU * 7.0 * t)
+	return _to_wav(out, 0.7)
 
 
 ## UI tick.
