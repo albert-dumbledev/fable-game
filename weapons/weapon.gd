@@ -50,6 +50,14 @@ func get_secondary_cooldown() -> float:
 	return _secondary_cooldown
 
 
+## The player's Shift movement verb for this loadout. The player dispatches
+## its Shift handler on this id — dash (default), hammer_leap, or levitate.
+## Subclasses override; the three implementations live in Player because they
+## move the body, own camera FX, and touch collision masks.
+func mobility_id() -> StringName:
+	return &"dash"
+
+
 func set_blocking(value: bool) -> void:
 	if value and (is_stowed or weapon_data == null or not weapon_data.can_block):
 		return

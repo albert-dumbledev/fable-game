@@ -115,7 +115,7 @@ var _guard_broken := false
 var _shake := 0.0
 var _abilities: Dictionary[StringName, bool] = {}
 var _dash_time := 0.0
-var _dash_cooldown := 0.0
+var _mobility_cooldown := 0.0
 var _dash_dir := Vector3.ZERO
 var _dash_fov_tween: Tween
 var _dash_kick_tween: Tween
@@ -259,10 +259,10 @@ func _physics_process(delta: float) -> void:
 
 	# Dash (unique boon): blink a fixed distance in the move direction, or
 	# facing if standing still. Intangible while dashing.
-	_dash_cooldown = maxf(0.0, _dash_cooldown - delta)
+	_mobility_cooldown = maxf(0.0, _mobility_cooldown - delta)
 	if has_ability(&"dash") and Input.is_action_just_pressed("dash") \
-			and _dash_cooldown <= 0.0:
-		_begin_dash(direction)
+			and _mobility_cooldown <= 0.0:
+		_begin_mobility(direction)
 	if _dash_time > 0.0:
 		_dash_time -= delta
 		velocity = _dash_dir * (DASH_DISTANCE / DASH_DURATION)
@@ -391,6 +391,16 @@ func apply_boon(boon: BoonData, value_mult: float = 1.0) -> void:
 			health.heal(new_max - old_max)
 
 
+## Shift: dispatch to the mounted loadout's movement art. Phantom Step unlocks
+## the &"dash" ability flag for all three loadouts; which move it becomes is the
+## weapon's mobility_id(). For now only the blink exists; leap and levitate are
+## added with their weapons.
+func _begin_mobility(direction: Vector3) -> void:
+	match weapon.mobility_id() if weapon != null else &"dash":
+		_:
+			_begin_dash(direction)
+
+
 func _begin_dash(direction: Vector3) -> void:
 	_dash_dir = direction
 	if _dash_dir == Vector3.ZERO:
@@ -398,7 +408,7 @@ func _begin_dash(direction: Vector3) -> void:
 		_dash_dir.y = 0.0
 		_dash_dir = _dash_dir.normalized()
 	_dash_time = DASH_DURATION
-	_dash_cooldown = DASH_COOLDOWN
+	_mobility_cooldown = DASH_COOLDOWN
 	_knockback = Vector3.ZERO
 	AudioManager.play(&"dash")
 	EventBus.player_dashed.emit()
@@ -569,7 +579,7 @@ func _max_fireball_charges() -> int:
 func get_cooldown_remaining(id: StringName) -> float:
 	match id:
 		&"dash":
-			return _dash_cooldown
+			return _mobility_cooldown
 		&"firebolt":
 			# A banked charge means castable now, whatever the refill timer says.
 			return 0.0 if _fireball_charges > 0 else _cast_cooldown
