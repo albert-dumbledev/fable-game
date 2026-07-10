@@ -6,7 +6,6 @@ extends Area3D
 
 const LIFETIME := 4.0
 const EXPLOSION_RADIUS := 4.0
-const EXPLOSION_SHOVE := 10.0
 const BLAST_DURATION := 0.25
 ## Scorched Earth (unique boon): the blast leaves burning ground behind.
 const BURN_DAMAGE_MULT := 0.2
@@ -93,9 +92,6 @@ func _explode() -> void:
 		var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 		if hurtbox != null:
 			hurtbox.receive_hit(AttackInfo.new(_info.source, _info.damage))
-		offset.y = 0.0
-		if offset.length() > 0.01:
-			enemy.apply_shove(offset.normalized() * EXPLOSION_SHOVE)
 	if _burning_ground:
 		FlamePatch.spawn(get_tree().current_scene,
 				Vector3(global_position.x, 0.05, global_position.z),

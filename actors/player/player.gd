@@ -47,7 +47,7 @@ const THORNS_DAMAGE := 15.0
 const VAMPIRE_HEAL := 2.0
 const KNOCKBACK_DECAY := 25.0
 const FIREBALL_SCENE := preload("res://weapons/Fireball.tscn")
-const FIREBALL_BASE_DAMAGE := 30.0
+const FIREBALL_BASE_DAMAGE := 45.0
 const FIREBALL_COOLDOWN := 3.0
 ## Casting locks out the sword and shield while the orb charges.
 const FIREBALL_CHARGE_TIME := 0.8
@@ -550,7 +550,7 @@ func _parry_nova() -> void:
 ## Spell cooldowns scale with the spell_cooldown stat (clamped so stacked
 ## reduction can never zero a cooldown out).
 func _spell_cooldown(base: float) -> float:
-	return base * maxf(0.25, stats.get_stat(Stats.SPELL_COOLDOWN))
+	return base * maxf(0.5, stats.get_stat(Stats.SPELL_COOLDOWN))
 
 
 func _drain_guard(amount: float) -> void:
