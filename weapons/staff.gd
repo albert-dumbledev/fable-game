@@ -15,16 +15,28 @@ const REST_ROT := Vector3(10.0, -8.0, 4.0)
 const RECOIL_POS := Vector3(0.30, -0.24, 0.12)
 const BOLT_SCENE := preload("res://weapons/ArcaneBolt.tscn")
 const ORB_FLARE := 5.0
-## Scatter Shot: a flat horizontal fan of weaker bolts.
+## Scatter Shot: a flat horizontal fan of weaker bolts. Shotgun-style spread --
+## outer bolts are offset this many degrees from center, so all 3 only stack
+## on one target up close; at range they splay wide enough to spread across
+## multiple enemies.
 const SCATTER_COUNT := 3
 const SCATTER_DAMAGE_MULT := 0.55
-const SCATTER_FAN_DEG := 6.0
-## Burst Fire: a rapid 3-round burst, then a longer committed pause. The burst
-## interval tightens with attack_speed; the cycle length is tuned for ~+25%
-## throughput over single fire (3 rounds across BURST_CYCLE_MULT swing-times).
+const SCATTER_FAN_DEG := 16.0
+## Burst Fire: a rapid burst, then a longer committed pause. The cycle length
+## is BURST_CYCLE_MULT swing-times, so BURST_COUNT rounds fired across that
+## cycle already beats single fire by a flat BURST_COUNT/BURST_CYCLE_MULT
+## (~+25%) at any attack_speed -- that ratio alone never shrinks, since both
+## the cycle length and the burst interval are swing-time-scaled (they shrink
+## at the same rate as attack_speed rises, so their ratio -- and the round
+## timers' fit inside the cycle -- holds regardless of atk). To make faster
+## builds actually pull ahead instead of capping at that flat bonus, every
+## full BURST_BONUS_ATK_STEP of attack_speed above baseline (1.0) adds one
+## more round to the burst, so the throughput lead over single fire grows
+## with attack_speed instead of staying fixed.
 const BURST_COUNT := 3
 const BURST_INTERVAL := 0.08
 const BURST_CYCLE_MULT := 2.4
+const BURST_BONUS_ATK_STEP := 1.0
 ## Arcane Surge: bolts hit harder while mana is at least this full.
 const SURGE_MANA_FRACTION := 0.8
 const SURGE_DAMAGE_MULT := 1.3
@@ -82,12 +94,16 @@ func _fire_volley(player: Player) -> void:
 
 
 ## Burst Fire: fire now and schedule the remaining rounds, then hold the primary
-## on a longer cooldown so the burst reads as a committed cycle.
+## on a longer cooldown so the burst reads as a committed cycle. Round count
+## grows with attack_speed (see tuning comment above) so the throughput lead
+## over single fire widens instead of capping at a flat bonus.
 func _fire_burst(player: Player, duration: float) -> void:
 	_fire_volley(player)
 	var atk := maxf(0.1, stats.get_stat(Stats.ATTACK_SPEED))
+	var bonus_rounds := int(maxf(0.0, atk - 1.0) / BURST_BONUS_ATK_STEP)
+	var round_count := BURST_COUNT + bonus_rounds
 	var interval := BURST_INTERVAL / atk
-	for i: int in range(1, BURST_COUNT):
+	for i: int in range(1, round_count):
 		get_tree().create_timer(interval * float(i), false).timeout.connect(
 				_burst_round.bind(player))
 	_cooldown = duration * BURST_CYCLE_MULT

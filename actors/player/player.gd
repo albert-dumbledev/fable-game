@@ -351,6 +351,12 @@ func _physics_process(delta: float) -> void:
 				velocity.x = move_toward(velocity.x, 0.0, air_speed * 10.0 * delta)
 				velocity.z = move_toward(velocity.z, 0.0, air_speed * 10.0 * delta)
 			move_and_slide()
+			# The arena walls are only WallN/S/E/W-height (4m) tall and Levitate
+			# rises well above that, so move_and_slide no longer collides with
+			# anything horizontally. Clamp to the same play-area bound the
+			# spawner uses so hovering can't drift outside the arena.
+			global_position.x = clampf(global_position.x, -Spawner.ARENA_HALF, Spawner.ARENA_HALF)
+			global_position.z = clampf(global_position.z, -Spawner.ARENA_HALF, Spawner.ARENA_HALF)
 			return
 
 	var speed := stats.get_stat(Stats.MOVE_SPEED)
