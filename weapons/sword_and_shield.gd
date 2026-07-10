@@ -24,7 +24,8 @@ const SHIELD_BLOCK_ROT := Vector3.ZERO
 ## Real-time freeze frame per swing connect (coalesced by FreezeFrame).
 const HIT_PAUSE := 0.03
 ## Blade Cyclone (unique boon): radial strike radius for a riposte swing.
-const SWEEP_RADIUS := 2.8
+## Widened +30% (was 2.8) to grow the sweep's AoE footprint.
+const SWEEP_RADIUS := 3.64
 ## Second Wind (parry_heal): a lifesteal swing heals this fraction of the
 ## damage it deals, per enemy hit.
 const LIFESTEAL_PCT := 0.25

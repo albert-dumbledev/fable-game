@@ -43,11 +43,17 @@ const DASH_KICK_PITCH := 4.0
 ## parry_stun) and primes a riposte.
 const SHIELD_DASH_RADIUS := 1.3
 const SHIELD_DASH_STUN := 0.8
+## Wider radial catch centered on the dash's landing point, so ending a blink
+## in a cluster staggers the whole group and primes a riposte even when they
+## sit beside the blink line rather than on it.
+const SHIELD_DASH_END_RADIUS := 2.0
 ## Crashing Leap (Earthshaker Shift): a fixed ballistic hop toward facing; the
 ## warhammer's landing slam is the payoff. No intangibility — being airborne
 ## already dodges melee, so projectiles can still tag you. Cooldown on launch.
+## Airtime is tuned for a tall parabola (peak ≈ g·airtime²/8, about 1m) over
+## the same LEAP_REACH distance, so the hop reads as a real leap, not a hop.
 const LEAP_REACH := 7.0
-const LEAP_AIRTIME := 0.5
+const LEAP_AIRTIME := 0.9
 const LEAP_COOLDOWN := 5.0
 ## Levitate (Arcanist Shift): rise into a timed hover and rain spells. PURE
 ## timer — no mana cost, no intangibility, so spitter/caster/boss projectiles
@@ -543,7 +549,11 @@ func _shield_dash_sweep() -> void:
 		var flat := enemy.global_position
 		flat.y = 0.0
 		var nearest := Geometry3D.get_closest_point_to_segment(flat, start, end)
-		if flat.distance_to(nearest) > SHIELD_DASH_RADIUS:
+		# Catch enemies on the blink line as before, or clustered around the
+		# landing point even if they sit off to the side of the line.
+		var on_path := flat.distance_to(nearest) <= SHIELD_DASH_RADIUS
+		var at_end := flat.distance_to(end) <= SHIELD_DASH_END_RADIUS
+		if not on_path and not at_end:
 			continue
 		enemy.stun(stun)
 		BlastVfx.spawn(get_tree().current_scene,
@@ -551,6 +561,10 @@ func _shield_dash_sweep() -> void:
 				DASH_RING_COLOR, 0.12, 0.2)
 		caught = true
 	if caught:
+		# Telegraph the landing AoE with a subtle ring on the endpoint itself.
+		BlastVfx.spawn(get_tree().current_scene,
+				end + Vector3(0.0, 0.1, 0.0), SHIELD_DASH_END_RADIUS,
+				DASH_RING_COLOR, 0.1, 0.18)
 		_prime_riposte()
 		AudioManager.play(&"parry")
 
@@ -586,6 +600,9 @@ func _begin_leap(_direction: Vector3) -> void:
 	# Takeoff dust ring underfoot.
 	BlastVfx.spawn(get_tree().current_scene,
 			global_position + Vector3(0.0, 0.1, 0.0), 1.4, DASH_DUST_COLOR, 0.1, 0.25)
+	# Haul the hammer overhead for the flight; it crashes down on landing.
+	if weapon is Warhammer:
+		(weapon as Warhammer).leap_windup(LEAP_AIRTIME)
 
 
 ## Touchdown: stop dead and let the warhammer crash its 360° slam.

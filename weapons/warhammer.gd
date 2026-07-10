@@ -149,6 +149,20 @@ func _wave_impact(damage: float) -> void:
 		player.add_shake(0.6)
 
 
+## Crashing Leap windup: haul the hammer overhead for the duration of the
+## flight so it is cocked and ready the instant the earthshaker touches down.
+## Called by Player._begin_leap at takeoff; airtime is LEAP_AIRTIME.
+func leap_windup(airtime: float) -> void:
+	if _swing_tween != null:
+		_swing_tween.kill()
+	_swing_tween = create_tween()
+	_swing_tween.set_parallel(true)
+	_swing_tween.tween_property(hammer_pivot, "position", RAISED_POS, airtime * 0.6) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_swing_tween.tween_property(hammer_pivot, "rotation_degrees", RAISED_ROT, airtime * 0.6) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
 ## Crashing Leap payoff: on landing, a 360° slam centered on the player — 0.8×
 ## primary damage in the core, full outer-ring shove, and a brief core stagger.
 ## Called by Player._land_leap once the ballistic hop touches down.
@@ -169,6 +183,19 @@ func leap_slam() -> void:
 	var player := wielder as Player
 	if player != null:
 		player.add_shake(0.6)
+	# Crash the hammer down from the windup pose, then recover to ready.
+	if _swing_tween != null:
+		_swing_tween.kill()
+	_swing_tween = create_tween()
+	_swing_tween.set_parallel(true)
+	_swing_tween.tween_property(hammer_pivot, "position", SLAM_POS, 0.08) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_swing_tween.tween_property(hammer_pivot, "rotation_degrees", SLAM_ROT, 0.08) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_swing_tween.chain().tween_property(hammer_pivot, "position", REST_POS, 0.35) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	_swing_tween.tween_property(hammer_pivot, "rotation_degrees", REST_ROT, 0.35) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 
 
 ## The slam is a ground AoE, not a hitbox sweep: full damage inside
