@@ -19,6 +19,7 @@ const RIPOSTE_DAMAGE := &"riposte_damage"
 const PARRY_STUN := &"parry_stun"
 const HAMMER_SHOVE := &"hammer_shove"
 const SPELL_DAMAGE := &"spell_damage"
+const DASH_CHARGES := &"dash_charges"
 
 
 static func display_name(stat: StringName) -> String:
@@ -49,4 +50,6 @@ static func display_name(stat: StringName) -> String:
 			return "shove force"
 		SPELL_DAMAGE:
 			return "spell damage"
+		DASH_CHARGES:
+			return "dash charge"
 	return String(stat)

@@ -38,6 +38,11 @@ const DASH_DUST_COLOR := Color(0.65, 0.6, 0.55, 0.4)
 ## Viewmodel tilt into the dash direction (degrees at full lateral/forward).
 const DASH_KICK_ROLL := 6.0
 const DASH_KICK_PITCH := 4.0
+## Shield Dash (unique boon): blinking through an enemy within this radius of
+## the blink line staggers it for SHIELD_DASH_STUN seconds (scaled by
+## parry_stun) and primes a riposte.
+const SHIELD_DASH_RADIUS := 1.3
+const SHIELD_DASH_STUN := 0.8
 ## Real-time freeze frame on a perfect block — the parry should feel like
 ## the world flinches.
 const PARRY_HIT_PAUSE := 0.09
@@ -115,6 +120,7 @@ var _guard_broken := false
 var _shake := 0.0
 var _abilities: Dictionary[StringName, bool] = {}
 var _dash_time := 0.0
+var _dash_charges := 1
 var _mobility_cooldown := 0.0
 var _dash_dir := Vector3.ZERO
 var _dash_fov_tween: Tween
@@ -157,6 +163,7 @@ func _ready() -> void:
 	stats.set_base(Stats.PARRY_STUN, 1.0)
 	stats.set_base(Stats.HAMMER_SHOVE, 1.0)
 	stats.set_base(Stats.SPELL_DAMAGE, 1.0)
+	stats.set_base(Stats.DASH_CHARGES, 1.0)
 	for modifier: StatModifier in MetaProgression.get_stat_modifiers():
 		stats.add_modifier(modifier)
 	health.set_max_health(stats.get_stat(Stats.MAX_HEALTH), true)
@@ -257,11 +264,17 @@ func _physics_process(delta: float) -> void:
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
 
-	# Dash (unique boon): blink a fixed distance in the move direction, or
-	# facing if standing still. Intangible while dashing.
-	_mobility_cooldown = maxf(0.0, _mobility_cooldown - delta)
+	# Mobility (Phantom Step): the loadout's Shift move. Charges refill one at a
+	# time through the cooldown, same pattern as fireball charges — most
+	# loadouts have a single charge; the duelist can bank more (dash_charges).
+	if _dash_charges < _max_dash_charges():
+		_mobility_cooldown = maxf(0.0, _mobility_cooldown - delta)
+		if _mobility_cooldown <= 0.0:
+			_dash_charges += 1
+			if _dash_charges < _max_dash_charges():
+				_mobility_cooldown = DASH_COOLDOWN
 	if has_ability(&"dash") and Input.is_action_just_pressed("dash") \
-			and _mobility_cooldown <= 0.0:
+			and _dash_charges > 0:
 		_begin_mobility(direction)
 	if _dash_time > 0.0:
 		_dash_time -= delta
@@ -408,7 +421,9 @@ func _begin_dash(direction: Vector3) -> void:
 		_dash_dir.y = 0.0
 		_dash_dir = _dash_dir.normalized()
 	_dash_time = DASH_DURATION
-	_mobility_cooldown = DASH_COOLDOWN
+	_dash_charges -= 1
+	if _mobility_cooldown <= 0.0:
+		_mobility_cooldown = DASH_COOLDOWN
 	_knockback = Vector3.ZERO
 	AudioManager.play(&"dash")
 	EventBus.player_dashed.emit()
@@ -440,6 +455,36 @@ func _begin_dash(direction: Vector3) -> void:
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_dash_kick_tween.tween_property(weapon_mount, "rotation_degrees", Vector3.ZERO, 0.2) \
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if has_ability(&"shield_dash"):
+		_shield_dash_sweep()
+
+
+## Shield Dash: blinking through enemies staggers them and primes a riposte, so
+## it composes with the sword's parry line (Ruthless Riposte, Blade Cyclone,
+## Second Wind). Sweeps the blink segment against every alive enemy using the
+## same flattened closest-point math the seismic wave uses.
+func _shield_dash_sweep() -> void:
+	var start := global_position
+	start.y = 0.0
+	var end := start + _dash_dir * DASH_DISTANCE
+	var stun := SHIELD_DASH_STUN * stats.get_stat(Stats.PARRY_STUN)
+	var caught := false
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
+			continue
+		var flat := enemy.global_position
+		flat.y = 0.0
+		var nearest := Geometry3D.get_closest_point_to_segment(flat, start, end)
+		if flat.distance_to(nearest) > SHIELD_DASH_RADIUS:
+			continue
+		enemy.stun(stun)
+		BlastVfx.spawn(get_tree().current_scene,
+				enemy.global_position + Vector3(0.0, 0.1, 0.0), 1.0,
+				DASH_RING_COLOR, 0.12, 0.2)
+		caught = true
+	if caught:
+		_prime_riposte()
+		AudioManager.play(&"parry")
 
 
 func _end_dash() -> void:
@@ -576,10 +621,16 @@ func _max_fireball_charges() -> int:
 	return maxi(1, int(round(stats.get_stat(Stats.FIREBALL_CHARGES))))
 
 
+## Total banked Shift charges, capped at 4 (Phantom Reserves stacks toward it).
+func _max_dash_charges() -> int:
+	return clampi(int(round(stats.get_stat(Stats.DASH_CHARGES))), 1, 4)
+
+
 func get_cooldown_remaining(id: StringName) -> float:
 	match id:
 		&"dash":
-			return _mobility_cooldown
+			# A banked charge means dashable now, whatever the refill timer says.
+			return 0.0 if _dash_charges > 0 else _mobility_cooldown
 		&"firebolt":
 			# A banked charge means castable now, whatever the refill timer says.
 			return 0.0 if _fireball_charges > 0 else _cast_cooldown
@@ -664,11 +715,21 @@ func aim_direction() -> Vector3:
 
 
 func get_charges(id: StringName) -> int:
-	return _fireball_charges if id == &"firebolt" else -1
+	match id:
+		&"firebolt":
+			return _fireball_charges
+		&"dash":
+			return _dash_charges
+	return -1
 
 
 func get_max_charges(id: StringName) -> int:
-	return _max_fireball_charges() if id == &"firebolt" else 1
+	match id:
+		&"firebolt":
+			return _max_fireball_charges()
+		&"dash":
+			return _max_dash_charges()
+	return 1
 
 
 func grant_ability(id: StringName) -> void:
