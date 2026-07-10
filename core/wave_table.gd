@@ -11,7 +11,7 @@ extends Resource
 @export var min_interval := 0.4
 @export var interval_ramp_time := 240.0
 
-@export var hp_growth_per_min := 0.5
+@export var hp_growth_per_min := 0.35
 @export var dmg_growth_per_min := 0.25
 ## Gold/XP drops scale alongside enemy strength.
 @export var reward_growth_per_min := 0.3
@@ -29,8 +29,10 @@ func spawn_interval_at(elapsed: float) -> float:
 	)
 
 
+# Geometric growth: pow(1 + growth, minutes). Compounds like the player's
+# own scaling instead of climbing linearly.
 func hp_mult_at(elapsed: float) -> float:
-	return 1.0 + hp_growth_per_min * elapsed / 60.0
+	return pow(1.0 + hp_growth_per_min, elapsed / 60.0)
 
 
 func dmg_mult_at(elapsed: float) -> float:

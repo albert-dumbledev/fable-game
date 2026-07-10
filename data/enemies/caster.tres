@@ -7,7 +7,7 @@
 script = ExtResource("1_script")
 display_name = "THE HIEROPHANT"
 scene = ExtResource("2_scene")
-max_health = 420.0
+max_health = 550.0
 move_speed = 2.4
 damage = 20.0
 attack_range = 18.0
