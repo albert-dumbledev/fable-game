@@ -49,6 +49,19 @@ const SHIELD_DASH_STUN := 0.8
 const LEAP_REACH := 7.0
 const LEAP_AIRTIME := 0.5
 const LEAP_COOLDOWN := 5.0
+## Levitate (Arcanist Shift): rise into a timed hover and rain spells. PURE
+## timer — no mana cost, no intangibility, so spitter/caster/boss projectiles
+## still connect; melee simply can't reach. Short duration + a long cooldown
+## that only starts on landing keep it a power moment, not a roof camp.
+const LEVITATE_DURATION := 2.5
+const LEVITATE_COOLDOWN := 8.0
+const LEVITATE_RISE_SPEED := 8.0
+const LEVITATE_HOVER_DAMP := 6.0
+const LEVITATE_STRAFE_MULT := 0.8
+const LEVITATE_FOV_LIFT := 8.0
+## Degrees of downward view bias while hovering, so aiming at the ground reads
+## as intended.
+const LEVITATE_TILT := 8.0
 ## Real-time freeze frame on a perfect block — the parry should feel like
 ## the world flinches.
 const PARRY_HIT_PAUSE := 0.09
@@ -129,6 +142,13 @@ var _dash_time := 0.0
 var _dash_charges := 1
 var _leaping := false
 var _leap_airborne := false
+var _levitating := false
+var _levitate_descending := false
+var _levitate_time := 0.0
+var _levitate_can_cancel := false
+var _view_pitch_bias := 0.0
+var _levitate_fov_tween: Tween
+var _levitate_tilt_tween: Tween
 var _mobility_cooldown := 0.0
 var _dash_dir := Vector3.ZERO
 var _dash_fov_tween: Tween
@@ -214,7 +234,7 @@ func _physics_process(delta: float) -> void:
 	# Movement basis and block-facing math read the body's yaw, so keep it
 	# in step with the view once per tick.
 	rotation.y = _yaw
-	if not is_on_floor():
+	if not is_on_floor() and not _levitating:
 		velocity.y -= _gravity * delta
 	# Fireball charges refill one at a time through the cooldown.
 	if _fireball_charges < _max_fireball_charges():
@@ -275,7 +295,7 @@ func _physics_process(delta: float) -> void:
 	# Mobility (Phantom Step): the loadout's Shift move. Charges refill one at a
 	# time through the cooldown, same pattern as fireball charges — most
 	# loadouts have a single charge; the duelist can bank more (dash_charges).
-	if _dash_charges < _max_dash_charges():
+	if _dash_charges < _max_dash_charges() and not _levitating and not _levitate_descending:
 		_mobility_cooldown = maxf(0.0, _mobility_cooldown - delta)
 		if _mobility_cooldown <= 0.0:
 			_dash_charges += 1
@@ -304,6 +324,29 @@ func _physics_process(delta: float) -> void:
 			_land_leap()
 		return
 
+	if _levitating:
+		_levitate_time -= delta
+		# Require a Shift release before a second press can end flight, so the
+		# takeoff press doesn't cancel on the same frame it launched.
+		if not Input.is_action_pressed("dash"):
+			_levitate_can_cancel = true
+		var recast := _levitate_can_cancel and Input.is_action_just_pressed("dash")
+		if _levitate_time <= 0.0 or recast:
+			_end_levitate()
+		else:
+			# Hover: coast up from the takeoff boost then settle; WASD air-strafe
+			# at reduced speed. Casting is handled above, so spells still fire.
+			velocity.y = move_toward(velocity.y, 0.0, LEVITATE_HOVER_DAMP * delta)
+			var air_speed := stats.get_stat(Stats.MOVE_SPEED) * LEVITATE_STRAFE_MULT
+			if direction != Vector3.ZERO:
+				velocity.x = direction.x * air_speed
+				velocity.z = direction.z * air_speed
+			else:
+				velocity.x = move_toward(velocity.x, 0.0, air_speed * 10.0 * delta)
+				velocity.z = move_toward(velocity.z, 0.0, air_speed * 10.0 * delta)
+			move_and_slide()
+			return
+
 	var speed := stats.get_stat(Stats.MOVE_SPEED)
 	if weapon.is_blocking:
 		speed *= BLOCK_SPEED_MULT
@@ -318,6 +361,8 @@ func _physics_process(delta: float) -> void:
 	velocity.z += _knockback.z
 	_knockback = _knockback.move_toward(Vector3.ZERO, KNOCKBACK_DECAY * delta)
 	move_and_slide()
+	if _levitate_descending and is_on_floor():
+		_land_levitate()
 
 
 ## Called by HurtboxComponent before damage lands. Returning null blocks fully.
@@ -383,7 +428,7 @@ func _process(delta: float) -> void:
 ## raw, so aiming never lags the mouse.
 func _update_camera_rig() -> void:
 	camera_rig.global_position = get_global_transform_interpolated().origin + _eye_offset
-	camera_rig.rotation = Vector3(_pitch, _yaw, 0.0)
+	camera_rig.rotation = Vector3(_pitch + _view_pitch_bias, _yaw, 0.0)
 
 
 func add_shake(amount: float) -> void:
@@ -401,7 +446,7 @@ func apply_shove(impulse: Vector3) -> void:
 ## FOV applies live from the settings panel; skip mid-dash so the punch
 ## tween finishes on its own values.
 func _on_settings_changed() -> void:
-	if _dash_time <= 0.0:
+	if _dash_time <= 0.0 and not _levitating:
 		camera.fov = Settings.fov
 
 
@@ -431,6 +476,8 @@ func _begin_mobility(direction: Vector3) -> void:
 	match weapon.mobility_id() if weapon != null else &"dash":
 		&"hammer_leap":
 			_begin_leap(direction)
+		&"levitate":
+			_begin_levitate(direction)
 		_:
 			_begin_dash(direction)
 
@@ -549,6 +596,58 @@ func _land_leap() -> void:
 	velocity.z = 0.0
 	if weapon is Warhammer:
 		(weapon as Warhammer).leap_slam()
+
+
+## Levitate: rise into a timed hover. Gravity is suspended while _levitating;
+## an upward boost lifts ~5m and then settles. Pure timer — cooldown is armed on
+## landing, not here.
+func _begin_levitate(_direction: Vector3) -> void:
+	_levitating = true
+	_levitate_descending = false
+	_levitate_can_cancel = false
+	_levitate_time = LEVITATE_DURATION
+	_dash_charges -= 1
+	_knockback = Vector3.ZERO
+	velocity.y = LEVITATE_RISE_SPEED
+	AudioManager.play(&"levitate")
+	BlastVfx.spawn(get_tree().current_scene,
+			global_position + Vector3(0.0, 0.1, 0.0), 1.6, DASH_DUST_COLOR, 0.12, 0.3)
+	_levitate_view(true)
+
+
+## Timer up or Shift re-pressed: stop hovering and let gravity take over. The
+## body is not returned here, so the descent starts this same frame.
+func _end_levitate() -> void:
+	_levitating = false
+	_levitate_descending = true
+	_levitate_view(false)
+
+
+## Touchdown after a Levitate: arm the cooldown (it starts on landing) and puff
+## a landing ring.
+func _land_levitate() -> void:
+	_levitate_descending = false
+	_mobility_cooldown = LEVITATE_COOLDOWN
+	BlastVfx.spawn(get_tree().current_scene,
+			global_position + Vector3(0.0, 0.1, 0.0), 1.4, DASH_DUST_COLOR, 0.1, 0.25)
+	add_shake(0.1)
+
+
+## FOV lift + a slight downward pitch bias while hovering, eased in on takeoff
+## and back out on landing, so aiming at the ground feels intended.
+func _levitate_view(rising: bool) -> void:
+	if _levitate_fov_tween != null:
+		_levitate_fov_tween.kill()
+	_levitate_fov_tween = create_tween()
+	_levitate_fov_tween.tween_property(camera, "fov",
+			Settings.fov + (LEVITATE_FOV_LIFT if rising else 0.0), 0.4) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if _levitate_tilt_tween != null:
+		_levitate_tilt_tween.kill()
+	_levitate_tilt_tween = create_tween()
+	_levitate_tilt_tween.tween_property(self, "_view_pitch_bias",
+			deg_to_rad(-LEVITATE_TILT) if rising else 0.0, 0.4) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 func _begin_cast() -> void:
@@ -685,6 +784,8 @@ func get_cooldown_remaining(id: StringName) -> float:
 			return 0.0 if _dash_charges > 0 else _mobility_cooldown
 		&"hammer_leap":
 			return 0.0 if _dash_charges > 0 else _mobility_cooldown
+		&"levitate":
+			return 0.0 if _dash_charges > 0 else _mobility_cooldown
 		&"firebolt":
 			# A banked charge means castable now, whatever the refill timer says.
 			return 0.0 if _fireball_charges > 0 else _cast_cooldown
@@ -705,6 +806,8 @@ func get_cooldown_max(id: StringName) -> float:
 			return DASH_COOLDOWN
 		&"hammer_leap":
 			return LEAP_COOLDOWN
+		&"levitate":
+			return LEVITATE_COOLDOWN
 		&"firebolt":
 			return _spell_cooldown(FIREBALL_COOLDOWN)
 		&"frost_nova":

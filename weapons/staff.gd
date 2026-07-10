@@ -49,6 +49,10 @@ func _swing_sound() -> StringName:
 	return &"arcane_bolt"
 
 
+func mobility_id() -> StringName:
+	return &"levitate"
+
+
 func _do_attack(duration: float) -> void:
 	var player := wielder as Player
 	if player == null:

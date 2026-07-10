@@ -40,6 +40,7 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"mana_empty"] = _mana_empty()
 	sounds[&"dash"] = _dash()
 	sounds[&"hammer_leap"] = _hammer_leap()
+	sounds[&"levitate"] = _levitate()
 	sounds[&"boss_horn"] = _boss_horn()
 	sounds[&"boss_death"] = _boss_death()
 	sounds[&"boulder_impact"] = _boulder_impact()
@@ -298,6 +299,15 @@ static func _hammer_leap() -> AudioStreamWAV:
 	var thump := _env(_tone(0.18, 130.0, 60.0, 1.0, SINE), 0.006, 1.5)
 	var whoosh := _env(_noise(0.26, 200.0, 1300.0, 0.7), 0.08, 0.9)
 	return _to_wav(_overlay(thump, whoosh, 0.0), 0.7)
+
+
+## Levitate takeoff: a low sustained upward whoosh — a soft rising-cutoff noise
+## bed under a slow low tone that lifts a little. Airy but all fundamentals low
+## per the audio direction; reads as buoyant lift, not a chime.
+static func _levitate() -> AudioStreamWAV:
+	var lift := _env(_tone(0.5, 90.0, 150.0, 0.7, SINE), 0.08, 0.9)
+	var whoosh := _env(_noise(0.55, 150.0, 900.0, 0.6), 0.12, 0.8)
+	return _to_wav(_overlay(lift, whoosh, 0.0), 0.55)
 
 
 ## Boss spawn: low detuned horn blast, slow attack.

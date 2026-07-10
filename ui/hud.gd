@@ -23,6 +23,7 @@ const SKILLS: Array[Dictionary] = [
 	{"id": &"hammer_wave", "key": "RMB", "name": "Shockwave"},
 	{"id": &"dash", "key": "SHIFT", "name": "Dash"},
 	{"id": &"hammer_leap", "key": "SHIFT", "name": "Leap"},
+	{"id": &"levitate", "key": "SHIFT", "name": "Levitate"},
 	{"id": &"firebolt", "key": "RMB", "name": "Fireball"},
 	{"id": &"frost_nova", "key": "E", "name": "Frost Nova"},
 ]
@@ -195,6 +196,8 @@ func _skill_owned(id: StringName) -> bool:
 			return _player.has_ability(&"dash") and _player_mobility() == &"dash"
 		&"hammer_leap":
 			return _player.has_ability(&"dash") and _player_mobility() == &"hammer_leap"
+		&"levitate":
+			return _player.has_ability(&"dash") and _player_mobility() == &"levitate"
 		&"firebolt", &"frost_nova":
 			return _player.weapon is Staff and _player.has_ability(id)
 		_:
