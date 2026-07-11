@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"mass_driver"
+display_name = "Mass Driver"
+description = "Shoved enemies become battering rams: whatever they are driven through — walls included — takes a bone-breaking hit and is staggered"
+weight = 1.0
+unique = true
+grants_ability = &"mass_driver"
+requires_weapon = &"warhammer"

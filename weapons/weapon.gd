@@ -50,6 +50,13 @@ func get_secondary_cooldown() -> float:
 	return _secondary_cooldown
 
 
+## Fault Line (Aspect): shave time off the secondary's cooldown. Called once per
+## unique enemy the Seismic wave or its fissure catches, so a dense pack pays for
+## the next slam almost immediately while strays keep it a committed tool.
+func refund_secondary(seconds: float) -> void:
+	_secondary_cooldown = maxf(0.0, _secondary_cooldown - seconds)
+
+
 ## The player's Shift movement verb for this loadout. The player dispatches
 ## its Shift handler on this id — dash (default), hammer_leap, or levitate.
 ## Subclasses override; the three implementations live in Player because they

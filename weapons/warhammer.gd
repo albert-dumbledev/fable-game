@@ -39,6 +39,8 @@ const WAVE_SLAM_TIME := 0.15
 const WAVE_SETTLE_TIME := 0.35
 const WAVE_COOLDOWN := 6.0
 const WAVE_DAMAGE_MULT := 1.2
+## The Seismic wave (and its Fault Line fissure) run the full length of the arena.
+const WAVE_RANGE := 40.0
 const WAVE_RAISED_POS := Vector3(0.05, 0.45, 0.2)
 const WAVE_RAISED_ROT := Vector3(95.0, 0.0, 0.0)
 ## Real-time freeze frame when the slam actually catches something —
@@ -50,6 +52,12 @@ const HIT_PAUSE := 0.05
 ## instant retaliation windups (same lesson as the Phase 5 gather-stun guards).
 const LEAP_DAMAGE_MULT := 0.8
 const LEAP_STAGGER := 0.3
+## Fault Line (Aspect): seconds shaved off the 6s Seismic cooldown per unique
+## enemy the wave or its fissure catches. Read by GroundShockwave and QuakeFissure.
+const FAULT_LINE_REFUND := 0.75
+## Epicenter (Aspect): the four Crashing Leap waves each deal this fraction of
+## the Seismic wave's damage, so the aimed RMB stays the higher-value cast.
+const EPICENTER_WAVE_MULT := 0.75
 
 @onready var hammer_pivot: Node3D = $HammerPivot
 @onready var handle_mesh: MeshInstance3D = $HammerPivot/HandleMesh
@@ -140,9 +148,17 @@ func _wave_impact(damage: float) -> void:
 	var wave_player := wielder as Player
 	var wave_drag := wave_player != null and wave_player.has_ability(&"wave_drag")
 	var wave_pull := wave_player != null and wave_player.has_ability(&"slam_pull")
+	var aoe := stats.get_stat(Stats.HAMMER_AOE)
+	# Pass self so Fault Line can refund the cooldown per enemy the wave catches.
 	GroundShockwave.spawn(get_tree().current_scene, origin,
-			AttackInfo.new(wielder, damage), forward, stats.get_stat(Stats.HAMMER_AOE),
-			wave_shove, wave_drag, wave_pull, 40.0)  # 40.0 crosses the whole arena
+			AttackInfo.new(wielder, damage), forward, aoe,
+			wave_shove, wave_drag, wave_pull, WAVE_RANGE, self)
+	# Fault Line: lay a lingering fissure along the wave's corridor. Its width
+	# matches the wave's swept diameter so the crack tracks where the wave passed.
+	if wave_player != null and wave_player.has_ability(&"fault_line"):
+		var fissure_width := GroundShockwave.HIT_RADIUS * 2.0 * aoe
+		QuakeFissure.spawn(get_tree().current_scene, origin, forward,
+				WAVE_RANGE, fissure_width, self)
 	BlastVfx.spawn(get_tree().current_scene, origin, 1.6, SHOCKWAVE_COLOR, 0.15, 0.2)
 	var player := wielder as Player
 	if player != null:
@@ -186,6 +202,9 @@ func leap_slam() -> void:
 	var player := wielder as Player
 	if player != null:
 		player.add_shake(0.6)
+		# Epicenter: the landing also fires a four-way Seismic volley.
+		if player.has_ability(&"leap_epicenter"):
+			_erupt_epicenter(point, forward, player)
 	# Crash the hammer down from the windup pose, then recover to ready.
 	if _swing_tween != null:
 		_swing_tween.kill()
@@ -199,6 +218,26 @@ func leap_slam() -> void:
 			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	_swing_tween.tween_property(hammer_pivot, "rotation_degrees", REST_ROT, 0.35) \
 			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+
+
+## Epicenter (Aspect): the Crashing Leap landing erupts four Seismic waves out
+## the cardinal points of facing — forward, back, and the two perpendiculars —
+## each at a fraction of the aimed wave's damage. Full wave boons ride along
+## (Riptide drags, Implosion pulls), and self is passed so Fault Line refunds the
+## RMB for free when both aspects are owned.
+func _erupt_epicenter(origin: Vector3, forward: Vector3, player: Player) -> void:
+	var wave_damage := (weapon_data.damage + stats.get_stat(Stats.DAMAGE)) \
+			* WAVE_DAMAGE_MULT * EPICENTER_WAVE_MULT
+	var wave_shove := GroundShockwave.SHOVE * stats.get_stat(Stats.HAMMER_SHOVE)
+	var aoe := stats.get_stat(Stats.HAMMER_AOE)
+	var drag := player.has_ability(&"wave_drag")
+	var pull := player.has_ability(&"slam_pull")
+	# Rightward perpendicular of the horizontal facing; left is its negation.
+	var right := Vector3(forward.z, 0.0, -forward.x)
+	for dir: Vector3 in [forward, -forward, right, -right]:
+		GroundShockwave.spawn(get_tree().current_scene, origin,
+				AttackInfo.new(wielder, wave_damage), dir, aoe,
+				wave_shove, drag, pull, WAVE_RANGE, self)
 
 
 ## The slam is a ground AoE, not a hitbox sweep: full damage inside
@@ -245,8 +284,12 @@ func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
 	var outer := OUTER_RADIUS * aoe_mult
 	var hit_count := 0
 	var player := wielder as Player
+	var mass_driver := player != null and player.has_ability(&"mass_driver")
+	# Bone Breaker wall-slams on shove_impact; Mass Driver also wall-slams (walls
+	# included) and additionally drives enemies through their neighbours.
 	var wall_damage := damage * BONE_BREAKER_MULT \
-			if player != null and player.has_ability(&"shove_impact") else 0.0
+			if (player != null and player.has_ability(&"shove_impact")) or mass_driver else 0.0
+	var through_damage := damage * BONE_BREAKER_MULT if mass_driver else 0.0
 	for enemy: EnemyBase in EnemyBase.alive.duplicate():
 		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
 			continue
@@ -271,7 +314,8 @@ func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
 				hurtbox.receive_hit(info)
 				hit_count += 1
 			if dist > 0.01:
-				enemy.apply_shove(offset.normalized() * shove, wall_damage, wielder)
+				enemy.apply_shove(offset.normalized() * shove, wall_damage, wielder,
+						through_damage)
 			if stagger > 0.0:
 				enemy.stun(stagger)
 		else:
@@ -280,7 +324,7 @@ func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
 			# intended way to convert control into damage.
 			if dist > 0.01:
 				enemy.apply_shove(offset.normalized() * shove * OUTER_SHOVE_MULT,
-						wall_damage, wielder)
+						wall_damage, wielder, through_damage)
 	# Hot core flash for the damage ring, dusty ripple for the control ring.
 	BlastVfx.spawn(get_tree().current_scene, point, inner, SHOCKWAVE_COLOR, 0.12, 0.22)
 	BlastVfx.spawn(get_tree().current_scene, point, outer, DUST_COLOR, 0.05, 0.4)

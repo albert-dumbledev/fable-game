@@ -33,11 +33,20 @@ var _drag := false
 var _dragged: Array[EnemyBase] = []
 var _pull := false
 var _origin := Vector3.ZERO
+## Fault Line (Aspect): the spawning weapon, so each caught enemy can refund a
+## slice of its secondary cooldown. Null when the caster lacks the aspect.
+var _weapon: Weapon
+var _fault_line := false
+## Mass Driver (Aspect): the shove carries a wall-slam payload and drives caught
+## enemies through their neighbours (both = BONE_BREAKER_MULT of the wave damage).
+var _wall_damage := 0.0
+var _through_damage := 0.0
 
 
 static func spawn(parent: Node, position: Vector3, info: AttackInfo,
 		direction: Vector3, radius_mult: float = 1.0, shove: float = SHOVE,
-		drag: bool = false, pull: bool = false, range_dist: float = RANGE) -> void:
+		drag: bool = false, pull: bool = false, range_dist: float = RANGE,
+		weapon: Weapon = null) -> void:
 	if parent == null:
 		return
 	var wave := GroundShockwave.new()
@@ -49,11 +58,20 @@ static func spawn(parent: Node, position: Vector3, info: AttackInfo,
 	wave._pull = pull
 	wave._range = range_dist
 	wave._origin = position
+	wave._weapon = weapon
 	parent.add_child(wave)
 	wave.global_position = position
 
 
 func _ready() -> void:
+	# Aspect payloads, resolved once from the caster: Fault Line refunds the
+	# secondary per unique enemy caught; Mass Driver adds a Bone Breaker wall-slam
+	# payload and drives enemies through their neighbours.
+	var player := _info.source as Player
+	_fault_line = _weapon != null and player != null and player.has_ability(&"fault_line")
+	if player != null and player.has_ability(&"mass_driver"):
+		_wall_damage = _info.damage * Warhammer.BONE_BREAKER_MULT
+		_through_damage = _info.damage * Warhammer.BONE_BREAKER_MULT
 	var mesh := MeshInstance3D.new()
 	var material := StandardMaterial3D.new()
 	material.albedo_color = COLOR
@@ -86,24 +104,30 @@ func _physics_process(delta: float) -> void:
 		if offset.length() > _radius:
 			continue
 		_hit[id] = true
+		# Fault Line: the wave paying for the next slam, one enemy at a time.
+		if _fault_line:
+			_weapon.refund_secondary(Warhammer.FAULT_LINE_REFUND)
 		var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 		if hurtbox != null:
 			hurtbox.receive_hit(AttackInfo.new(_info.source, _info.damage))
 		# Pull (Implosion) rakes enemies back to the cast origin and staggers
 		# them; Riptide (drag) carries them forward; otherwise a plain carry.
+		# Every shove carries the Mass Driver payload (0 unless owned).
 		if _pull:
 			var to_origin := _origin - enemy.global_position
 			to_origin.y = 0.0
 			var d := to_origin.length()
 			if d > 0.1:
-				enemy.apply_shove(to_origin / d * minf(PULL_MAX, d * PULL_STRENGTH))
+				enemy.apply_shove(to_origin / d * minf(PULL_MAX, d * PULL_STRENGTH),
+						_wall_damage, _info.source, _through_damage)
 			if enemy.state != EnemyBase.State.STUNNED and enemy.state != EnemyBase.State.DEAD:
 				enemy.stun(PULL_STUN)
 		elif _drag:
-			enemy.apply_shove(_dir * _shove * DRAG_SHOVE_MULT)
+			enemy.apply_shove(_dir * _shove * DRAG_SHOVE_MULT,
+					_wall_damage, _info.source, _through_damage)
 			_dragged.append(enemy)
 		else:
-			enemy.apply_shove(_dir * _shove)
+			enemy.apply_shove(_dir * _shove, _wall_damage, _info.source, _through_damage)
 	if _traveled >= _range:
 		if _drag:
 			_stagger_dragged()

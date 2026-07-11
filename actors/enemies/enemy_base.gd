@@ -49,6 +49,10 @@ const VULNERABLE_MULT := 1.35
 ## Bone Breaker: a shove carrying wall damage that lands the enemy on a wall
 ## deals it once, if the shove is still strong enough to count as a slam.
 const WALL_IMPACT_MIN_SPEED := 5.0
+## Mass Driver (Aspect): a hard-shoved enemy plows through other enemies within
+## this contact radius, dealing each the Bone Breaker treatment once per shove.
+const MASS_DRIVER_CONTACT := 1.1
+const MASS_DRIVER_STAGGER := 0.3
 
 @onready var health: HealthComponent = $Health
 @onready var hurtbox: HurtboxComponent = $Hurtbox
@@ -80,6 +84,10 @@ var _shove := Vector3.ZERO
 ## Bone Breaker payload riding the current shove (0 = none), and its source.
 var _shove_wall_damage := 0.0
 var _shove_source: Node3D
+## Mass Driver payload: per-shove through damage (0 = none) and the set of
+## enemies this shove has already plowed through (each is hit at most once).
+var _shove_through_damage := 0.0
+var _shove_through_hits: Dictionary[int, bool] = {}
 var _slow_mult := 1.0
 var _slow_time := 0.0
 var _frenzy_mult := 1.0
@@ -210,15 +218,23 @@ func _physics_process(delta: float) -> void:
 	if _shove_wall_damage > 0.0 and _shove.length() > WALL_IMPACT_MIN_SPEED \
 			and is_on_wall():
 		_wall_impact()
+	# Mass Driver: while still being driven hard, sweep the enemies we plow
+	# through (same speed gate as the wall slam — only a real drive counts).
+	if _shove_through_damage > 0.0 and _shove.length() > WALL_IMPACT_MIN_SPEED:
+		_mass_driver_sweep()
 
 
 ## Physically fling this enemy (no damage). Impulse decays over ~a second.
 ## Bone Breaker rides a wall-damage payload on the shove: if the enemy slams
 ## into a wall while the impulse is still strong, it takes wall_damage once.
-func apply_shove(impulse: Vector3, wall_damage: float = 0.0, source: Node3D = null) -> void:
+func apply_shove(impulse: Vector3, wall_damage: float = 0.0, source: Node3D = null,
+		through_damage: float = 0.0) -> void:
 	_shove = impulse
 	_shove_wall_damage = wall_damage
 	_shove_source = source
+	# Fresh shove: reset the Mass Driver through-payload and its per-shove hit set.
+	_shove_through_damage = through_damage
+	_shove_through_hits.clear()
 
 
 ## Bone Breaker: the enemy slammed into a wall mid-shove — take the payload
@@ -229,6 +245,32 @@ func _wall_impact() -> void:
 	_shove_wall_damage = 0.0
 	if hurtbox != null:
 		hurtbox.receive_hit(AttackInfo.new(_shove_source, dmg))
+
+
+## Mass Driver (Aspect): this enemy is being driven hard, so anything it plows
+## through takes the Bone Breaker treatment — damage + a brief stagger — once per
+## victim per shove. Victims are damaged only, never given a through-carrying
+## shove of their own, so the effect stops at one generation (same anti-recursion
+## stance as death spawns). Iterates a snapshot because receive_hit can kill.
+func _mass_driver_sweep() -> void:
+	for other: EnemyBase in alive.duplicate():
+		if other == self or not is_instance_valid(other) or not other.is_inside_tree():
+			continue
+		if other.state == State.DEAD:
+			continue
+		var id := other.get_instance_id()
+		if _shove_through_hits.get(id, false):
+			continue
+		var offset := other.global_position - global_position
+		offset.y = 0.0
+		if offset.length() > MASS_DRIVER_CONTACT:
+			continue
+		_shove_through_hits[id] = true
+		if other.hurtbox != null:
+			other.hurtbox.receive_hit(AttackInfo.new(_shove_source, _shove_through_damage))
+		# Gather-stun guard: never re-stun an already-stunned (or dead) enemy.
+		if other.state != State.STUNNED and other.state != State.DEAD:
+			other.stun(MASS_DRIVER_STAGGER)
 
 
 ## Expose Weakness (sword unique boon): the enemy takes VULNERABLE_MULT damage
