@@ -12,7 +12,6 @@ move_speed = 2.4
 damage = 20.0
 attack_range = 18.0
 windup_time = 0.8
-recover_time = 0.8
 knockback = 4.0
 gold_reward = 150
 xp_reward = 90
