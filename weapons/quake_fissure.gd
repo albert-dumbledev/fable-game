@@ -1,16 +1,21 @@
 class_name QuakeFissure
 extends Node3D
 ## Fault Line (Aspect): a quaking crack left in the Seismic wave's wake. It
-## lingers along the wave's path and staggers any enemy standing on it, and each
-## unique enemy it catches refunds a slice of the slam's cooldown. Built entirely
-## in code, no scene — the same lightweight approach as GroundShockwave.
+## lingers along the wave's path and slows any enemy standing on it to a crawl,
+## and each unique enemy it catches refunds a slice of the slam's cooldown. Built
+## entirely in code, no scene — the same lightweight approach as GroundShockwave.
 ##
 ## Rendering mirrors GroundTelegraph's LANE decal, but the danger semantics are
 ## inverted: this is warm-orange (the player's quake), not enemy red — it hurts
 ## *them*, so it reassures rather than warns.
 
 const FAULT_LINE_DURATION := 4.0
-const FAULT_LINE_STAGGER := 0.3
+## Enemies on the crack are slowed to half speed. A stun here would be a perma-
+## lock given how often the wave recasts, so it bogs them down instead.
+const FAULT_LINE_SLOW_MULT := 0.5
+## Refreshed each tick an enemy stands on the strip; the small tail lets the slow
+## linger a beat after they step off rather than snapping back instantly.
+const FAULT_LINE_SLOW_DURATION := 0.4
 ## Warm orange, distinct from GroundTelegraph.ENEMY_COLOR's red.
 const COLOR := Color(1.0, 0.6, 0.25, 0.45)
 ## The strip visibly settles over its last moments before it closes up.
@@ -91,10 +96,9 @@ func _physics_process(delta: float) -> void:
 			continue
 		if absf(_right.dot(offset)) > _half_width:
 			continue
-		# Gather-stun guard: only stagger an enemy that isn't already stunned or
-		# dead, so the fissure never chains a permanent stun-lock.
-		if enemy.state != EnemyBase.State.STUNNED and enemy.state != EnemyBase.State.DEAD:
-			enemy.stun(FAULT_LINE_STAGGER)
+		# Bog down anything on the crack. Reapplied each tick so it holds while
+		# they stand on it; apply_slow no-ops on the dead on its own.
+		enemy.apply_slow(FAULT_LINE_SLOW_MULT, FAULT_LINE_SLOW_DURATION)
 		# Cooldown refund: once per unique enemy the fissure catches.
 		var id := enemy.get_instance_id()
 		if not _caught.get(id, false):

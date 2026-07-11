@@ -6,7 +6,7 @@
 script = ExtResource("1_script")
 id = &"fault_line"
 display_name = "Fault Line"
-description = "Seismic Slam's wave leaves a quaking fissure that staggers enemies crossing it — and every enemy the wave or fissure catches refunds part of the slam's cooldown"
+description = "Seismic Slam's wave leaves a quaking fissure that slows enemies crossing it to a crawl — and every enemy the wave or fissure catches refunds part of the slam's cooldown"
 weight = 1.0
 unique = true
 grants_ability = &"fault_line"

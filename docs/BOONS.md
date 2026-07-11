@@ -143,7 +143,7 @@ This same flag system is how spell and weapon unlocks work from `UpgradeData` â€
 
 | Aspect | Effect |
 |---|---|
-| **Fault Line** | Seismic Slam leaves a lingering fissure (~4s) that staggers enemies crossing it; every enemy the wave or fissure catches refunds ~0.75s of the slam's 6s cooldown |
+| **Fault Line** | Seismic Slam leaves a lingering fissure (~4s) that slows enemies crossing it to 50% speed; every enemy the wave or fissure catches refunds ~0.75s of the slam's 6s cooldown |
 | **Epicenter** | Crashing Leap's landing erupts Seismic waves outward in four directions (full wave boons apply) |
 | **Mass Driver** | Shoved enemies become projectiles: anything they're driven through takes 30% hammer damage + stagger, one generation |
 

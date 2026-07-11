@@ -100,15 +100,16 @@ Implementation notes:
 
 | Aspect | Flag | Effect |
 |---|---|---|
-| **Fault Line** | `fault_line` | Seismic Slam's wave leaves a quaking fissure (~4s) that staggers enemies crossing it — and every enemy the wave or fissure catches refunds ~0.75s of the slam's 6s cooldown |
+| **Fault Line** | `fault_line` | Seismic Slam's wave leaves a quaking fissure (~4s) that slows enemies crossing it to 50% speed — and every enemy the wave or fissure catches refunds ~0.75s of the slam's 6s cooldown |
 | **Epicenter** | `leap_epicenter` | Crashing Leap's landing also erupts Seismic waves outward in four directions (full wave boons apply — Riptide drags, Implosion pulls) |
 | **Mass Driver** | `mass_driver` | Shoved enemies become projectiles: anything they're driven through takes the Bone Breaker impact treatment (30% hammer damage + stagger), walls included |
 
 Implementation notes:
 
 - **Fault Line:** fissure = a strip decal along the wave's path (GroundTelegraph rendering,
-  danger semantics inverted — it hurts *them*); stagger uses the Phase 5 gather-stun guards
-  (never re-stun-lock). Refund: per-enemy-once against `Weapon._secondary_cooldown`. This is
+  danger semantics inverted — it hurts *them*); it slows to 50% via `apply_slow` (reapplied
+  each tick, never a stun-lock — a stun here perma-locks given how often the wave recasts).
+  Refund: per-enemy-once against `Weapon._secondary_cooldown`. This is
   the slam-as-primary flip: strays keep it a 6s tool, a dense third-act pack pays for the
   next cast almost immediately.
 - **Epicenter:** the leap *already* runs a full-damage 360° `_slam()` on landing (8C M3) and
