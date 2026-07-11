@@ -127,6 +127,42 @@ Unique boons (`unique = true`) skip the rarity roll — tagged `[UNIQUE]`, orang
 
 This same flag system is how spell and weapon unlocks work from `UpgradeData` — abilities are ids, not subsystems. A unique **can** also carry modifiers (Twin Flame: flat +1 `fireball_charges`); uniques never rarity-scale, so those values apply verbatim.
 
+## Aspects (Phase 9 — a tier above unique)
+
+**Aspects** are build-warping boons dropped as walk-over relics (teal gems, theft-proof) by **elite enemies** and **wave bosses**, opening a paused **pick-1-of-2** modal — scarcer than the level-up screen's 3, making each choice weighty. They live in `data/boons/aspects/` with their own `registry.tres` (never loaded by the level-up screen, zero cross-contamination) and are `unique = true`, flag-granting, and `requires_weapon`-gated per loadout. Expected yield: ~2–4 Aspects per run. Full design: **[docs/BOON_DROPS.md](docs/BOON_DROPS.md)**.
+
+### Duelist Aspects (`requires_weapon = sword_and_shield`)
+
+| Aspect | Effect |
+|---|---|
+| **Crescendo** | Riposte kills refresh the prime and don't consume it; each successive riposte in the chain deals +25% more damage (stacks until the window lapses) |
+| **Mirror Ward** | Perfect-blocking a projectile hurls it back at the shooter, detonating in a ~4m blast at riposte-scaled damage |
+| **Blade Waltz** | Blinking through enemies slashes each for riposte-scaled damage — the blink *is* the strike |
+
+### Earthshaker Aspects (`requires_weapon = warhammer`)
+
+| Aspect | Effect |
+|---|---|
+| **Fault Line** | Seismic Slam leaves a lingering fissure (~4s) that staggers enemies crossing it; every enemy the wave or fissure catches refunds ~0.75s of the slam's 6s cooldown |
+| **Epicenter** | Crashing Leap's landing erupts Seismic waves outward in four directions (full wave boons apply) |
+| **Mass Driver** | Shoved enemies become projectiles: anything they're driven through takes 30% hammer damage + stagger, one generation |
+
+### Arcanist Aspects (`requires_weapon = battle_staff`)
+
+| Aspect | Effect |
+|---|---|
+| **Blood Pact** | Spells can be cast without mana by paying ~0.5 HP per mana; a lethal cast is refused |
+| **Stormcaller** | While levitating, Arcane Bolts fork into three, and bolt hits refund levitate's mana drain (base Levitate is unchanged without this flag) |
+| **Shatterflux** | Frost-chilled enemies struck by Fireball shatter for ×2 damage plus a single-generation mini-nova that chills neighbors |
+
+### Universal Aspects (`requires_weapon = ""`)
+
+| Aspect | Effect |
+|---|---|
+| **Undying Will** | Once per run, lethal damage instead leaves you at 30% max HP with a hard 3m shockwave and ~1s of grace |
+| **Prospector's Idol** | Enemies drop one extra gold piece and your collection radius is doubled |
+| **Slipstream** | Your loadout's Shift verb improves: +1 blink charge or −20% leap/levitate cooldown |
+
 ## Skip / reroll economy
 
 Both use persistent gold, making the boon screen a live meta-vs-run tradeoff:
