@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BoonRegistry" load_steps=12 format=3]
+[gd_resource type="Resource" script_class="BoonRegistry" load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://core/boon_registry.gd" id="1_script"]
 [ext_resource type="Script" path="res://core/boon_data.gd" id="2_type"]
@@ -11,7 +11,10 @@
 [ext_resource type="Resource" path="res://data/boons/aspects/blood_pact.tres" id="9"]
 [ext_resource type="Resource" path="res://data/boons/aspects/stormcaller.tres" id="10"]
 [ext_resource type="Resource" path="res://data/boons/aspects/shatterflux.tres" id="11"]
+[ext_resource type="Resource" path="res://data/boons/aspects/undying_will.tres" id="12"]
+[ext_resource type="Resource" path="res://data/boons/aspects/prospectors_idol.tres" id="13"]
+[ext_resource type="Resource" path="res://data/boons/aspects/slipstream.tres" id="14"]
 
 [resource]
 script = ExtResource("1_script")
-boons = Array[ExtResource("2_type")]([ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("9"), ExtResource("10"), ExtResource("11")])
+boons = Array[ExtResource("2_type")]([ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("9"), ExtResource("10"), ExtResource("11"), ExtResource("12"), ExtResource("13"), ExtResource("14")])

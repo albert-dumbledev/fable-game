@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"undying_will"
+display_name = "Undying Will"
+description = "Once per run, a lethal blow instead leaves you at 30% health with a clearing shockwave and a moment of grace"
+weight = 1.0
+unique = true
+grants_ability = &"undying_will"
+requires_weapon = &""

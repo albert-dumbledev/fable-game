@@ -488,6 +488,11 @@ func _on_died() -> void:
 			Color(_base_color.r, _base_color.g, _base_color.b, 0.4), 0.1, 0.25)
 	_spawn_pickups(&"gold", int(round(data.gold_reward * _reward_mult)))
 	_spawn_pickups(&"xp", int(round(data.xp_reward * _reward_mult)))
+	# Prospector's Idol (universal Aspect): one extra gold piece per kill — a flat
+	# single piece, not scaled by reward, on top of the normal fountain.
+	var player := get_tree().get_first_node_in_group(&"player") as Player
+	if player != null and player.has_ability(&"prospectors_idol"):
+		_spawn_single_pickup(&"gold", 1, 0.0)
 	# Elite death (Aspect Drops M2): the drop decision now lives in RunDirector —
 	# the first elites per run drop an Aspect relic, later elites fall back to the
 	# M1 magnet-or-health bounty. RunDirector owns that split (it counts kills and

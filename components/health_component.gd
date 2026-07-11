@@ -25,6 +25,14 @@ func set_max_health(value: float, refill: bool = false) -> void:
 	health_changed.emit(current, max_health)
 
 
+## Directly sets current HP (clamped to 0..max) and announces the change. Unlike
+## heal(), this does NOT bail on is_dead — it exists for the Undying Will save,
+## which restores health from within the lethal hit before is_dead is ever set.
+func set_current(value: float) -> void:
+	current = clampf(value, 0.0, max_health)
+	health_changed.emit(current, max_health)
+
+
 func heal(amount: float) -> void:
 	if is_dead:
 		return

@@ -131,6 +131,15 @@ const PARRY_GUARD_REFUND := 0.5
 ## directions, then goes on cooldown so it can't be spammed by re-tapping block.
 const OMNI_BLOCK_WINDOW := 0.15
 const OMNI_BLOCK_COOLDOWN := 0.5
+## Undying Will (universal Aspect, undying_will): once per run a lethal blow is
+## refused — HP is restored to this fraction of max, the parry-nova pulse clears
+## the killing crowd, and a brief grace window follows where nothing lands.
+const UNDYING_REVIVE_PCT := 0.30
+const UNDYING_GRACE := 1.0
+## Slipstream (universal Aspect, slipstream): cuts the leap/levitate cooldown to
+## this fraction. The blink's benefit is instead a +1 charge (a dash_charges
+## modifier the Aspect carries), so DASH_COOLDOWN is deliberately left untouched.
+const SLIPSTREAM_COOLDOWN_MULT := 0.8
 
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
@@ -186,6 +195,10 @@ var _charge_time := 0.0
 var _charge_duration := FIREBALL_CHARGE_TIME
 var _charge_orb: MeshInstance3D
 var _knockback := Vector3.ZERO
+## Undying Will: the once-per-run lethal save is spent (resets naturally — a
+## fresh Player is built each run) plus the post-save grace deadline (ticks_msec).
+var _undying_used := false
+var _grace_until := 0
 
 
 func _ready() -> void:
@@ -407,6 +420,10 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 	# Belt-and-braces with the disabled hurtbox: nothing lands mid-dash.
 	if _dash_time > 0.0:
 		return null
+	# Undying Will grace: for a beat after the once-per-run save, nothing lands —
+	# so the same swarm that just killed you can't immediately re-kill.
+	if Time.get_ticks_msec() < _grace_until:
+		return null
 	if weapon.is_blocking and info.source != null and is_instance_valid(info.source):
 		var to_attacker := info.source.global_position - global_position
 		to_attacker.y = 0.0
@@ -455,7 +472,26 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 				EventBus.attack_blocked.emit()
 				_drain_guard(GUARD_HIT_COST)
 			return null
+	# Undying Will (universal Aspect): a blow that would kill is refused once per
+	# run — restore to a sliver, clear the crowd, and open the grace window. This
+	# sits on the non-blocked path, right where the hit would otherwise land full.
+	if has_ability(&"undying_will") and not _undying_used \
+			and info.damage >= health.current:
+		_trigger_undying()
+		return null
 	return info
+
+
+## Undying Will: the once-per-run lethal save. Restore to a sliver of max HP
+## (set_current, since heal() would no-op if is_dead had been set), fire the
+## parry-nova pulse as the hard 3m clearing shockwave, and open a grace window.
+func _trigger_undying() -> void:
+	_undying_used = true
+	health.set_current(stats.get_stat(Stats.MAX_HEALTH) * UNDYING_REVIVE_PCT)
+	_parry_nova()
+	_grace_until = Time.get_ticks_msec() + int(UNDYING_GRACE * 1000.0)
+	AudioManager.play(&"unlock_claim")
+	add_shake(0.6)
 
 
 func _process(delta: float) -> void:
@@ -648,7 +684,7 @@ func _begin_leap(_direction: Vector3) -> void:
 	_leap_airborne = false
 	_dash_charges -= 1
 	if _mobility_cooldown <= 0.0:
-		_mobility_cooldown = LEAP_COOLDOWN
+		_mobility_cooldown = LEAP_COOLDOWN * _mobility_cooldown_mult()
 	_knockback = Vector3.ZERO
 	velocity = facing * (LEAP_REACH / LEAP_AIRTIME)
 	velocity.y = _gravity * LEAP_AIRTIME * 0.5
@@ -701,7 +737,7 @@ func _end_levitate() -> void:
 ## a landing ring.
 func _land_levitate() -> void:
 	_levitate_descending = false
-	_mobility_cooldown = LEVITATE_COOLDOWN
+	_mobility_cooldown = LEVITATE_COOLDOWN * _mobility_cooldown_mult()
 	BlastVfx.spawn(get_tree().current_scene,
 			global_position + Vector3(0.0, 0.1, 0.0), 1.4, DASH_DUST_COLOR, 0.1, 0.25)
 	add_shake(0.1)
@@ -846,9 +882,17 @@ func _max_fireball_charges() -> int:
 	return maxi(1, int(round(stats.get_stat(Stats.FIREBALL_CHARGES))))
 
 
-## Total banked Shift charges, capped at 4 (Phantom Reserves stacks toward it).
+## Total banked Shift charges, capped at 4 (Phantom Reserves stacks toward it,
+## and Slipstream's dash_charges modifier lifts it for the blink).
 func _max_dash_charges() -> int:
 	return clampi(int(round(stats.get_stat(Stats.DASH_CHARGES))), 1, 4)
+
+
+## Slipstream (universal Aspect): the leap/levitate cooldown multiplier. The
+## blink instead gets +1 charge (via the Aspect's dash_charges modifier), so
+## DASH_COOLDOWN is untouched — only the two long-cooldown Shifts read this.
+func _mobility_cooldown_mult() -> float:
+	return SLIPSTREAM_COOLDOWN_MULT if has_ability(&"slipstream") else 1.0
 
 
 func get_cooldown_remaining(id: StringName) -> float:
@@ -879,9 +923,9 @@ func get_cooldown_max(id: StringName) -> float:
 		&"dash":
 			return DASH_COOLDOWN
 		&"hammer_leap":
-			return LEAP_COOLDOWN
+			return LEAP_COOLDOWN * _mobility_cooldown_mult()
 		&"levitate":
-			return LEVITATE_COOLDOWN
+			return LEVITATE_COOLDOWN * _mobility_cooldown_mult()
 		&"firebolt":
 			return _spell_cooldown(FIREBALL_COOLDOWN)
 		&"frost_nova":

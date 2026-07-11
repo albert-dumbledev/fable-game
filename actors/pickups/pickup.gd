@@ -28,6 +28,9 @@ const UNLOCK_PULSE_LOW := 1.5
 const UNLOCK_PULSE_HIGH := 4.0
 const ASPECT_PULSE_LOW := 1.5
 const ASPECT_PULSE_HIGH := 4.5
+## Prospector's Idol (universal Aspect): doubles the magnet radius of the edible
+## drops (gold/XP/health) while the player owns the flag.
+const PROSPECTOR_RADIUS_MULT := 2.0
 
 ## Every magnet pickup currently alive, so the minimap can ping them without
 ## a group scan.
@@ -76,6 +79,13 @@ func _ready() -> void:
 	unlock_mesh.visible = kind == &"unlock"
 	aspect_mesh.visible = kind == &"aspect"
 	_target = get_tree().get_first_node_in_group(&"player") as Node3D
+	# Prospector's Idol: the edible drops (gold/XP/health) magnet from twice as
+	# far. The theft-proof relics (magnet/unlock/aspect) never magnet, so they
+	# are untouched — this is the only place their magnet_radius matters.
+	if kind == &"gold" or kind == &"xp" or kind == &"health":
+		var player := _target as Player
+		if player != null and player.has_ability(&"prospectors_idol"):
+			magnet_radius *= PROSPECTOR_RADIUS_MULT
 	if kind == &"magnet":
 		magnets.append(self)
 		# Walking to it is the decision — it must never home to the player.
