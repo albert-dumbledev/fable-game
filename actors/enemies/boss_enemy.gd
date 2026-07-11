@@ -119,9 +119,9 @@ func _begin_windup() -> void:
 	_slam_point = global_position + forward * SLAM_IMPACT_DISTANCE
 	_slam_point.y = 0.05
 	GroundTelegraph.spawn(get_tree().current_scene, _slam_point,
-			SLAM_INNER_RADIUS, data.windup_time)
+			SLAM_INNER_RADIUS, windup_time())
 	super()  # colour tween + eye ignite + FIST_WINDUP pose...
-	_tween_fist(BOSS_FIST_SLAM_WINDUP, data.windup_time)  # ...overridden to overhead raise
+	_tween_fist(BOSS_FIST_SLAM_WINDUP, windup_time())  # ...overridden to overhead raise
 
 
 func _begin_attack() -> void:

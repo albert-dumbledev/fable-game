@@ -1,3 +1,4 @@
+class_name BoonScreen
 extends CanvasLayer
 ## Level-up overlay: pauses the run and offers a choice of 3 boons, each
 ## with a rolled rarity that scales its power. Skipping pays gold;
@@ -19,6 +20,11 @@ const RARITIES: Array[Dictionary] = [
 	{"tag": "EPIC", "chance": 0.13, "mult": 1.9, "color": Color(0.8, 0.45, 1.0)},
 	{"tag": "LEGENDARY", "chance": 0.02, "mult": 3.5, "color": Color(1.0, 0.78, 0.2)},
 ]
+## Index into RARITIES of the Legendary tier — the pinned-Legendary target.
+const LEGENDARY_INDEX := 3
+## Depth pinned Legendary (docs/DEPTHS.md M3): the pin only arms once the run is
+## this deep, matching the rarity clock's late-game intent.
+const PIN_LEGENDARY_MIN_ELAPSED := 180.0
 
 
 class Offer:
@@ -103,6 +109,10 @@ func _roll_offers(count: int) -> Array[Offer]:
 	var player := get_tree().get_first_node_in_group(&"player") as Player
 	var director := get_tree().get_first_node_in_group(&"run_director") as RunDirector
 	var elapsed := director.elapsed if director != null else 0.0
+	var depth: DepthData = director.depth if director != null else null
+	# Deep runs skew rarer: the Depth's bonus is folded into the rarity clock only
+	# (docs/DEPTHS.md M3), so the boon POOL is identical to Surface — just luckier.
+	var rarity_elapsed := _effective_rarity_elapsed(elapsed, depth)
 	var pool: Array[BoonData] = []
 	for boon: BoonData in _registry.boons:
 		if _is_offerable(boon, player):
@@ -126,16 +136,53 @@ func _roll_offers(count: int) -> Array[Offer]:
 			offer.tag = "UNIQUE"
 			offer.color = UNIQUE_COLOR
 		else:
-			var ri := _roll_rarity_index(elapsed)
-			var rarity: Dictionary = RARITIES[ri]
-			offer.tag = rarity["tag"]
-			offer.color = rarity["color"]
-			if offer.boon.rarity_mults.is_empty():
-				offer.mult = rarity["mult"]
-			else:
-				offer.mult = offer.boon.rarity_mults[clampi(ri, 0, offer.boon.rarity_mults.size() - 1)]
+			var ri := _roll_rarity_index(rarity_elapsed)
+			_apply_rarity(offer, ri)
 		offers.append(offer)
+	# Depth IV+ pins exactly one card to Legendary, once per run (docs/DEPTHS.md M3).
+	if _should_pin_legendary(director, depth, elapsed):
+		_pin_one_legendary(offers, director)
 	return offers
+
+
+## The rarity clock's effective elapsed: the Depth's rarity_time_bonus folded onto
+## the real elapsed (docs/DEPTHS.md M3), so Depth V rolls like minute 5. Surface
+## (null depth) returns elapsed unchanged. Pure, so the smoke can assert on it.
+func _effective_rarity_elapsed(elapsed: float, depth: DepthData) -> float:
+	return elapsed + (depth.rarity_time_bonus if depth != null else 0.0)
+
+
+## Stamp a rolled rarity index onto an offer: tag, color, and the mult — honoring
+## the boon's own rarity_mults override exactly as a natural roll does. Shared by
+## the natural roll and the pinned-Legendary path so they can't drift.
+func _apply_rarity(offer: Offer, ri: int) -> void:
+	var rarity: Dictionary = RARITIES[ri]
+	offer.tag = rarity["tag"]
+	offer.color = rarity["color"]
+	if offer.boon.rarity_mults.is_empty():
+		offer.mult = rarity["mult"]
+	else:
+		offer.mult = offer.boon.rarity_mults[clampi(ri, 0, offer.boon.rarity_mults.size() - 1)]
+
+
+## Whether this boon screen should pin a Legendary: a pin_legendary Depth, past
+## the arm time, and not already spent this run (the once-flag lives on the
+## director since BoonScreen is per-level-up). Surface never pins.
+func _should_pin_legendary(director: RunDirector, depth: DepthData, elapsed: float) -> bool:
+	return director != null and depth != null and depth.pin_legendary \
+			and elapsed > PIN_LEGENDARY_MIN_ELAPSED and not director.depth_legendary_pinned
+
+
+## Force the first non-unique offer to Legendary (uniques never take a rarity),
+## then consume the run's once-flag. Applies the tier through _apply_rarity so a
+## pinned Legendary is indistinguishable from a naturally rolled one.
+func _pin_one_legendary(offers: Array[Offer], director: RunDirector) -> void:
+	for offer: Offer in offers:
+		if offer.boon.unique:
+			continue
+		_apply_rarity(offer, LEGENDARY_INDEX)
+		director.depth_legendary_pinned = true
+		return
 
 
 ## Loadout/build gating: weapon-specific boons only appear with their weapon

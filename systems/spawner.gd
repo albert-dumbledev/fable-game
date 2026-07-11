@@ -54,11 +54,12 @@ func _spawn(elapsed: float) -> void:
 	spawn_enemy(data, elapsed)
 
 
-## Elite gate for pool spawns: past the time lock, off cooldown, none currently
-## alive, and not a boss/finale (those never reach _spawn, but guard anyway).
-## Only when all of those hold does the ELITE_CHANCE roll happen.
+## Elite gate for pool spawns: past the time lock, off cooldown, under the alive
+## cap, and not a boss/finale (those never reach _spawn, but guard anyway). Only
+## when all of those hold does the ELITE_CHANCE roll happen. Deep runs both open
+## the window earlier and allow more elites at once (docs/DEPTHS.md M3).
 func _should_make_elite(elapsed: float, data: EnemyData) -> bool:
-	if elapsed < ELITE_MIN_ELAPSED or _elite_cooldown > 0.0:
+	if elapsed < _elite_min_elapsed() or _elite_cooldown > 0.0:
 		return false
 	if data == null or data.tags.has(&"boss") or data.tags.has(&"finale"):
 		return false
@@ -67,11 +68,30 @@ func _should_make_elite(elapsed: float, data: EnemyData) -> bool:
 	return randf() < ELITE_CHANCE
 
 
-## Mirrors RunDirector's rare/scavenger scans: one elite at a time.
+## The elite time lock: the Depth's override when it sets one (>= 0), else the
+## Spawner default. Surface (null depth) always reads the default.
+func _elite_min_elapsed() -> float:
+	if depth != null and depth.elite_min_elapsed >= 0.0:
+		return depth.elite_min_elapsed
+	return ELITE_MIN_ELAPSED
+
+
+## The concurrent-elite cap: the Depth's when on a depth run, else 1 (Surface's
+## today-behavior). Read as a structural handle by the smoke.
+func _elite_max_alive() -> int:
+	return depth.elite_max_alive if depth != null else 1
+
+
+## True once the concurrent-elite cap is reached — a count check against
+## _elite_max_alive (Surface: 1, i.e. today's one-at-a-time gate).
 func _elite_alive() -> bool:
+	var cap := _elite_max_alive()
+	var count := 0
 	for enemy: EnemyBase in EnemyBase.alive:
 		if is_instance_valid(enemy) and enemy.is_elite:
-			return true
+			count += 1
+			if count >= cap:
+				return true
 	return false
 
 

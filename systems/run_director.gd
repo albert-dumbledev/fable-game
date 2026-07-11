@@ -24,6 +24,10 @@ const SCAVENGER_COOLDOWN := 25.0
 ## this to 1 is the first lever if runs feel Aspect-flooded (see BOON_DROPS.md).
 const ASPECT_ELITE_CAP := 2
 
+## Lateral gap between multiple boss-wave Aspect relics (docs/DEPTHS.md M3) so a
+## Depth III+ double drop reads as two pickups, not one flickering on the spot.
+const RELIC_SPREAD := 2.0
+
 ## The finale boss (THE REVENANT, tagged &"finale") spawns at this clock time
 ## (see data/waves/default.tres); kept here as the reference for that spawn
 ## time, no longer an auto-win. The win now fires on the finale boss's death
@@ -48,10 +52,22 @@ var depth: DepthData
 var _stats_tracker: RunStats
 ## Per-event next-fire clock (repeating events re-arm; one-shots go INF).
 var _next_event_at: PackedFloat64Array = []
+## The run's event schedule: the WaveTable's events plus the Depth's extra_events
+## (docs/DEPTHS.md M3 — e.g. the Twin Court's second Juggernaut), built once and
+## cached locally. NEVER the WaveTable's own array, which is shared across runs;
+## rebuilt only if its size drifts from the source (mirrors the resize guard).
+var _combined_events: Array[WaveEvent] = []
+## Depth pinned-Legendary once-flag (docs/DEPTHS.md): the first boon screen past
+## 3:00 on a pin_legendary Depth forces one Legendary offer, then sets this so no
+## later screen re-pins. Lives on the director because BoonScreen is per-level-up.
+var depth_legendary_pinned := false
 
 ## Boss-wave coordination: the relic drops (and the arena clears + spawns pause)
 ## only once EVERY boss of the wave is dead — the 2nd wave has two juggernauts.
 var _spawning_paused := false
+## Boss-wave Aspect relics still awaiting a pick (docs/DEPTHS.md M3): a Depth III+
+## boss wave drops several, and spawning stays paused until the LAST one resolves.
+var _pending_relic_claims := 0
 var _alive_bosses: Array[EnemyBase] = []
 var _last_boss_data: EnemyData
 var _last_boss_pos := Vector3.ZERO
@@ -67,6 +83,13 @@ func _ready() -> void:
 	# Resolve the chosen Depth once and hand it to the spawner (null = Surface).
 	depth = MetaProgression.get_selected_depth_data()
 	spawner.depth = depth
+	# Windup compression is a run-scoped static that outlives the scene, so it is
+	# set EVERY run — 0.85 at THE QUICKENING, back to 1.0 on Surface so a Depth run
+	# never leaves faster telegraphs bleeding into the next Surface run.
+	EnemyBase.depth_time_scale = depth.windup_mult if depth != null else 1.0
+	# Subtle arena mood tint (display-only); Surface runs render untouched.
+	if depth != null:
+		_apply_ambient_tint()
 	_stats_tracker = RunStats.new()
 	add_child(_stats_tracker)
 	EventBus.enemy_killed.connect(_on_enemy_killed)
@@ -93,6 +116,33 @@ func _announce_depth() -> void:
 	AudioManager.play(&"descend")
 
 
+## Nudge the arena ambient toward the Depth's tint (docs/DEPTHS.md M3) — a subtle
+## component-wise multiply, display-only, no gameplay effect. The Environment is a
+## scene sub-resource shared across every Arena instance (Godot caches them), so it
+## is DUPLICATED before tinting; otherwise the shift would bleed into later Surface
+## runs. Only depth runs call this, so Surface renders byte-identical to today.
+func _apply_ambient_tint() -> void:
+	var world_env := _find_world_environment()
+	if world_env == null or world_env.environment == null:
+		return
+	var tinted := world_env.environment.duplicate() as Environment
+	tinted.ambient_light_color = tinted.ambient_light_color * depth.ambient_tint
+	world_env.environment = tinted
+
+
+## The arena's WorldEnvironment — a sibling under the Arena root. Searched rather
+## than pathed so it survives node renames; nulls out gracefully in bare test
+## scenes with no environment.
+func _find_world_environment() -> WorldEnvironment:
+	var parent := get_parent()
+	if parent == null:
+		return null
+	for child: Node in parent.get_children():
+		if child is WorldEnvironment:
+			return child as WorldEnvironment
+	return null
+
+
 func _physics_process(delta: float) -> void:
 	if not _run_active:
 		return
@@ -106,19 +156,28 @@ func _physics_process(delta: float) -> void:
 	_maybe_spawn_scavenger(delta)
 
 
-## Scheduled spawns (bosses, ambushes, repeating swarms) from the WaveTable.
+## Scheduled spawns (bosses, ambushes, repeating swarms) from the WaveTable plus
+## the Depth's extra_events (docs/DEPTHS.md M3). Iterates the local combined list
+## so the WaveTable resource is never mutated.
 func _fire_due_events() -> void:
 	var table := spawner.wave_table
 	if table == null:
 		return
-	if _next_event_at.size() != table.events.size():
-		_next_event_at.resize(table.events.size())
-		for i: int in table.events.size():
-			_next_event_at[i] = table.events[i].time
-	for i: int in table.events.size():
+	var events := _combined_event_list(table)
+	if _next_event_at.size() != events.size():
+		_next_event_at.resize(events.size())
+		for i: int in events.size():
+			# The finale (THE REVENANT, tagged &"finale") arms earlier at a Depth
+			# with a negative finale_time_shift — Depth V hunts you at 6:45.
+			var at := events[i].time
+			if depth != null and events[i].enemy != null \
+					and events[i].enemy.tags.has(&"finale"):
+				at += depth.finale_time_shift
+			_next_event_at[i] = at
+	for i: int in events.size():
 		if elapsed < _next_event_at[i]:
 			continue
-		var event := table.events[i]
+		var event := events[i]
 		_next_event_at[i] = elapsed + event.repeat_every if event.repeat_every > 0.0 else INF
 		# Chance events (the Gilded One) roll each fire; the re-arm above already
 		# happened, so a miss just waits for the next window.
@@ -139,6 +198,22 @@ func _fire_due_events() -> void:
 			if enemy != null and event.enemy.tags.has(&"boss"):
 				EventBus.boss_spawned.emit(enemy)
 				_track_boss(enemy, event.enemy)
+
+
+## The run's event schedule, cached: the WaveTable's events plus the Depth's
+## extra_events, in that order (Surface = just the table's). Built into a fresh
+## local Array so the shared WaveTable is never touched; rebuilt only when its
+## expected size drifts — for the run's lifetime, that's exactly once.
+func _combined_event_list(table: WaveTable) -> Array[WaveEvent]:
+	var expected := table.events.size()
+	if depth != null:
+		expected += depth.extra_events.size()
+	if _combined_events.size() != expected:
+		_combined_events = []
+		_combined_events.append_array(table.events)
+		if depth != null:
+			_combined_events.append_array(depth.extra_events)
+	return _combined_events
 
 
 func _rare_alive() -> bool:
@@ -256,9 +331,12 @@ func _on_boss_died(boss: EnemyBase) -> void:
 
 ## The last boss of a wave just died. A weapon relic takes priority: if one is
 ## owed, clear the remaining minions, pause spawning, and drop it where the boss
-## fell. Once every weapon is owned, an Aspect relic drops instead via the same
-## arena-clear + spawn-pause spectacle (M2) — the progression arc is weapons
-## first, Aspects after. If neither has anything to give, nothing drops.
+## fell (always a single relic — weapon unlocks are untouched by Depth). Once
+## every weapon is owned, Aspect relics drop instead via the same arena-clear +
+## spawn-pause spectacle (M2). A Depth III+ boss wave drops boss_relic_count of
+## them (docs/DEPTHS.md M3), capped at what the pool can actually back, and
+## spawning stays paused until the LAST one's pick resolves. If neither weapon
+## nor Aspect has anything to give, nothing drops.
 func _on_boss_wave_cleared() -> void:
 	var ability := _next_unlock_drop(_last_boss_data)
 	if ability != &"":
@@ -267,10 +345,18 @@ func _on_boss_wave_cleared() -> void:
 		return
 	# No weapon owed — offer an Aspect if the pool still has candidates.
 	var player := get_tree().get_first_node_in_group(&"player") as Player
-	if AspectPool.available(player).is_empty():
+	var available := AspectPool.available(player).size()
+	if available <= 0:
 		return
 	_clear_for_relic()
-	_spawn_aspect_relic(_last_boss_pos, true)
+	# Skip any relic the pool can't back so a claim never opens an empty modal.
+	var wanted := depth.boss_relic_count if depth != null else 1
+	var count := clampi(wanted, 1, available)
+	_pending_relic_claims = count
+	# Fan multiple relics laterally so they don't z-fight on the boss's spot.
+	for i: int in count:
+		var offset := Vector3((float(i) - float(count - 1) * 0.5) * RELIC_SPREAD, 0.0, 0.0)
+		_spawn_aspect_relic(_last_boss_pos + offset, true)
 
 
 ## Pause spawning and clear the remaining minions so the player can collect a
@@ -313,7 +399,10 @@ func _on_elite_died(position: Vector3) -> void:
 		return
 	_elite_kills += 1
 	var player := get_tree().get_first_node_in_group(&"player") as Player
-	if _elite_kills <= ASPECT_ELITE_CAP and not AspectPool.available(player).is_empty():
+	# Deep runs are more generous with Aspects (docs/DEPTHS.md M3): the elite budget
+	# reads the Depth's cap; Surface keeps the const.
+	var cap := depth.aspect_elite_cap if depth != null else ASPECT_ELITE_CAP
+	if _elite_kills <= cap and not AspectPool.available(player).is_empty():
 		_spawn_aspect_relic(position, false)
 	elif Pickup.magnets.is_empty():
 		_spawn_utility_pickup(&"magnet", 1, EnemyBase.MAGNET_LIFETIME, position)
@@ -351,11 +440,18 @@ func _spawn_utility_pickup(kind: StringName, value: int, lifetime: float, positi
 	pickup.global_position = position + Vector3(0.0, 1.2, 0.0)
 
 
-## An Aspect was picked from the relic modal — resume boss-paused spawning.
-## Mirrors _on_unlock_claimed; called by AspectScreen after the pick (not on the
-## relic touch), so elite relics never pause the run while they sit unclaimed.
+## An Aspect was picked from the relic modal — resume boss-paused spawning once
+## the LAST owed relic has resolved (a Depth III+ boss wave drops several). Mirrors
+## _on_unlock_claimed; called by AspectScreen after the pick (not on the relic
+## touch), so elite relics never pause the run while they sit unclaimed. The
+## AspectScreen also calls this when the pool has since gone empty (a touched relic
+## with nothing to offer), so counting down here is what keeps that case from
+## wedging the run paused. Stray calls with nothing pending just leave it running.
 func resume_from_aspect() -> void:
-	_spawning_paused = false
+	if _pending_relic_claims > 0:
+		_pending_relic_claims -= 1
+	if _pending_relic_claims <= 0:
+		_spawning_paused = false
 
 
 ## A relic was claimed — resume the wave. Every relic (including the staff, which

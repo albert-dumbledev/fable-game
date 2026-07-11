@@ -11,10 +11,16 @@ extends Node
 
 const SAVE_PATH := "user://save.json"
 const KNOWN_ELAPSED := 100.0
+## The arena's authored ambient light color (levels/Arena.tscn) — the Surface
+## control must render exactly this, and a Depth run must nudge away from it.
+const AUTHORED_AMBIENT := Color(0.31, 0.29, 0.4)
 
 var _ok := true
 var _save_existed := false
 var _save_contents := ""
+## The Depth-V run's tinted ambient, captured so the Surface control can prove it
+## differs (docs/DEPTHS.md M3 ambient tint).
+var _depth_v_ambient := Color.WHITE
 
 
 func _ready() -> void:
@@ -27,6 +33,7 @@ func _run() -> void:
 	_test_selection_clamping()
 	_test_save_round_trip()
 	await _test_depth_run()
+	await _test_depth_v_run()
 	await _test_surface_control()
 
 	_restore_save()
@@ -166,6 +173,127 @@ func _collect_label_texts(node: Node) -> Array[String]:
 	return texts
 
 
+## M3 (docs/DEPTHS.md): boot a Depth-V run with best_depth faked to 4 so V is
+## selectable, then assert the identity twists structurally — combined events +
+## finale shift, the windup static, elite overrides, the rarity helper, the
+## pinned Legendary once-flag, the double boss relics, and the ambient tint.
+func _test_depth_v_run() -> void:
+	MetaProgression.records = {"victories": 1, "best_depth": 4}
+	MetaProgression.selected_depth = 5
+
+	var arena := await _boot_arena()
+	if arena == null:
+		return
+	var rd := get_tree().get_first_node_in_group(&"run_director") as RunDirector
+	var spawner := _find_spawner()
+	if rd == null or spawner == null:
+		_check(false, "depth V run: found run_director + spawner")
+		return
+	_check(rd.depth != null and rd.depth.level == 5, "run_director resolved Depth V")
+
+	# --- Combined event array + finale_time_shift ---
+	var wt := spawner.wave_table
+	var events := rd._combined_event_list(wt)
+	_check(events.size() == wt.events.size() + rd.depth.extra_events.size(),
+			"combined events == table.events + extra_events (%d == %d + %d)"
+			% [events.size(), wt.events.size(), rd.depth.extra_events.size()])
+	var finale_idx := -1
+	for i: int in events.size():
+		if events[i].enemy != null and events[i].enemy.tags.has(&"finale"):
+			finale_idx = i
+			break
+	if finale_idx == -1 or finale_idx >= rd._next_event_at.size():
+		_check(false, "combined events include the finale event with an initialized clock")
+	else:
+		var expected_clock := events[finale_idx].time - 45.0
+		_check(is_equal_approx(rd._next_event_at[finale_idx], expected_clock),
+				"finale next-fire clock is authored - 45 (%.1f == %.1f)"
+				% [rd._next_event_at[finale_idx], expected_clock])
+
+	# --- Windup static ---
+	_check(is_equal_approx(EnemyBase.depth_time_scale, 0.85),
+			"EnemyBase.depth_time_scale == 0.85 during the Depth V run (%.3f)"
+			% EnemyBase.depth_time_scale)
+
+	# --- Elite overrides (structural handles the spawner exposes) ---
+	_check(is_equal_approx(spawner._elite_min_elapsed(), 180.0),
+			"spawner effective elite min-elapsed == 180 on Depth V")
+	_check(spawner._elite_max_alive() == 2,
+			"spawner effective elite max-alive == 2 on Depth V")
+
+	# --- Rarity clock helper (pure; the roll itself is random) ---
+	var boon_screen: BoonScreen = load("res://ui/BoonScreen.tscn").instantiate() as BoonScreen
+	arena.add_child(boon_screen)
+	_check(is_equal_approx(boon_screen._effective_rarity_elapsed(KNOWN_ELAPSED, rd.depth),
+			KNOWN_ELAPSED + 300.0), "rarity elapsed adds +300 at Depth V")
+	_check(is_equal_approx(boon_screen._effective_rarity_elapsed(KNOWN_ELAPSED, null),
+			KNOWN_ELAPSED), "rarity elapsed adds +0 on Surface (null depth)")
+
+	# --- Pinned Legendary (once per run, first screen past 3:00) ---
+	rd.elapsed = 200.0
+	rd.depth_legendary_pinned = false
+	seed(90210)  # deterministic so the two non-pinned slots roll no stray Legendary
+	var offers: Array[BoonScreen.Offer] = boon_screen._roll_offers(3)
+	var legendary := 0
+	for offer: BoonScreen.Offer in offers:
+		if offer.tag == "LEGENDARY":
+			legendary += 1
+	_check(legendary == 1, "exactly one offer pinned Legendary on Depth V past 3:00 (got %d)"
+			% legendary)
+	_check(rd.depth_legendary_pinned, "director depth_legendary_pinned flag consumed")
+	# A second screen must not force another pin — the flag stays consumed (any
+	# Legendary now would be a natural roll, so we assert the flag, not tag counts).
+	boon_screen._roll_offers(3)
+	_check(rd.depth_legendary_pinned,
+			"depth_legendary_pinned stays consumed after a second boon screen")
+	seed(randi())  # restore a fresh sequence for the remaining spawns
+	boon_screen.queue_free()
+
+	# --- Double boss relics (Depth III+) ---
+	var player := get_tree().get_first_node_in_group(&"player") as Player
+	# A boss with no unlock_drops forces the Aspect path (weapon relics are single).
+	rd._last_boss_data = EnemyData.new()
+	rd._last_boss_pos = Vector3(0.0, 1.0, 0.0)
+	var available := AspectPool.available(player).size()
+	_check(available >= 2, "aspect pool backs >= 2 relics for the double-drop test (%d)"
+			% available)
+	var before := _count_aspect_pickups()
+	rd._on_boss_wave_cleared()
+	_check(_count_aspect_pickups() - before == 2,
+			"Depth V boss wave spawned 2 aspect relics (got %d)"
+			% (_count_aspect_pickups() - before))
+	_check(rd._spawning_paused, "spawning paused after the double boss relic drop")
+	rd.resume_from_aspect()
+	_check(rd._spawning_paused, "spawning still paused after only the first relic pick")
+	rd.resume_from_aspect()
+	_check(not rd._spawning_paused, "spawning resumes after the second (last) relic pick")
+
+	# --- Ambient tint ---
+	var world_env := rd._find_world_environment()
+	if world_env == null or world_env.environment == null:
+		_check(false, "depth V run: found the arena WorldEnvironment")
+	else:
+		_depth_v_ambient = world_env.environment.ambient_light_color
+		var expected_tint := AUTHORED_AMBIENT * rd.depth.ambient_tint
+		_check(_depth_v_ambient.is_equal_approx(expected_tint),
+				"depth V ambient is the authored color times the Depth tint")
+		_check(not _depth_v_ambient.is_equal_approx(AUTHORED_AMBIENT),
+				"depth V ambient differs from the authored value")
+
+	# Quiesce this run so its dying frames don't fire an event storm at elapsed 200
+	# once the Surface boot frees it.
+	rd._run_active = false
+
+
+## Every Aspect relic currently on the arena floor — the double-drop count check.
+func _count_aspect_pickups() -> int:
+	var n := 0
+	for node: Node in get_tree().get_nodes_in_group(&"pickups"):
+		if node is Pickup and (node as Pickup).kind == &"aspect":
+			n += 1
+	return n
+
+
 ## Surface control: no Depth selected -> the director's depth is null and a spawn
 ## reads the WaveTable numbers exactly, with stats.depth == 0.
 func _test_surface_control() -> void:
@@ -182,6 +310,29 @@ func _test_surface_control() -> void:
 
 	_check(rd.depth == null, "surface run: run_director.depth is null")
 	_check(spawner.depth == null, "surface run: spawner.depth is null")
+
+	# M3: the windup static was reset by this Surface run's _ready — a prior Depth
+	# run must never leave 0.85 bleeding into Surface telegraphs.
+	_check(is_equal_approx(EnemyBase.depth_time_scale, 1.0),
+			"EnemyBase.depth_time_scale reset to 1.0 on the Surface run (%.3f)"
+			% EnemyBase.depth_time_scale)
+
+	# M3: the elite gate reads today's defaults on Surface (null depth).
+	_check(is_equal_approx(spawner._elite_min_elapsed(), 240.0),
+			"surface elite min-elapsed is the default 240")
+	_check(spawner._elite_max_alive() == 1, "surface elite max-alive is 1 (today's gate)")
+
+	# M3: the ambient tint never touches Surface — the environment renders exactly
+	# the authored .tres color, and that differs from the Depth V run's tint.
+	var world_env := rd._find_world_environment()
+	if world_env == null or world_env.environment == null:
+		_check(false, "surface run: found the arena WorldEnvironment")
+	else:
+		var s_ambient := world_env.environment.ambient_light_color
+		_check(s_ambient.is_equal_approx(AUTHORED_AMBIENT),
+				"surface ambient equals the authored .tres value")
+		_check(not s_ambient.is_equal_approx(_depth_v_ambient),
+				"surface ambient differs from the Depth V tint")
 
 	# M2: the HUD depth chip node still exists (it's created unconditionally in
 	# HUD._ready) but stays hidden on a Surface run.
@@ -208,14 +359,19 @@ func _test_surface_control() -> void:
 
 
 ## Instantiate a fresh Arena, front it, and free the previous scene (a spent
-## death screen, never this harness node). Mirrors recap_smoke's boot.
+## death screen or arena, never this harness node). The previous scene must be
+## fully OUT of the tree before the new one readies — the real game never has
+## two run directors alive, and the HUD's group lookups would find the stale
+## one first. Mirrors recap_smoke's boot otherwise.
 func _boot_arena() -> Node:
 	var prev := get_tree().current_scene
+	if prev != null and prev != self and is_instance_valid(prev):
+		prev.queue_free()
+		for i in 2:
+			await get_tree().physics_frame
 	var arena: Node = load("res://levels/Arena.tscn").instantiate()
 	get_tree().root.add_child(arena)
 	get_tree().current_scene = arena
-	if prev != null and prev != self and is_instance_valid(prev):
-		prev.queue_free()
 	for i in 15:
 		await get_tree().physics_frame
 	return arena

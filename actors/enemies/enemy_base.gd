@@ -12,6 +12,12 @@ enum State { CHASE, WINDUP, ATTACK, RECOVER, STUNNED, DEAD }
 ## Sites that can kill mid-loop iterate a duplicate() snapshot.
 static var alive: Array[EnemyBase] = []
 
+## Depth telegraph compression (docs/DEPTHS.md): a run-scoped scale on every
+## windup duration (THE QUICKENING runs it at 0.85). Same static lifecycle as
+## `alive` — RunDirector sets it from the Depth in _ready and resets it to 1.0
+## on Surface runs, since statics outlive the run scene. Read through windup_time().
+static var depth_time_scale := 1.0
+
 const PICKUP_SCENE := preload("res://actors/pickups/Pickup.tscn")
 const MAX_PICKUP_PIECES := 8
 ## Rare utility drops: at most one magnet in the arena at a time (checked
@@ -193,7 +199,7 @@ func _physics_process(delta: float) -> void:
 			_chase()
 		State.WINDUP:
 			_hold_still()
-			if _state_time >= data.windup_time:
+			if _state_time >= windup_time():
 				_begin_attack()
 		State.ATTACK:
 			# Lunge momentum from _begin_attack, bleeding off quickly.
@@ -323,6 +329,14 @@ func move_speed() -> float:
 	return data.move_speed * _slow_mult * _frenzy_mult
 
 
+## The telegraph windup duration, scaled by the Depth's compression
+## (docs/DEPTHS.md). Every site that would read data.windup_time — the state
+## timer, the colour/eye/fist tells, and the boss slam telegraphs — routes
+## through this so the tell and the strike stay in lockstep at depth.
+func windup_time() -> float:
+	return data.windup_time * depth_time_scale
+
+
 func _chase() -> void:
 	var to_target := _target.global_position - global_position
 	to_target.y = 0.0
@@ -354,10 +368,10 @@ func _begin_windup() -> void:
 	if _material != null:
 		_kill_color_tween()
 		_color_tween = create_tween()
-		_color_tween.tween_property(_material, "albedo_color", WINDUP_COLOR, data.windup_time)
-	_flash_eyes(data.windup_time)
+		_color_tween.tween_property(_material, "albedo_color", WINDUP_COLOR, windup_time())
+	_flash_eyes(windup_time())
 	# Cock the fist back so the incoming punch is readable.
-	_tween_fist(FIST_WINDUP, data.windup_time)
+	_tween_fist(FIST_WINDUP, windup_time())
 
 
 func _begin_attack() -> void:
