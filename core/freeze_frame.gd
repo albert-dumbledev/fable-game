@@ -44,6 +44,18 @@ static func slow_motion(time_scale: float, duration: float) -> void:
 			_end_slow.bind(_slow_token))
 
 
+## Ends an active slow_motion immediately (used by Crashing Leap: clicking
+## early to crash should snap back to full speed at once, not coast out on
+## the original timer). Bumping the token makes the pending _end_slow no-op
+## when its timer fires later; a concurrent hit_pause is left untouched, same
+## as the natural timeout path.
+static func clear_slow_motion() -> void:
+	_slow_token += 1
+	_slow_scale = 1.0
+	if not _pause_active:
+		Engine.time_scale = 1.0
+
+
 static func _end_pause() -> void:
 	_pause_active = false
 	Engine.time_scale = _slow_scale

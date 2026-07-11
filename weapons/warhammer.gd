@@ -165,9 +165,10 @@ func _wave_impact(damage: float) -> void:
 		player.add_shake(0.6)
 
 
-## Crashing Leap windup: haul the hammer overhead for the duration of the
-## flight so it is cocked and ready the instant the earthshaker touches down.
-## Called by Player._begin_leap at takeoff; airtime is LEAP_AIRTIME.
+## Crashing Leap windup: haul the hammer overhead so it is cocked and ready
+## through the ascent + aim hover, crashing down the instant the earthshaker
+## lands. Called by Player._begin_leap at takeoff with a duration comfortably
+## longer than the raise tween needs — the pose just holds until leap_slam().
 func leap_windup(airtime: float) -> void:
 	if _swing_tween != null:
 		_swing_tween.kill()
@@ -182,7 +183,7 @@ func leap_windup(airtime: float) -> void:
 ## Crashing Leap payoff: on landing, a 360° slam centered on the player — 0.8×
 ## primary damage across the WHOLE radius (full-damage circle, no dead outer
 ## ring), full shove, and a brief stagger on everything caught.
-## Called by Player._land_leap once the ballistic hop touches down.
+## Called by Player._land_leap_crash once the aimed dive touches down.
 func leap_slam() -> void:
 	if wielder == null or not is_inside_tree():
 		return

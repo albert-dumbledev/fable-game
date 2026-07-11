@@ -53,14 +53,38 @@ const SHIELD_DASH_STUN := 0.8
 ## in a cluster staggers the whole group and primes a riposte even when they
 ## sit beside the blink line rather than on it.
 const SHIELD_DASH_END_RADIUS := 2.0
-## Crashing Leap (Earthshaker Shift): a fixed ballistic hop toward facing; the
-## warhammer's landing slam is the payoff. No intangibility — being airborne
-## already dodges melee, so projectiles can still tag you. Cooldown on launch.
-## Airtime is tuned for a tall parabola (peak ≈ g·airtime²/8, about 1m) over
-## the same LEAP_REACH distance, so the hop reads as a real leap, not a hop.
-const LEAP_REACH := 7.0
-const LEAP_AIRTIME := 0.9
+## Crashing Leap (Earthshaker Shift): a two-phase skyfall — launch straight up
+## and hold a locked hover at the apex to aim (slow-mo + ground indicator),
+## then crash down in a fixed-time dive that ends in the warhammer's 360°
+## slam. Not an escape: the whole trip returns you to ground within ~1.6s.
+## The hurtbox stays live for ASCEND/AIM (projectiles can still tag the
+## hover, same anti-roof-camp rule as Levitate) — only the dive itself goes
+## intangible, mirroring the dash. Cooldown arms on launch, same as before.
+const LEAP_ASCEND_HEIGHT := 10.0
+const LEAP_ASCEND_TIME := 0.4
+const LEAP_ASCEND_SPEED := LEAP_ASCEND_HEIGHT / LEAP_ASCEND_TIME
+## Real-time aim window at the apex before the crash auto-fires. Measured via
+## Time.get_ticks_msec() (not accumulated delta) since the aim slow-mo scales
+## delta and would otherwise make this drag to ~2s of wall-clock time.
+const LEAP_AIM_TIME := 1.0
+const LEAP_AIM_SLOW_SCALE := 0.5
+## Dive is fixed-duration, not fixed-speed: every crash — near or far — lands
+## in the same beat, and speed scales with distance instead.
+const LEAP_DIVE_TIME := 0.22
+## Max targeting range from the takeoff point, on top of the arena clamp.
+const LEAP_MAX_RANGE := 14.0
+const LEAP_PITCH_BIAS_DEG := 55.0
+const LEAP_FOV_WIDEN := 10.0
 const LEAP_COOLDOWN := 5.0
+## Landing shake stacks on top of leap_slam's own 0.6 (add_shake clamps the
+## total), so the impact reads bigger than the old hop's.
+const LEAP_LANDING_SHAKE := 0.35
+## Indicator ring: dim by default, brighter/pulsing when a living enemy sits
+## inside it (the "yes, fire" confirm). Reuses the dash dust/ring color family.
+const LEAP_INDICATOR_DIM_ENERGY := 1.4
+const LEAP_INDICATOR_CONFIRM_ENERGY := 3.5
+const LEAP_INDICATOR_DIM_ALPHA := 0.45
+const LEAP_INDICATOR_CONFIRM_ALPHA := 0.75
 ## Levitate (Arcanist Shift): rise into a timed hover and rain spells. PURE
 ## timer — no mana cost, no intangibility, so spitter/caster/boss projectiles
 ## still connect; melee simply can't reach. Short duration + a long cooldown
@@ -173,8 +197,22 @@ var _shake := 0.0
 var _abilities: Dictionary[StringName, bool] = {}
 var _dash_time := 0.0
 var _dash_charges := 1
-var _leaping := false
-var _leap_airborne := false
+## Crashing Leap state machine: NONE (grounded), ASCEND (launching up), AIM
+## (locked hover, targeting), CRASH (diving to the target).
+enum LeapPhase { NONE, ASCEND, AIM, CRASH }
+var _leap_phase: LeapPhase = LeapPhase.NONE
+var _leap_apex_y := 0.0
+var _leap_takeoff := Vector3.ZERO
+## ticks_msec deadline for the AIM window's auto-fire.
+var _leap_aim_deadline_ms := 0
+## Ground-plane point the indicator is currently tracking (arena/range clamped).
+var _leap_indicator_point := Vector3.ZERO
+var _leap_dive_time := 0.0
+var _leap_dive_velocity := Vector3.ZERO
+var _leap_indicator: MeshInstance3D
+var _leap_indicator_material: StandardMaterial3D
+var _leap_pitch_tween: Tween
+var _leap_fov_tween: Tween
 var _levitating := false
 var _levitate_descending := false
 var _levitate_time := 0.0
@@ -271,8 +309,14 @@ func _physics_process(delta: float) -> void:
 	# Movement basis and block-facing math read the body's yaw, so keep it
 	# in step with the view once per tick.
 	rotation.y = _yaw
-	if not is_on_floor() and not _levitating:
+	if not is_on_floor() and not _levitating and _leap_phase == LeapPhase.NONE:
 		velocity.y -= _gravity * delta
+	# Crashing Leap owns the whole frame while airborne: movement, attacks,
+	# block and casting are all locked out (mouse look still lives in
+	# _unhandled_input, untouched here). Mirrors the dash's early-return shape.
+	if _leap_phase != LeapPhase.NONE:
+		_process_leap(delta)
+		return
 	# Fireball charges refill one at a time through the cooldown.
 	if _fireball_charges < _max_fireball_charges():
 		_cast_cooldown = maxf(0.0, _cast_cooldown - delta)
@@ -336,7 +380,7 @@ func _physics_process(delta: float) -> void:
 			if _dash_charges < _max_dash_charges():
 				_mobility_cooldown = DASH_COOLDOWN
 	if has_ability(&"dash") and Input.is_action_just_pressed("dash") \
-			and _dash_charges > 0 and _dash_time <= 0.0 and not _leaping:
+			and _dash_charges > 0 and _dash_time <= 0.0 and _leap_phase == LeapPhase.NONE:
 		_begin_mobility(direction)
 	if _dash_time > 0.0:
 		_dash_time -= delta
@@ -345,17 +389,6 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		if _dash_time <= 0.0:
 			_end_dash()
-		return
-
-	if _leaping:
-		# Fixed ballistic arc: gravity (applied at the top of this function while
-		# airborne) carries the hop down; no air control. Landing triggers the
-		# slam. No early velocity zeroing — the arc must complete.
-		move_and_slide()
-		if not is_on_floor():
-			_leap_airborne = true
-		elif _leap_airborne:
-			_land_leap()
 		return
 
 	if _levitating:
@@ -530,7 +563,7 @@ func apply_shove(impulse: Vector3) -> void:
 ## FOV applies live from the settings panel; skip mid-dash so the punch
 ## tween finishes on its own values.
 func _on_settings_changed() -> void:
-	if _dash_time <= 0.0 and not _levitating:
+	if _dash_time <= 0.0 and not _levitating and _leap_phase == LeapPhase.NONE:
 		camera.fov = Settings.fov
 
 
@@ -674,38 +707,235 @@ func _end_dash() -> void:
 	add_shake(0.12)
 
 
-## Crashing Leap: launch a fixed ballistic hop toward facing. Velocity is set
-## once and normal gravity brings the earthshaker down; landing runs the slam.
+## Crashing Leap takeoff: launch straight up toward the ASCEND apex. The
+## dive target is aimed later at the apex (see _process_leap_aim), so facing
+## at launch no longer matters — direction is ignored.
 func _begin_leap(_direction: Vector3) -> void:
-	var facing := -global_transform.basis.z
-	facing.y = 0.0
-	facing = facing.normalized()
-	_leaping = true
-	_leap_airborne = false
+	_leap_phase = LeapPhase.ASCEND
+	_leap_takeoff = global_position
+	_leap_apex_y = global_position.y + LEAP_ASCEND_HEIGHT
 	_dash_charges -= 1
 	if _mobility_cooldown <= 0.0:
 		_mobility_cooldown = LEAP_COOLDOWN * _mobility_cooldown_mult()
 	_knockback = Vector3.ZERO
-	velocity = facing * (LEAP_REACH / LEAP_AIRTIME)
-	velocity.y = _gravity * LEAP_AIRTIME * 0.5
+	velocity = Vector3.ZERO
 	AudioManager.play(&"hammer_leap")
 	add_shake(0.15)
 	# Takeoff dust ring underfoot.
 	BlastVfx.spawn(get_tree().current_scene,
 			global_position + Vector3(0.0, 0.1, 0.0), 1.4, DASH_DUST_COLOR, 0.1, 0.25)
-	# Haul the hammer overhead for the flight; it crashes down on landing.
+	# Haul the hammer overhead now; it stays cocked through ASCEND + AIM and
+	# crashes down on landing. Duration just needs to outlast the raise tween
+	# (0.6× of it) — the pose holds until leap_slam() resets it.
 	if weapon is Warhammer:
-		(weapon as Warhammer).leap_windup(LEAP_AIRTIME)
+		(weapon as Warhammer).leap_windup(LEAP_ASCEND_TIME + LEAP_AIM_TIME)
+	# Auto-pitch the camera down to the arena so the player arrives already
+	# looking where they're about to aim; slight FOV widen sells the apex.
+	_tween_leap_pitch(deg_to_rad(-LEAP_PITCH_BIAS_DEG), LEAP_ASCEND_TIME)
+	_tween_leap_fov(Settings.fov + LEAP_FOV_WIDEN, LEAP_ASCEND_TIME)
 
 
-## Touchdown: stop dead and let the warhammer crash its 360° slam.
-func _land_leap() -> void:
-	_leaping = false
-	_leap_airborne = false
-	velocity.x = 0.0
-	velocity.z = 0.0
+## Per-frame dispatch for the three leap phases. Called instead of the normal
+## movement/attack/cast handling while airborne (see the early return in
+## _physics_process).
+func _process_leap(delta: float) -> void:
+	match _leap_phase:
+		LeapPhase.ASCEND:
+			_process_leap_ascend(delta)
+		LeapPhase.AIM:
+			_process_leap_aim(delta)
+		LeapPhase.CRASH:
+			_process_leap_crash(delta)
+
+
+## Straight-up launch: move position toward the apex at a fixed speed (no
+## gravity, no air control — punchy, not floaty). Reaching the apex hands
+## off to the aim hover.
+func _process_leap_ascend(_delta: float) -> void:
+	velocity = Vector3.ZERO
+	global_position.y = move_toward(global_position.y, _leap_apex_y, LEAP_ASCEND_SPEED * _delta)
+	# global_position.y is single-precision (Vector3), _leap_apex_y is a
+	# double — move_toward's exact-arrival value truncates on assignment and
+	# can land a hair under the target, so a bare >= would never trip. A
+	# small tolerance absorbs that without affecting the punchy ascent feel.
+	if global_position.y >= _leap_apex_y - 0.01:
+		global_position.y = _leap_apex_y
+		_enter_leap_aim()
+
+
+## Apex reached: lock into a hover, start the aim-window slow-mo, and spawn
+## the ground-circle indicator. The 1s window is measured in real time via
+## ticks_msec (see LEAP_AIM_TIME's doc comment).
+func _enter_leap_aim() -> void:
+	_leap_phase = LeapPhase.AIM
+	_leap_aim_deadline_ms = Time.get_ticks_msec() + int(LEAP_AIM_TIME * 1000.0)
+	# Duration is just a safety net — _begin_leap_crash cancels this early the
+	# instant the crash triggers, so clicking early snaps back to full speed.
+	FreezeFrame.slow_motion(LEAP_AIM_SLOW_SCALE, LEAP_AIM_TIME + 0.5)
+	_spawn_leap_indicator()
+
+
+## Locked hover: hurtbox stays live (no invincibility), knockback is zeroed
+## every frame so a stray hit can't shove the hover, and the indicator tracks
+## the camera-center ray against the ground. Crashes on click (attack or a
+## Shift re-press) or when the real-time aim window elapses.
+func _process_leap_aim(_delta: float) -> void:
+	velocity = Vector3.ZERO
+	_knockback = Vector3.ZERO
+	_leap_indicator_point = _clamp_leap_target(_leap_ray_ground_point())
+	_update_leap_indicator()
+	if Input.is_action_just_pressed(&"attack") or Input.is_action_just_pressed(&"dash") \
+			or Time.get_ticks_msec() >= _leap_aim_deadline_ms:
+		_begin_leap_crash(_leap_indicator_point)
+
+
+## Camera-center ray intersected with the ground plane (y=0). Guards against
+## a near-horizontal or upward-pointing ray by pushing the point far out —
+## the arena/range clamp reins it back in immediately after.
+func _leap_ray_ground_point() -> Vector3:
+	var origin := camera.global_position
+	var dir := -camera.global_transform.basis.z
+	var t := LEAP_MAX_RANGE * 4.0
+	if dir.y < -0.05:
+		t = maxf(0.0, (0.0 - origin.y) / dir.y)
+	var point := origin + dir * t
+	point.y = 0.0
+	return point
+
+
+## Arena bounds, then a max radius from the takeoff point — generous range
+## without a free full-arena teleport, and never past the walls.
+func _clamp_leap_target(point: Vector3) -> Vector3:
+	point.x = clampf(point.x, -Spawner.ARENA_HALF, Spawner.ARENA_HALF)
+	point.z = clampf(point.z, -Spawner.ARENA_HALF, Spawner.ARENA_HALF)
+	var takeoff_flat := _leap_takeoff
+	takeoff_flat.y = 0.0
+	var offset := point - takeoff_flat
+	offset.y = 0.0
+	if offset.length() > LEAP_MAX_RANGE:
+		point = takeoff_flat + offset.normalized() * LEAP_MAX_RANGE
+	point.x = clampf(point.x, -Spawner.ARENA_HALF, Spawner.ARENA_HALF)
+	point.z = clampf(point.z, -Spawner.ARENA_HALF, Spawner.ARENA_HALF)
+	point.y = 0.0
+	return point
+
+
+## Crash trigger fired (click or timeout): cancel the aim slow-mo immediately,
+## commit to a fixed-time dive at the target, and go intangible for the drop
+## (mirrors the dash's collision-mask + monitorable trick).
+func _begin_leap_crash(target: Vector3) -> void:
+	_leap_phase = LeapPhase.CRASH
+	FreezeFrame.clear_slow_motion()
+	_hide_leap_indicator()
+	_leap_dive_time = LEAP_DIVE_TIME
+	_leap_dive_velocity = (target - global_position) / LEAP_DIVE_TIME
+	collision_mask = DASH_COLLISION_MASK
+	hurtbox.set_deferred(&"monitorable", false)
+	AudioManager.play(&"leap_dive")
+
+
+## Fixed ~0.22s dive regardless of distance — speed scales with distance, so
+## every crash hits like a meteor. Ends on the timer or on floor contact.
+func _process_leap_crash(delta: float) -> void:
+	_leap_dive_time -= delta
+	velocity = _leap_dive_velocity
+	move_and_slide()
+	if _leap_dive_time <= 0.0 or is_on_floor():
+		_land_leap_crash()
+
+
+## Touchdown: restore tangibility/camera, let the warhammer crash its 360°
+## slam (Epicenter's waves ride along unchanged), and layer the extra landing
+## juice on top of what leap_slam already does.
+func _land_leap_crash() -> void:
+	_leap_phase = LeapPhase.NONE
+	collision_mask = NORMAL_COLLISION_MASK
+	hurtbox.set_deferred(&"monitorable", true)
+	velocity = Vector3.ZERO
+	_tween_leap_pitch(0.0, 0.25)
+	_tween_leap_fov(Settings.fov, 0.25)
+	_hide_leap_indicator()
 	if weapon is Warhammer:
 		(weapon as Warhammer).leap_slam()
+	add_shake(LEAP_LANDING_SHAKE)
+	AudioManager.play(&"leap_impact")
+	BlastVfx.spawn(get_tree().current_scene,
+			global_position + Vector3(0.0, 0.1, 0.0), 2.2, DASH_DUST_COLOR, 0.1, 0.35)
+
+
+func _tween_leap_pitch(target: float, duration: float) -> void:
+	if _leap_pitch_tween != null:
+		_leap_pitch_tween.kill()
+	_leap_pitch_tween = create_tween()
+	_leap_pitch_tween.tween_property(self, "_view_pitch_bias", target, duration) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+func _tween_leap_fov(target: float, duration: float) -> void:
+	if _leap_fov_tween != null:
+		_leap_fov_tween.kill()
+	_leap_fov_tween = create_tween()
+	_leap_fov_tween.tween_property(camera, "fov", target, duration) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+## Lazily built unshaded ring mesh — reuses the dash dust/ring color family.
+## Created fresh each AIM entry and freed on crash/land (simpler than
+## reparenting a cached instance, and avoids the lazy add-to-root gotcha
+## since this only ever happens mid-gameplay, never during scene setup).
+func _spawn_leap_indicator() -> void:
+	_leap_indicator = MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.9
+	torus.outer_radius = 1.0
+	torus.rings = 6
+	torus.ring_segments = 24
+	_leap_indicator_material = StandardMaterial3D.new()
+	_leap_indicator_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_leap_indicator_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_leap_indicator_material.albedo_color = DASH_RING_COLOR
+	_leap_indicator_material.emission_enabled = true
+	_leap_indicator_material.emission = Color(DASH_RING_COLOR.r, DASH_RING_COLOR.g, DASH_RING_COLOR.b)
+	_leap_indicator_material.emission_energy_multiplier = LEAP_INDICATOR_DIM_ENERGY
+	_leap_indicator.mesh = torus
+	_leap_indicator.material_override = _leap_indicator_material
+	_leap_indicator.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	get_tree().current_scene.add_child(_leap_indicator)
+	_leap_indicator.position.y = 0.1
+
+
+## Radius = the slam's real OUTER_RADIUS × aoe_mult, so what you see is
+## exactly what dies. Brightens/pulses when a living enemy sits inside it —
+## the "yes, fire" confirm.
+func _update_leap_indicator() -> void:
+	if _leap_indicator == null:
+		return
+	var radius := Warhammer.OUTER_RADIUS * stats.get_stat(Stats.HAMMER_AOE)
+	_leap_indicator.global_position = _leap_indicator_point + Vector3(0.0, 0.1, 0.0)
+	_leap_indicator.scale = Vector3(radius, 1.0, radius)
+	var confirm := _leap_target_has_enemy(_leap_indicator_point, radius)
+	_leap_indicator_material.emission_energy_multiplier = \
+			LEAP_INDICATOR_CONFIRM_ENERGY if confirm else LEAP_INDICATOR_DIM_ENERGY
+	_leap_indicator_material.albedo_color.a = \
+			LEAP_INDICATOR_CONFIRM_ALPHA if confirm else LEAP_INDICATOR_DIM_ALPHA
+
+
+func _leap_target_has_enemy(point: Vector3, radius: float) -> bool:
+	for enemy: EnemyBase in EnemyBase.alive:
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
+			continue
+		var flat := enemy.global_position
+		flat.y = 0.0
+		if flat.distance_to(point) <= radius:
+			return true
+	return false
+
+
+func _hide_leap_indicator() -> void:
+	if _leap_indicator != null:
+		_leap_indicator.queue_free()
+		_leap_indicator = null
+		_leap_indicator_material = null
 
 
 ## Levitate: rise into a timed hover. Gravity is suspended while _levitating;

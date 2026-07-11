@@ -73,15 +73,33 @@ func _assert_dash(player: Player, label: String) -> void:
 	_check(player._mobility_cooldown > 0.0, "%s: cooldown armed" % label)
 
 
-## The leap is a ballistic hop; it clears the `_leaping` flag on touchdown, when
-## the landing slam fires, and the cooldown was armed at launch.
+## The leap is now a three-phase skyfall (ASCEND -> AIM -> CRASH -> NONE).
+## No input is driven here, so the AIM window's real-time 1s deadline is what
+## eventually fires the crash — this exercises the auto-fire path. Slow-mo
+## during AIM sets Engine.time_scale=0.5 (physics_frame still ticks, so the
+## await loop doesn't hang), but the deadline is measured via ticks_msec so
+## it still elapses in real time regardless of the scale.
 func _assert_leap(player: Player, label: String) -> void:
-	_check(player._leaping, "%s: airborne" % label)
+	_check(player._leap_phase == Player.LeapPhase.ASCEND, "%s: ascending" % label)
 	_check(player._mobility_cooldown > 0.0, "%s: cooldown armed at launch" % label)
-	var landed := false
-	for i in 120:
+	var reached_aim := false
+	for i in 60:
 		await get_tree().physics_frame
-		if not player._leaping:
+		if player._leap_phase == Player.LeapPhase.AIM:
+			reached_aim = true
+			break
+	_check(reached_aim, "%s: reached aim hover" % label)
+	var crashed := false
+	for i in 100:
+		await get_tree().physics_frame
+		if player._leap_phase == Player.LeapPhase.CRASH:
+			crashed = true
+			break
+	_check(crashed, "%s: aim auto-fired into crash" % label)
+	var landed := false
+	for i in 60:
+		await get_tree().physics_frame
+		if player._leap_phase == Player.LeapPhase.NONE:
 			landed = true
 			break
 	_check(landed, "%s: landed (slam fired)" % label)

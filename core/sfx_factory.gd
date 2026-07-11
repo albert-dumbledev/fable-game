@@ -40,6 +40,8 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"mana_empty"] = _mana_empty()
 	sounds[&"dash"] = _dash()
 	sounds[&"hammer_leap"] = _hammer_leap()
+	sounds[&"leap_dive"] = _leap_dive()
+	sounds[&"leap_impact"] = _leap_impact()
 	sounds[&"levitate"] = _levitate()
 	sounds[&"boss_horn"] = _boss_horn()
 	sounds[&"boss_death"] = _boss_death()
@@ -300,6 +302,28 @@ static func _hammer_leap() -> AudioStreamWAV:
 	var thump := _env(_tone(0.18, 130.0, 60.0, 1.0, SINE), 0.006, 1.5)
 	var whoosh := _env(_noise(0.26, 200.0, 1300.0, 0.7), 0.08, 0.9)
 	return _to_wav(_overlay(thump, whoosh, 0.0), 0.7)
+
+
+## Skyfall dive: the downward whoosh riser heard the instant the earthshaker
+## commits from the apex — filtered noise whose cutoff RISES (air rushing
+## faster as the fall accelerates) under a low tone climbing alongside it,
+## building right into the moment of impact. Short and low-fundamental; reads
+## as descent tension/falling meteor, not a laser zap.
+static func _leap_dive() -> AudioStreamWAV:
+	var rush := _env(_noise(0.4, 180.0, 1100.0, 0.9), 0.03, 0.8)
+	var body := _env(_tone(0.42, 55.0, 140.0, 0.5, SINE), 0.04, 0.9)
+	return _to_wav(_overlay(rush, body, 0.0), 0.65)
+
+
+## Skyfall impact: a very low sub-bass thump meant to layer UNDER
+## `_hammer_slam()` when the earthshaker crashes down — a short punchy pure
+## sine boom with a soft low noise chuff underneath. No metallic crack and a
+## much faster/punchier decay than the slam's long boom+rumble, so the two
+## stack as one bigger hit instead of masking each other.
+static func _leap_impact() -> AudioStreamWAV:
+	var boom := _env(_tone(0.28, 55.0, 20.0, 1.0, SINE), 0.002, 2.4)
+	var chuff := _env(_noise(0.12, 220.0, 60.0, 0.5), 0.003, 1.8)
+	return _to_wav(_overlay(boom, chuff, 0.0), 0.85)
 
 
 ## Levitate takeoff: a low sustained upward whoosh — a soft rising-cutoff noise

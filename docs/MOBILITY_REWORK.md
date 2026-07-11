@@ -43,21 +43,27 @@ implemented entirely in [player.gd](../actors/player/player.gd) (`_begin_dash` �
 
 Replaces the blink when the warhammer is mounted:
 
-- Shift launches a ballistic hop toward facing: ~7m reach, ~0.9s airtime, fixed arc
-  (velocity set once; normal gravity brings you down — works with the existing
-  `move_and_slide` flow).
-- Landing runs the hammer's `_slam()` at the impact point with **360° arc** (pass an
-  arc-half override of 180°), 0.8× primary damage across the entire radius, plus shove
-  and a brief stagger on everything caught. Camera shake + the heavy `HIT_PAUSE`.
-- **No intangibility** — being airborne already dodges melee naturally; projectiles can still
-  tag you mid-leap. That keeps the escape-tool crown on the duelist.
-- Cooldown ~5s. **Seismic-slam follow-up** (from feedback): the leap is usable during the
-  wave's settle time (skip the `_cooldown` gate for the leap specifically), so the combo
-  "wave the pack → leap into the drag-clump → 360 slam" flows as one sentence. Implosion's
-  gather makes the leap landing the payoff button.
-- Watch item: leap into 20 enemies is also 20 windups on your landing spot — if it's a
-  suicide button, add a 0.3s post-landing stagger to enemies in the core before touching
-  numbers (same lesson as the Phase 5 gather-stun guards).
+- Shift launches the earthshaker straight up (~10m in ~0.4s), then holds a locked hover at the
+  apex. Movement and attacks are disabled; mouse look stays live. During ascent, the camera
+  auto-pitches down ~55° so you arrive looking at the arena. A ground-circle indicator tracks
+  the camera-center ray hit on the ground, clamped to the arena bounds and to a max targeting
+  range of ~14m from takeoff. Indicator radius = the slam's real `OUTER_RADIUS × aoe_mult`.
+- Aim ends on click (primary attack or Shift re-press) or after 1.0s (auto-crash). The crash is
+  a straight-line dive to the target at fixed ~0.22s (speed scales with distance).
+  **Intangible during the dive only** — it's a commit. At apex/aim the hurtbox stays live so
+  projectiles can still tag you (same anti-roof-camp rule as levitate).
+- Landing runs the hammer's `leap_slam()` at the impact point: 360°, full-damage circle, shove +
+  stagger. Extra juice: ~0.35 shake (vs 0.15), bigger dust ring, a `leap_dive` whoosh riser on
+  the dive and a low `leap_impact` thump layered under `hammer_slam` on landing. Epicenter's
+  four seismic waves erupt from the new landing point unchanged.
+- **Not an invincibility button**: knockback is zeroed while locked so a stray hit can't shove
+  the hover; damage does not cancel the skill.
+- Cooldown ~5s. **Seismic-slam follow-up** still works: the leap is usable during the wave's
+  settle time, so the combo "wave the pack → leap into the drag-clump → 360 slam" flows as one
+  sentence. Implosion's gather makes the leap landing the payoff button. **Slow motion (0.5×)**
+  during the aim window sells the power moment.
+- Watch item: landing in a clump still triggers stagger from the slam's normal hit; verify the
+  combo doesn't read as a suicide button in playtest.
 
 ## M4 — Arcanist: Levitate
 
