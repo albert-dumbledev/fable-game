@@ -1,0 +1,408 @@
+# Depths — Post-Victory Ascension
+
+## Why
+
+The Revenant kill is the game's best moment and also where the reason to press
+NEXT RUN evaporates: after the first victory the only remaining goals are
+passive records. Meanwhile every run is the same run — `data/waves/default.tres`
+is fully deterministic, so by run ~10 the opening minutes are rote execution.
+
+Depths answers both with one system: each victory opens the next Depth — a
+harder overlay on the same 7:30 run — and the goal ladder becomes **3 loadouts
+× 5 Depths** of victories instead of one. This is the Hades heat / Risk of
+Rain ascension pattern: "just one more run, but deeper."
+
+**Reward philosophy (jam outcome, 2026-07-11):** a raw gold multiplier rewards
+the players who need it least — a Depth-III-capable veteran has bought out
+their tree and gold's marginal value has collapsed. So Depth rewards run in
+**three lanes that never overlap**:
+
+1. **In-run juice** — deep runs roll rarer boons and drop more Aspect relics.
+   The pitch is not "same run, spongier enemies"; it's *god-runs live down
+   there*. The build ceiling is higher at depth.
+2. **Shards (durable)** — a depth-only currency banked by *attempting* depths
+   (boss kills), spent in a new shop branch on choice-widening nodes and
+   **forging depth-themed Aspects into the drop pool**.
+3. **Badges & trim (status)** — first clears pay in visible identity: grid
+   badges, per-loadout weapon trim, death-screen titles. No gold bounties —
+   a one-time payout is spent and forgotten; a trim is re-earned every time
+   you look at your weapon.
+
+Gold stays the run-scale economy on both Surface and Depth (deep runs pay more
+via `reward_mult`, which quietly self-funds a fresh loadout's climb).
+
+Design constraints that shaped everything below:
+
+- **Content as data.** A Depth is a `.tres` file; a shard node is an
+  `UpgradeData`; a forged Aspect is a `BoonData`. Adding more later means
+  authoring resources, not touching systems.
+- **Never mutate the shared `WaveTable`.** Resources are cached; runtime edits
+  would leak across runs. All Depth effects apply at the *consumption points*
+  (Spawner, RunDirector, BoonScreen), leaving `default.tres` untouched.
+- **Additive save changes only.** Missing keys default to base behavior — the
+  same pattern as `records` (docs/RUN_RECAP.md); no migration. Shards reuse the
+  id-keyed `MetaProgression.currencies` hook built for exactly this.
+
+## What the player sees
+
+1. **First Revenant kill:** the victory screen adds a banner — *"THE WAY DOWN
+   OPENS — DEPTH I UNLOCKED"*. This is the moment the system exists.
+2. **Death screen:** a **Depth picker** row (mirroring the loadout picker,
+   hidden until the first victory): `SURFACE · I · II · III …` up to the
+   deepest cleared + 1. Selection persists in the save like the loadout.
+3. **In run:** a run-start announcement (*"DEPTH II — THE FLOOR BELOW"*) with a
+   low descend stinger, a tinted `DEPTH II` chip by the HUD timer, and a subtle
+   arena ambient tint. Boon rolls skew rarer the deeper you are; boss waves at
+   Depth III+ drop **two** Aspect relics; killing a boss at Depth N banks
+   **N shards** on the spot (HUD blip, kept on death — attempts pay).
+4. **Clearing Depth N:** victory banner *"DEPTH II CLEARED — DEPTH III
+   UNLOCKED"* plus the clear's shard bonus; the records line gains
+   **Deepest: II**; the **loadout × Depth victory grid** near the picker earns
+   a badge in that cell; the loadout's weapon gains a **trim tint** for its
+   deepest clear; the loadout banner gains a **title** ("DUELIST OF THE
+   THIRD").
+5. **The Reliquary:** a fourth shop branch (hidden until the first victory)
+   priced in shards — reroll/option-widening nodes plus **Forge** nodes that
+   permanently add a new depth-themed Aspect to the relic drop pool. Deeper
+   nodes are hidden until their Depth is cleared: the shop becomes a map of
+   the descent.
+
+## The five Depths (first-guess numbers, calibrate by feel)
+
+Numbers are authored per-Depth as absolute values (already compounded), not
+stacked deltas — each `.tres` reads standalone. "Rarity +" is seconds added to
+the boon-rarity clock (the 8B ramp reaches its late-game weights at 450s).
+
+| Depth | Name | HP | Dmg | Rewards | Rarity + | Identity twist |
+|---|---|---|---|---|---|---|
+| I | THE FLOOR BELOW | ×1.3 | ×1.2 | ×1.25 | +60s | Elites from 3:00 (base 4:00) |
+| II | THE PRESSING DARK | ×1.6 | ×1.4 | ×1.5 | +120s | Swarm counts ×1.25, alive cap +15 |
+| III | THE TWIN COURT | ×2.0 | ×1.6 | ×1.8 | +180s | Second Juggernaut at 2:38; 2 elites alive, Aspect cap 3, double boss relics |
+| IV | THE QUICKENING | ×2.5 | ×1.85 | ×2.2 | +240s | Telegraph windups ×0.85, spawn interval ×0.85, one pinned Legendary offer |
+| V | THE REVENANT'S HOUR | ×3.1 | ×2.1 | ×2.6 | +300s | The Revenant stirs at 6:45 (−45s of build time) |
+
+Notes baked into those choices:
+
+- **Twin Juggernaut is offset by ~8s** (2:38, not 2:30) so the two wall-to-wall
+  charges desync — simultaneous crossing charges in a corner would be
+  undodgeable, staggered ones are a dance. The multi-boss wave plumbing
+  (`RunDirector._alive_bosses`, relic-on-last-death) already handles this.
+- **Depth V shortens the run** rather than lengthening it: 45 fewer seconds of
+  compounding boons is a bigger handicap than it reads, and it makes the
+  deepest Depth *feel* different (the finale hunts you before you're ready)
+  instead of just bigger.
+- Elite generosity scales down the depths (earlier window, 2 alive at III+,
+  Aspect cap 3, double boss relics): Aspects are the tool the player is given
+  to answer the HP curve.
+
+## Reward economy
+
+### Lane 1 — in-run juice
+
+- **Rarity clock bonus:** `BoonScreen._roll_rarity_index(elapsed)` already
+  lerps rarity weights over `RARITY_RAMP_DURATION` (450s). The Depth's
+  `rarity_time_bonus` is added to `elapsed` at that one call site — Depth V
+  starts rolling like minute 5. Zero new systems.
+- **Pinned Legendary (Depth IV+):** once per run, the first boon screen after
+  3:00 pins one card to Legendary (`pin_legendary` on the DepthData; a
+  run-scoped flag in BoonScreen consumes it).
+- **Double boss relics (Depth III+):** `boss_relic_count = 2` — the wave-clear
+  path spawns two Aspect relics (two pick-1-of-2 moments). Spawning stays
+  paused until the last relic is claimed; the second relic is skipped when
+  `AspectPool.available()` runs dry. Weapon-unlock relics are unaffected
+  (still one, still priority).
+
+### Lane 2 — shards & the Reliquary
+
+**Income — must scale with depth, or the easiest Depth becomes the optimal
+farm:**
+
+| Event | Shards |
+|---|---|
+| Boss kill at Depth N | **N** (banked immediately, kept on death/abandon) |
+| Clearing Depth N | **+2×N** |
+
+So a full Depth I clear = 5, Depth III = 15, Depth V = 25; a failed Depth IV
+attempt that dropped two bosses still banks 8. Deeper is always better
+shards-per-hour, and a loss still moves the needle — *"I died but I'm 4 shards
+from the Twin Court forge"* is the sentence this system exists to produce.
+Implementation: `RunDirector._track_boss` death hooks call
+`MetaProgression.add_currency(&"shards", depth.level)`; the clear bonus lands
+in `finish_victory`.
+
+**The Reliquary (fourth shop branch, priced in shards):** nodes are
+`UpgradeData` with two new fields — `currency` (default `&"gold"`; the shop
+reads/charges that balance) and `requires_depth` (hidden until
+`records.best_depth >= N`, same hide-entirely pattern as `requires_ability`).
+Branch `&"reliquary"`, universal (`loadout = &""`), hidden until the first
+victory.
+
+**Node rule — option-shaped, never stat-shaped.** Raw power lives in the gold
+trees; if shards sold +damage the branch would become homework for Surface
+players and re-inflate the curves 8B just fixed. Nodes widen choice:
+
+| Node | Effect | Cost | Gate |
+|---|---|---|---|
+| Second Thoughts | +1 free boon reroll per run | 5 | — (max 2) |
+| Deep Cache | start each run with a magnet primed | 6 | — |
+| Wider Fate | Aspect relics offer 3 choices | 10 | Depth II |
+| Fourth Card | level-ups offer 4 boons | 14 | Depth III |
+| Forge nodes | add one Aspect to the drop pool (below) | 12–20 | Depth N |
+
+**Forge nodes — the capstones.** Each is a one-time purchase
+(`max_level = 1`) whose `grants_ability` sets a persistent flag (flows through
+`MetaProgression.unlocked_abilities` → `player.has_ability()`, exactly like
+weapon unlocks); the forged Aspect is a normal `BoonData` in the Aspect
+registry gated by `requires_any_ability = [that flag]`. **Forging adds the
+Aspect to the relic pool — it never auto-equips.** The pick-1-of-2 draft is
+the best moment Aspects have; what you buy is *possibility*, and it refreshes
+the ~13-Aspect pool for exactly the veterans who've seen everything.
+
+Pairing rule: the forge for a Depth's themed Aspect requires clearing that
+Depth (`requires_depth = N`) — you earn the right to buy the thing in the same
+place you earned the money. Ship scope: **one universal forge (Depth I) + two
+loadout-themed forges (Depth II–III)**, themes drawn from the Depth names
+(Twin Court → a twin/echo mechanic, etc.); the remaining slots are authored
+later — the structure is the feature, the pool can grow.
+
+One real plumbing gap (verified): `AspectPool.available()`
+(`core/aspect_pool.gd:19`) filters by owned-flag and `requires_weapon` but
+never checks `requires_any_ability` — the level-up boon screen does
+(`boon_screen.gd:152`), the Aspect pool doesn't. Forged Aspects need that
+~6-line check mirrored into the pool; without it they'd appear before being
+forged.
+
+### Lane 3 — badges, trim, titles (first clears; no gold)
+
+- **Grid badges:** each loadout × Depth cell renders cleared/uncleared from
+  `records.depth_wins` — no new save data.
+- **Weapon trim:** each weapon scene gains a small emissive trim mesh;
+  `weapon.gd` tints it on mount from that loadout's deepest clear (one color
+  per Depth, themed to the Depth names). Trim-as-tier is already established
+  visual language (the Revenant's teal TrimRing); a missing trim mesh is a
+  no-op so untrimmed test scenes stay valid.
+- **Titles:** the death-screen loadout banner gains a line — "DUELIST OF THE
+  THIRD" — from the same deepest-clear lookup. Display-only.
+
+## Architecture
+
+### New: `core/depth_data.gd` (`class_name DepthData extends Resource`)
+
+```gdscript
+@export var level := 1
+@export var display_name := ""          # "THE FLOOR BELOW"
+@export var hp_mult := 1.0              # on top of WaveTable.hp_mult_at
+@export var dmg_mult := 1.0
+@export var reward_mult := 1.0          # gold AND xp (see tuning risks)
+@export var interval_mult := 1.0        # scales spawn_interval_at output
+@export var alive_cap_bonus := 0
+@export var swarm_count_mult := 1.0     # repeating events only, not bosses
+@export var elite_min_elapsed := -1.0   # -1 = Spawner default (240s)
+@export var elite_max_alive := 1
+@export var aspect_elite_cap := 2       # RunDirector.ASPECT_ELITE_CAP override
+@export var boss_relic_count := 1       # Aspect relics per cleared boss wave
+@export var rarity_time_bonus := 0.0    # seconds added to the boon-rarity clock
+@export var pin_legendary := false      # one pinned Legendary offer per run
+@export var windup_mult := 1.0          # enemy telegraph time scale, ≥0.85
+@export var finale_time_shift := 0.0    # seconds; negative = Revenant earlier
+@export var extra_events: Array[WaveEvent] = []  # e.g. the twin Juggernaut
+@export var ambient_tint := Color.WHITE # arena mood shift, subtle
+```
+
+Plus `core/depth_registry.gd` (`depths: Array[DepthData]`, ordered) and
+`data/depths/depth_1.tres … depth_5.tres + registry.tres`.
+
+`extra_events` is the affix escape hatch: rather than affix flags with bespoke
+code, a Depth schedules additional `WaveEvent`s (the twin Juggernaut is just a
+one-shot boss event at 158s). Anything the WaveTable can express, a Depth can
+add — future Depths get identity for free.
+
+### Consumption points (no `WaveTable` mutation)
+
+- **`Spawner`** gains `var depth: DepthData` (null = Surface, all code paths
+  treat null as 1.0/default — Surface runs are byte-identical to today):
+  - `spawn_enemy` (`spawner.gd:81`): multiply `hp_mult_at/dmg_mult_at/
+    reward_mult_at` by the Depth's mults. This covers pool spawns, scheduled
+    events, *and* death-spawned Broodlings (children inherit the parent's
+    mults in `EnemyBase._spawn_death_spawns`).
+  - `tick`: `interval_mult` on the spawn timer, `alive_cap_bonus` on the cap.
+  - `_should_make_elite`: `elite_min_elapsed` override; `_elite_alive()`
+    becomes a count checked against `elite_max_alive`.
+- **`RunDirector`**:
+  - `_ready`: resolve `MetaProgression.get_selected_depth_data()`, hand it to
+    the spawner, emit the announcement.
+  - `_fire_due_events` (`run_director.gd:90`): iterate a **local combined
+    array** (`table.events + depth.extra_events`) instead of `table.events`;
+    apply `swarm_count_mult` to events with `repeat_every > 0`; apply
+    `finale_time_shift` when initializing the clock of events whose enemy is
+    tagged `&"finale"`.
+  - Boss death hooks bank `depth.level` shards; `finish_victory` adds the
+    2×N clear bonus before `_final_stats`.
+  - `_on_boss_wave_cleared`: spawn `boss_relic_count` Aspect relics (pool
+    permitting); spawn-resume waits for the last claim.
+  - `ASPECT_ELITE_CAP` reads the Depth's `aspect_elite_cap`.
+  - `_final_stats`: add `stats["depth"]`.
+- **`BoonScreen`**: `rarity_time_bonus` added to `elapsed` at the
+  `_roll_rarity_index` call site; `pin_legendary` consumed by a run-scoped
+  once-flag (first boon screen past 3:00).
+- **`EnemyBase`**: `windup_mult` lands as a run-scoped static
+  (`EnemyBase.depth_time_scale`, the same pattern as `EnemyBase.alive`),
+  applied where `data.windup_time` is read. RunDirector sets it in `_ready`
+  **and resets it on Surface runs** — statics outlive the run scene.
+- **`AspectPool.available()`**: mirror the `requires_any_ability` check from
+  `boon_screen._is_offerable` (forged-Aspect gate; see Lane 2).
+- **Arena tint**: RunDirector nudges the `WorldEnvironment` ambient toward
+  `ambient_tint` on run start. Display-only.
+
+### `MetaProgression`
+
+- `selected_depth: int` persisted beside `selected_weapon` (top-level save
+  key, default 0).
+- `get_selected_depth_data() -> DepthData`: validates like
+  `get_selected_weapon()` — clamps to `[0, min(best_depth + 1, authored max)]`,
+  returns null for Surface. An edited save can't select a locked Depth.
+- **Shards are just `currencies[&"shards"]`** — the id-keyed hook needs no
+  changes; the balance persists with the existing save write.
+- `records` gains (additive, String keys):
+  - `best_depth` — deepest Depth cleared (int).
+  - `depth_wins` — `{ "1": { "fastest": secs, "loadouts": ["sword_and_shield", …] } }`
+    — powers the grid, badges, trim, titles, and per-Depth fastest.
+- `record_run()`: on `victory` with `stats.depth > 0`, update both; append
+  `"best_depth"` / `"depth_fastest_N"` to the returned fresh-records list so
+  the death screen's existing NEW BEST badge machinery just works. The global
+  `fastest_victory` / `victories` records stay depth-agnostic (a deep win is
+  still a win).
+
+### `UpgradeData` (two additive fields)
+
+- `currency: StringName = &"gold"` — the shop charges/reads this balance and
+  shows it beside the branch header when it isn't gold.
+- `requires_depth: int = 0` — hidden from the shop until
+  `records.best_depth >= N` (hide-entirely, same as `requires_ability`).
+
+Reliquary nodes and forge nodes are plain registry entries with these fields
+set; the existing tree renderer needs only the currency label and the new
+hide check.
+
+### UI
+
+- **`ui/death_screen.gd`** (all code-built, no scene edits — house pattern):
+  - Depth picker row below the loadout picker, hidden until
+    `records.victories ≥ 1`. Buttons `SURFACE, I … deepest+1`; locked Depths
+    beyond that are not shown (no tease-noise).
+  - Victory banner variants: first win (*"THE WAY DOWN OPENS…"*), Depth clear
+    (*"DEPTH N CLEARED — DEPTH N+1 UNLOCKED"*).
+  - Records line gains `Deepest: N`.
+  - Loadout × Depth badge grid, tinted with `LOADOUT_THEMES`.
+  - Reliquary branch column (shard balance in header) + title line under the
+    loadout banner.
+- **HUD**: `DEPTH N` chip near the run timer; shard blip on boss kill (reuses
+  the pickup-counter pattern; no new banner system).
+- **SFX**: one new `SfxFactory` cue — a low descend stinger on depth-run start
+  (low fundamental, per the synth-pitch rule; differentiates by timbre from
+  the boss horn). Shard pickup reuses an existing low blip at reduced rate.
+
+## Milestones
+
+Each milestone lands runtime-verified headless (house rule), Surface runs
+regression-checked at every step.
+
+- **M1 — Core plumbing.** `DepthData`/`DepthRegistry` + 5 authored `.tres`;
+  `MetaProgression` selection/validation/records; Spawner + RunDirector consume
+  the numeric fields; `stats["depth"]`; unlock-on-victory. `test/DepthSmoke.tscn`.
+- **M2 — Surfacing.** Death-screen picker + victory banners + records line +
+  HUD chip + announcement + descend stinger. The system is now *felt*.
+- **M3 — Identity twists & juice.** `extra_events` (twin Juggernaut),
+  `windup_mult` static, `finale_time_shift`, elite overrides, ambient tint,
+  **rarity clock bonus, pinned Legendary, double boss relics**. Depths gain
+  their signatures and their generosity in the same pass — they must be tuned
+  together.
+- **M4 — Status lane.** Loadout × Depth badge grid, per-Depth fastest with NEW
+  BEST integration, weapon trim, titles.
+- **M5 — Shards & the Reliquary.** Shard banking (boss kills + clear bonus),
+  `UpgradeData.currency`/`requires_depth`, the Reliquary branch (4 QoL nodes),
+  the `AspectPool` gate fix, and 3 forge nodes + their forged `BoonData`
+  Aspects (1 universal, 2 loadout-themed).
+- **M6 — Balance pass.** Play each Depth per loadout; tune the difficulty
+  table *against* the juice lane (they move together — see risks); sweep docs
+  + the PLAN.md §5 row.
+
+## Verification
+
+`test/depth_smoke.gd` (pattern of `recap_smoke.gd`): fabricate a save with
+`victories = 1`, select Depth 1 → boot Arena headless → assert a spawned
+enemy's max HP equals `data.max_health × hp_mult_at(t) × depth.hp_mult` and its
+reward mult carries the Depth factor → kill a boss → assert
+`currencies.shards` grew by the Depth level → fake the finale kill → assert
+`records.best_depth == 1`, `depth_wins["1"]` recorded with the loadout, the
+clear bonus banked, and `new_records` carries `"best_depth"` → grant a forge
+flag → assert the forged Aspect now appears in `AspectPool.available()` (and
+did not before) → assert a `requires_depth = 3` node stays hidden → reload
+save, assert `selected_depth` round-trips and a locked selection clamps. Then
+a Surface control run asserts today's numbers exactly (null-depth regression).
+Existing harnesses (`RecapSmoke`, `EnemySmoke`, `AspectSmoke`) must still pass.
+Run: `--headless res://test/DepthSmoke.tscn --quit-after 900`.
+
+## Tuning risks / levers
+
+- **Difficulty and juice must be tuned as one dial.** The rarity bonus, extra
+  relics, and XP-side of `reward_mult` all push the player's power *up* at
+  depth; the HP/Dmg table assumes that lift. If Depth wins feel free, the
+  order of levers is: split `reward_mult` into `gold_mult`/`xp_mult` and hold
+  XP flat → trim the rarity bonus → only then raise enemy HP. Never nerf the
+  juice lane first — it's the pitch.
+- **Shard faucet:** boss-kill income means quit-after-boss farming banks
+  shards without finishing runs. That's identical to dying (attempts pay by
+  design), but if shard velocity outruns the node prices, raise forge prices
+  before touching income — early QoL nodes being reachable fast is what makes
+  the branch feel alive.
+- **Option-shaped creep:** Fourth Card and Wider Fate widen RNG, which is
+  power. If they prove must-buys that trivialize Surface builds, gate them one
+  Depth deeper rather than nerfing — scarcity is the lever, not strength.
+- **Windup compression vs the Duelist:** faster telegraphs shrink parry setup
+  time and hit the parry-riposte loadout hardest. Floor `windup_mult` at 0.85
+  and exempt nothing initially; if Depth IV playtests as Duelist-hostile,
+  exempt boss signature attacks before raising the floor.
+- **Depth V's early finale** is a bigger nerf than it reads (compounding boon
+  loss). If it's a wall, bump Depth V's rarity bonus or shard payout before
+  moving the time back — the identity is worth protecting.
+- **Depth I difficulty jump:** a first-time winner has a proven build; ×1.3 HP
+  is deliberately gentle so Depth I converts in the same session. If first-win
+  players bounce off Depth I, soften Depth I only — the ladder's foot matters
+  more than its head.
+
+## Files touched
+
+| File | Change |
+|---|---|
+| `core/depth_data.gd`, `core/depth_registry.gd` | **new** — Depth as data |
+| `data/depths/*.tres` (6) | **new** — 5 Depths + registry |
+| `autoload/meta_progression.gd` | `selected_depth`, validation, records keys, `record_run` depth handling |
+| `core/upgrade_data.gd` | `currency` + `requires_depth` fields |
+| `core/aspect_pool.gd` | `requires_any_ability` check (forged-Aspect gate) |
+| `data/upgrades/*.tres` | **new** — Reliquary QoL + forge nodes |
+| `data/boons/aspects/*.tres` | **new** — 3 forged Aspects (flag-gated) |
+| `systems/spawner.gd` | `depth` field folded into mults/caps/elite gate |
+| `systems/run_director.gd` | combined event array, swarm/finale/aspect-cap overrides, shard banking, relic count, stats, tint, announcement |
+| `actors/enemies/enemy_base.gd` | `depth_time_scale` static on windup reads |
+| `ui/boon_screen.gd` | rarity clock bonus + pinned Legendary |
+| `ui/death_screen.gd` | picker, banners, records line, badge grid, Reliquary branch, titles |
+| `ui/HUD` script | depth chip + shard blip |
+| `weapons/weapon.gd` + weapon scenes | trim mesh + deepest-clear tint |
+| `core/sfx_factory.gd` | descend stinger |
+| `test/depth_smoke.gd` + `DepthSmoke.tscn` | **new** — headless harness |
+| `docs/DEPTHS.md`, `PLAN.md` | this doc; §5 row at ship time |
+
+## Non-goals (this pass)
+
+- **Endless / infinite Depth scaling** — authored Depths only; if the ladder
+  proves out, Depth 6+ is a data add, and a formula-generated tail can come
+  later without touching this design.
+- **The full forge set** — 3 forged Aspects ship; the remaining Depth-themed
+  slots (and any per-loadout completions) are follow-up authoring, not
+  systems work.
+- **A prestige reset layer** — shards are a *depth-only earner*, not a reset
+  mechanic; a true prestige loop (reset gold/upgrades for global multipliers)
+  remains parked, and nothing here blocks it.
+- **Run mutators / Omens, feats/achievement unlocks** — complementary systems
+  from the loop analysis, not part of this.
