@@ -19,7 +19,14 @@
 [ext_resource type="Resource" path="res://data/upgrades/staff_attack_speed.tres" id="18_sas"]
 [ext_resource type="Resource" path="res://data/upgrades/staff_health.tres" id="19_sh"]
 [ext_resource type="Resource" path="res://data/upgrades/staff_move_speed.tres" id="20_sms"]
+[ext_resource type="Resource" path="res://data/upgrades/second_thoughts.tres" id="21_st"]
+[ext_resource type="Resource" path="res://data/upgrades/deep_cache.tres" id="22_dc"]
+[ext_resource type="Resource" path="res://data/upgrades/wider_fate.tres" id="23_wf"]
+[ext_resource type="Resource" path="res://data/upgrades/fourth_card.tres" id="24_fc"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_floor_below.tres" id="25_ffb"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_pressing_dark.tres" id="26_fpd"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_twin_court.tres" id="27_ftc"]
 
 [resource]
 script = ExtResource("1_script")
-upgrades = Array[ExtResource("2_type")]([ExtResource("3_dmg"), ExtResource("4_hp"), ExtResource("5_as"), ExtResource("6_ms"), ExtResource("8_fn"), ExtResource("9_cw"), ExtResource("10_hw"), ExtResource("11_at"), ExtResource("12_oc"), ExtResource("13_hd"), ExtResource("14_has"), ExtResource("15_hh"), ExtResource("16_hms"), ExtResource("17_sd"), ExtResource("18_sas"), ExtResource("19_sh"), ExtResource("20_sms")])
+upgrades = Array[ExtResource("2_type")]([ExtResource("3_dmg"), ExtResource("4_hp"), ExtResource("5_as"), ExtResource("6_ms"), ExtResource("8_fn"), ExtResource("9_cw"), ExtResource("10_hw"), ExtResource("11_at"), ExtResource("12_oc"), ExtResource("13_hd"), ExtResource("14_has"), ExtResource("15_hh"), ExtResource("16_hms"), ExtResource("17_sd"), ExtResource("18_sas"), ExtResource("19_sh"), ExtResource("20_sms"), ExtResource("21_st"), ExtResource("22_dc"), ExtResource("23_wf"), ExtResource("24_fc"), ExtResource("25_ffb"), ExtResource("26_fpd"), ExtResource("27_ftc")])

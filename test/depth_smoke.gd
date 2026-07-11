@@ -36,6 +36,10 @@ func _run() -> void:
 	await _test_depth_v_run()
 	await _test_surface_control()
 	await _test_status_lane()
+	await _test_shard_banking()
+	await _test_deep_cache()
+	await _test_surface_shard_control()
+	await _test_reliquary_shop()
 
 	_restore_save()
 	print("SMOKE OK — depth" if _ok else "SMOKE FAIL — depth")
@@ -484,6 +488,244 @@ func _test_weapon_trim() -> void:
 	_check(trim2 != null and not trim2.visible,
 			"weapon trim: hidden once records no longer credit this loadout with a clear")
 	weapon2.free()
+
+
+## M5 (docs/DEPTHS.md Lane 2): shard banking + the forge gate + the run-scoped QoL
+## reads, all off one Depth I arena boot. Boss kills bank depth.level immediately
+## and persist; the finale clear adds +2×level; forging admits the Aspect into the
+## pool; Second Thoughts/Fourth Card/Wider Fate read their upgrade levels.
+func _test_shard_banking() -> void:
+	MetaProgression.unlocked_abilities = []
+	MetaProgression.selected_weapon = &"sword_and_shield"
+	MetaProgression.currencies.clear()
+	MetaProgression.upgrade_levels.clear()
+	MetaProgression.records = {"victories": 1}
+	MetaProgression.selected_depth = 1
+
+	var arena := await _boot_arena()
+	if arena == null:
+		return
+	var rd := get_tree().get_first_node_in_group(&"run_director") as RunDirector
+	if rd == null or rd.depth == null:
+		_check(false, "shard banking: Depth I run booted with a resolved depth")
+		return
+
+	# --- A boss kill banks depth.level shards on the spot, saved immediately ---
+	# Two sentinels in _alive_bosses so the fake death doesn't also "clear the wave"
+	# (which would drop relics); one is erased, one keeps the wave alive.
+	rd._alive_bosses.clear()
+	rd._alive_bosses.append(null)
+	rd._alive_bosses.append(null)
+	var before := MetaProgression.get_currency(&"shards")
+	rd._on_boss_died(null)
+	var banked := MetaProgression.get_currency(&"shards")
+	_check(banked == before + rd.depth.level,
+			"boss kill banked exactly depth.level (%d) shards (%d -> %d)"
+			% [rd.depth.level, before, banked])
+
+	# Persisted: _bank_boss_shards saved immediately, so a disk reload keeps them.
+	MetaProgression.load_game()
+	_check(MetaProgression.get_currency(&"shards") == banked,
+			"banked shards persisted across a save reload (%d)" % banked)
+
+	# --- Forge gate: the forged Aspect stays out until its forge flag is owned ---
+	_test_forge_gate()
+	# --- Run-scoped QoL reads (Second Thoughts / Fourth Card / Wider Fate) ---
+	await _test_qol_reads(arena)
+
+	# --- Clear bonus: finish_victory adds +2×depth.level on top (tears the run down
+	# last, since end_run swaps the scene). ---
+	rd.elapsed = 300.0
+	var pre_clear := MetaProgression.get_currency(&"shards")
+	rd.finish_victory()
+	_check(MetaProgression.get_currency(&"shards") == pre_clear + 2 * rd.depth.level,
+			"finish_victory banked the +2×N clear bonus (%d -> %d)"
+			% [pre_clear, MetaProgression.get_currency(&"shards")])
+	# Let end_run's deferred scene swap settle into a DeathScreen before the next
+	# test boots, so a stale run_director never lingers in the group (mirrors the
+	# frame waits _test_depth_run does after its own finish_victory).
+	for i in 10:
+		await get_tree().physics_frame
+
+
+## Forge gate (docs/DEPTHS.md Lane 2): a forged Aspect is absent from
+## AspectPool.available until its forge flag is owned (player.has_ability the
+## source of truth, exactly as boon_screen._is_offerable), then present; the two
+## unforged Aspects stay out throughout.
+func _test_forge_gate() -> void:
+	var player := get_tree().get_first_node_in_group(&"player") as Player
+	if player == null:
+		_check(false, "forge gate: player present")
+		return
+	_check(_find_aspect(&"floor_below") != null, "forge gate: THE FLOOR BELOW is registered")
+	_check(not _pool_has(player, &"floor_below"),
+			"forged Aspect out of the pool before its forge flag is owned")
+	_check(not _pool_has(player, &"pressing_dark"),
+			"pressing_dark out before forging")
+	_check(not _pool_has(player, &"twin_court"),
+			"twin_court out before forging")
+	# Grant the forge flag exactly as a purchased forge does at spawn.
+	player.grant_ability(&"forge_floor_below")
+	_check(_pool_has(player, &"floor_below"),
+			"forged Aspect enters the pool once its forge flag is owned")
+	_check(not _pool_has(player, &"pressing_dark"),
+			"pressing_dark still out — only floor_below was forged")
+	_check(not _pool_has(player, &"twin_court"),
+			"twin_court still out — only floor_below was forged")
+
+
+## Structural QoL reads (docs/DEPTHS.md Lane 2): the offer/roll counts and the
+## free-reroll gating read their upgrade levels. Instances live under the running
+## arena so their @onready nodes and group lookups resolve.
+func _test_qol_reads(arena: Node) -> void:
+	MetaProgression.upgrade_levels.clear()
+
+	var boon_screen := load("res://ui/BoonScreen.tscn").instantiate() as BoonScreen
+	arena.add_child(boon_screen)
+	await get_tree().physics_frame  # let _ready load the boon registry
+	boon_screen._current_level = 1
+
+	# Fourth Card: offer count reads the level.
+	_check(boon_screen._offer_count() == 3, "Fourth Card unowned -> 3 boon offers")
+	MetaProgression.upgrade_levels[&"fourth_card"] = 1
+	_check(boon_screen._offer_count() == 4, "Fourth Card owned -> 4 boon offers")
+
+	# Second Thoughts: the first reroll is free and does NOT advance the gold doubling.
+	MetaProgression.upgrade_levels[&"second_thoughts"] = 1
+	var cost_before := boon_screen._reroll_cost
+	boon_screen._on_reroll()
+	_check(boon_screen._free_rerolls_used == 1,
+			"Second Thoughts: first reroll spent a free reroll")
+	_check(boon_screen._reroll_cost == cost_before,
+			"Second Thoughts: free reroll left the gold doubling untouched (%d)"
+			% boon_screen._reroll_cost)
+	boon_screen.queue_free()
+
+	# Wider Fate: the aspect roll count reads the level.
+	var aspect_screen := load("res://ui/AspectScreen.tscn").instantiate() as AspectScreen
+	arena.add_child(aspect_screen)
+	_check(aspect_screen._choice_count() == 2, "Wider Fate unowned -> 2 aspect choices")
+	MetaProgression.upgrade_levels[&"wider_fate"] = 1
+	_check(aspect_screen._choice_count() == 3, "Wider Fate owned -> 3 aspect choices")
+	aspect_screen.queue_free()
+
+
+## Deep Cache (docs/DEPTHS.md Lane 2): owning the node primes a magnet at run
+## start. Observable as a fresh entry in Pickup.magnets after the boot (the prime
+## is deferred in RunDirector._ready and lands within the boot's frame waits;
+## MAGNET_DELAY has not elapsed, so it is still sitting in the pool).
+func _test_deep_cache() -> void:
+	MetaProgression.currencies.clear()
+	MetaProgression.upgrade_levels.clear()
+	MetaProgression.upgrade_levels[&"deep_cache"] = 1
+	MetaProgression.records = {"victories": 1}
+	MetaProgression.selected_depth = 1
+
+	var arena := await _boot_arena()
+	if arena == null:
+		return
+	_check(Pickup.magnets.size() >= 1,
+			"Deep Cache: a magnet is primed at run start (magnets = %d)" % Pickup.magnets.size())
+
+
+## Surface control (docs/DEPTHS.md Lane 2): a boss kill on a Surface run (null
+## depth) banks nothing — attempts pay only at depth.
+func _test_surface_shard_control() -> void:
+	MetaProgression.currencies.clear()
+	MetaProgression.upgrade_levels.clear()
+	MetaProgression.selected_depth = 0
+	MetaProgression.records = {"victories": 1}
+
+	var arena := await _boot_arena()
+	if arena == null:
+		return
+	var rd := get_tree().get_first_node_in_group(&"run_director") as RunDirector
+	if rd == null:
+		_check(false, "surface shard control: run_director present")
+		return
+	_check(rd.depth == null, "surface shard control: depth is null")
+	rd._alive_bosses.clear()
+	rd._alive_bosses.append(null)
+	rd._alive_bosses.append(null)
+	var before := MetaProgression.get_currency(&"shards")
+	rd._on_boss_died(null)
+	_check(MetaProgression.get_currency(&"shards") == before,
+			"surface boss kill banks 0 shards (%d unchanged)" % before)
+
+
+## Reliquary shop (docs/DEPTHS.md Lane 2): at best_depth 1 the shop renders the
+## requires_depth 1 forge node but hides the requires_depth 3 node; buying a shard
+## node deducts shards and leaves gold untouched.
+func _test_reliquary_shop() -> void:
+	MetaProgression.selected_weapon = &"sword_and_shield"
+	MetaProgression.unlocked_abilities = []
+	MetaProgression.upgrade_levels.clear()
+	MetaProgression.records = {"victories": 1, "best_depth": 1}
+	MetaProgression.currencies.clear()
+	MetaProgression.currencies[&"gold"] = 100
+	MetaProgression.currencies[&"shards"] = 20
+	GameManager.last_run_stats = {}
+
+	var screen := await _boot_death_screen()
+	if screen == null:
+		return
+
+	# Rendered tree: requires_depth 1 shows, requires_depth 3 is hidden.
+	var branches := screen.get_node_or_null(^"Scroll/Center/Box/Branches")
+	var labels: Array[String] = []
+	if branches != null:
+		labels = _collect_label_texts(branches)
+	_check(_texts_contain(labels, "Forge: The Floor Below"),
+			"reliquary shop: the requires_depth 1 forge node renders at best_depth 1")
+	_check(not _texts_contain(labels, "Fourth Card"),
+			"reliquary shop: the requires_depth 3 node (Fourth Card) is hidden at best_depth 1")
+
+	# Buying a shard node deducts shards, leaves gold untouched.
+	var forge := _find_upgrade(&"forge_floor_below")
+	_check(forge != null, "reliquary shop: forge_floor_below is in the registry")
+	if forge != null:
+		var gold_before := MetaProgression.get_currency(&"gold")
+		var shards_before := MetaProgression.get_currency(&"shards")
+		screen._on_buy(forge)
+		_check(MetaProgression.get_currency(&"shards") == shards_before - forge.cost_at(0),
+				"reliquary buy deducted %d shards (%d -> %d)"
+				% [forge.cost_at(0), shards_before, MetaProgression.get_currency(&"shards")])
+		_check(MetaProgression.get_currency(&"gold") == gold_before,
+				"reliquary buy left gold untouched (%d)" % gold_before)
+
+
+## An Aspect from the registry by id (or null) — the forge-gate lookups.
+func _find_aspect(id: StringName) -> BoonData:
+	for aspect: BoonData in AspectPool.ASPECT_REGISTRY.boons:
+		if aspect != null and aspect.id == id:
+			return aspect
+	return null
+
+
+## Whether AspectPool.available(player) currently offers the Aspect with `id`.
+func _pool_has(player: Player, id: StringName) -> bool:
+	for aspect: BoonData in AspectPool.available(player):
+		if aspect.id == id:
+			return true
+	return false
+
+
+## An UpgradeData from the registry by id (or null) — the reliquary buy lookup.
+func _find_upgrade(id: StringName) -> UpgradeData:
+	if MetaProgression.registry == null:
+		return null
+	for upgrade: UpgradeData in MetaProgression.registry.upgrades:
+		if upgrade.id == id:
+			return upgrade
+	return null
+
+
+## True if any string in `texts` contains `needle` — the rendered-tree checks.
+func _texts_contain(texts: Array[String], needle: String) -> bool:
+	for text: String in texts:
+		if text.find(needle) != -1:
+			return true
+	return false
 
 
 ## Instantiate a fresh DeathScreen directly (not via a run's victory/death

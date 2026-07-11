@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="UpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/upgrade_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"second_thoughts"
+display_name = "Second Thoughts"
+description = "The first boon reroll each run costs nothing. A second level buys a second free reroll."
+base_cost = 5
+cost_growth = 1.6
+max_level = 2
+branch = &"reliquary"
+currency = &"shards"

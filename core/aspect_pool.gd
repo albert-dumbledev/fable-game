@@ -30,6 +30,20 @@ static func available(player: Player) -> Array[BoonData]:
 					or player.weapon.weapon_data == null \
 					or player.weapon.weapon_data.id != aspect.requires_weapon:
 				continue
+		# Forged-Aspect gate (docs/DEPTHS.md Lane 2): the same requires_any_ability
+		# check boon_screen._is_offerable runs — a Depth-forged Aspect stays out of
+		# the pool until its forge flag is owned (player.has_ability is the source of
+		# truth for both tiers). Mirrors the null-player exclusion used for
+		# requires_weapon above: with no player, a flag-gated Aspect can't qualify.
+		if not aspect.requires_any_ability.is_empty():
+			var owns_one := false
+			if player != null:
+				for ability: StringName in aspect.requires_any_ability:
+					if player.has_ability(ability):
+						owns_one = true
+						break
+			if not owns_one:
+				continue
 		pool.append(aspect)
 	return pool
 

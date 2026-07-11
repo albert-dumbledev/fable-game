@@ -59,6 +59,17 @@ const WALL_IMPACT_MIN_SPEED := 5.0
 ## this contact radius, dealing each the Bone Breaker treatment once per shove.
 const MASS_DRIVER_CONTACT := 1.1
 const MASS_DRIVER_STAGGER := 0.3
+## THE FLOOR BELOW (Depth I forged Aspect, docs/DEPTHS.md Lane 2): a kill has this
+## chance to erupt a short ground tremor that slows and briefly staggers enemies
+## within its radius. Chance-gated and slow-led — the stagger is a one-shot beat
+## that skips the already-stunned, never a lock, so chained kills can't perma-freeze
+## a pack (the Fault Line lesson). Reuses apply_slow/stun; no new system.
+const FLOOR_BELOW_CHANCE := 0.15
+const FLOOR_BELOW_RADIUS := 4.0
+const FLOOR_BELOW_SLOW_MULT := 0.55
+const FLOOR_BELOW_SLOW_TIME := 1.5
+const FLOOR_BELOW_STAGGER := 0.25
+const FLOOR_BELOW_COLOR := Color(0.5, 0.4, 0.65, 0.4)
 
 @onready var health: HealthComponent = $Health
 @onready var hurtbox: HurtboxComponent = $Hurtbox
@@ -507,6 +518,9 @@ func _on_died() -> void:
 	var player := get_tree().get_first_node_in_group(&"player") as Player
 	if player != null and player.has_ability(&"prospectors_idol"):
 		_spawn_single_pickup(&"gold", 1, 0.0)
+	# THE FLOOR BELOW (Depth I forged Aspect): a chance-gated tremor on kill.
+	if player != null and player.has_ability(&"floor_below") and randf() < FLOOR_BELOW_CHANCE:
+		_floor_below_tremor()
 	# Elite death (Aspect Drops M2): the drop decision now lives in RunDirector —
 	# the first elites per run drop an Aspect relic, later elites fall back to the
 	# M1 magnet-or-health bounty. RunDirector owns that split (it counts kills and
@@ -521,6 +535,29 @@ func _on_died() -> void:
 	var tween := create_tween()
 	tween.tween_property(self, "scale", Vector3.ONE * 0.05, 0.22)
 	tween.tween_callback(queue_free)
+
+
+## THE FLOOR BELOW tremor (Depth I forged Aspect): bog down and briefly stagger
+## every living enemy within FLOOR_BELOW_RADIUS of the corpse. Iterates a snapshot
+## (self is already erased from `alive` by _on_died before this runs, but the
+## guard is belt-and-braces); the slow is reapplied cleanly and the stagger skips
+## the already-stunned so it never compounds into a lock.
+func _floor_below_tremor() -> void:
+	for other: EnemyBase in alive.duplicate():
+		if other == self or not is_instance_valid(other) or not other.is_inside_tree():
+			continue
+		if other.state == State.DEAD:
+			continue
+		var offset := other.global_position - global_position
+		offset.y = 0.0
+		if offset.length() > FLOOR_BELOW_RADIUS:
+			continue
+		other.apply_slow(FLOOR_BELOW_SLOW_MULT, FLOOR_BELOW_SLOW_TIME)
+		if other.state != State.STUNNED:
+			other.stun(FLOOR_BELOW_STAGGER)
+	BlastVfx.spawn(get_tree().current_scene,
+			global_position + Vector3(0.0, 0.1, 0.0), FLOOR_BELOW_RADIUS,
+			FLOOR_BELOW_COLOR, 0.1, 0.3)
 
 
 ## Broodmother-style death burst (EnemyData.death_spawns): instantiate the

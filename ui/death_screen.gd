@@ -7,6 +7,9 @@ const BRANCHES: Array[Dictionary] = [
 	{"id": &"might", "title": "MIGHT", "color": Color(0.95, 0.5, 0.4)},
 	{"id": &"vigor", "title": "VIGOR", "color": Color(0.55, 0.85, 0.5)},
 	{"id": &"arcana", "title": "ARCANA", "color": Color(0.6, 0.7, 1.0)},
+	# The Reliquary (docs/DEPTHS.md Lane 2): a shard-priced branch, hidden until
+	# the first victory (gated in _is_hidden), themed to the shard-violet.
+	{"id": &"reliquary", "title": "RELIQUARY", "color": Color(0.74, 0.62, 0.96)},
 ]
 
 ## Signature colour + identity name per loadout, so the shop visibly re-themes
@@ -70,7 +73,7 @@ func _refresh() -> void:
 		return
 	var placed := 0
 	for branch: Dictionary in BRANCHES:
-		var column := _make_column(branch, gold)
+		var column := _make_column(branch)
 		var count := int(column.get_meta(&"card_count", 0))
 		placed += count
 		if count == 0:
@@ -500,12 +503,12 @@ func _loadout_title() -> String:
 	return "%s OF THE %s" % [identity, DepthData.ordinal_word(deepest)]
 
 
-func _make_column(branch: Dictionary, gold: int) -> Control:
+func _make_column(branch: Dictionary) -> Control:
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override(&"separation", 4)
 	var header := Label.new()
-	header.text = String(branch["title"])
+	header.text = _branch_header(branch)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header.add_theme_font_size_override(&"font_size", 20)
 	header.add_theme_color_override(&"font_color", branch["color"])
@@ -523,13 +526,40 @@ func _make_column(branch: Dictionary, gold: int) -> Control:
 			arrow.add_theme_font_size_override(&"font_size", 11)
 			arrow.add_theme_color_override(&"font_color", Color(0.45, 0.45, 0.5))
 			column.add_child(arrow)
-		column.add_child(_make_card(upgrade, gold))
+		column.add_child(_make_card(upgrade))
 		cards += 1
 	column.set_meta(&"card_count", cards)
 	return column
 
 
-func _make_card(upgrade: UpgradeData, gold: int) -> Control:
+## A branch header (docs/DEPTHS.md Lane 2): the plain title for gold branches, or
+## "TITLE — N ◆" for a branch priced in a non-gold currency (the Reliquary), so
+## the shard balance reads right where you spend it — echoing the top gold label's
+## always-visible-balance idea, per-column since only this branch is non-gold.
+func _branch_header(branch: Dictionary) -> String:
+	var title := String(branch["title"])
+	var currency := _branch_currency(branch["id"])
+	if currency == &"gold":
+		return title
+	return "%s — %d %s" % [title, MetaProgression.get_currency(currency), _currency_label(currency)]
+
+
+## The (single) non-gold currency a branch charges in, or &"gold" if all its nodes
+## are gold — read from the registry so the header follows the data, not a hardcode.
+func _branch_currency(branch_id: StringName) -> StringName:
+	for upgrade: UpgradeData in MetaProgression.registry.upgrades:
+		if upgrade.branch == branch_id and upgrade.currency != &"gold":
+			return upgrade.currency
+	return &"gold"
+
+
+## Short currency tag for buy buttons + headers: "g" for gold, "◆" for shards
+## (the same diamond the recap uses for Aspects — a glyph the shipped font has).
+func _currency_label(currency: StringName) -> String:
+	return "g" if currency == &"gold" else "◆"
+
+
+func _make_card(upgrade: UpgradeData) -> Control:
 	var level := MetaProgression.get_upgrade_level(upgrade.id)
 	if not _is_locked(upgrade) and upgrade.max_level > 0 and level >= upgrade.max_level:
 		return _make_maxed_card(upgrade)
@@ -571,9 +601,12 @@ func _make_card(upgrade: UpgradeData, gold: int) -> Control:
 		box.add_child(lock)
 	else:
 		var cost := upgrade.cost_at(level)
+		# Affordability greys against this node's own currency balance (docs/DEPTHS.md
+		# Lane 2) — shards for the Reliquary, gold for everything else.
+		var balance := MetaProgression.get_currency(upgrade.currency)
 		var buy := Button.new()
-		buy.text = "Buy — %d g" % cost
-		buy.disabled = gold < cost
+		buy.text = "Buy — %d %s" % [cost, _currency_label(upgrade.currency)]
+		buy.disabled = balance < cost
 		buy.pressed.connect(_on_buy.bind(upgrade))
 		box.add_child(buy)
 	margin.add_child(box)
@@ -613,9 +646,18 @@ func _is_locked(upgrade: UpgradeData) -> bool:
 
 
 ## Hidden until its gating ability is owned — the whole card, not just locked
-## (this is how weapon subtrees appear only after the weapon's boss drop).
+## (this is how weapon subtrees appear only after the weapon's boss drop). The
+## Reliquary adds two Depth gates (docs/DEPTHS.md Lane 2): the whole branch stays
+## hidden until the first victory (same gate as the depth picker), and any node
+## whose requires_depth outruns the deepest clear stays hidden until that Depth
+## falls — so the shop reads as a map of the descent.
 func _is_hidden(upgrade: UpgradeData) -> bool:
 	if upgrade.loadout != &"" and upgrade.loadout != MetaProgression.selected_weapon:
+		return true
+	if upgrade.branch == &"reliquary" \
+			and int(MetaProgression.records.get("victories", 0)) < 1:
+		return true
+	if upgrade.requires_depth > int(MetaProgression.records.get("best_depth", 0)):
 		return true
 	return upgrade.requires_ability != &"" \
 			and not MetaProgression.get_granted_abilities().has(upgrade.requires_ability)
@@ -780,7 +822,9 @@ func _make_grid_cell(loadout: StringName, level: int) -> Control:
 
 func _on_buy(upgrade: UpgradeData) -> void:
 	var level := MetaProgression.get_upgrade_level(upgrade.id)
-	if not MetaProgression.try_spend(&"gold", upgrade.cost_at(level)):
+	# Charge the node's own currency (docs/DEPTHS.md Lane 2) — gold leaves gold
+	# untouched, Reliquary nodes spend shards.
+	if not MetaProgression.try_spend(upgrade.currency, upgrade.cost_at(level)):
 		return
 	AudioManager.play(&"coin")
 	MetaProgression.increment_upgrade(upgrade.id)

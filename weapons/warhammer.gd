@@ -58,6 +58,13 @@ const FAULT_LINE_REFUND := 0.75
 ## Epicenter (Aspect): the four Crashing Leap waves each deal this fraction of
 ## the Seismic wave's damage, so the aimed RMB stays the higher-value cast.
 const EPICENTER_WAVE_MULT := 0.75
+## THE PRESSING DARK (Depth II forged Aspect, docs/DEPTHS.md Lane 2): every enemy a
+## hammer slam catches is dragged down — a stronger, longer slow than a chill,
+## leaning into the 8A control identity. Applied in _slam, so the primary slam,
+## the aftershock, and the Crashing Leap all press the dark; the RMB Seismic wave
+## keeps its own Fault Line identity. Reuses EnemyBase.apply_slow.
+const PRESSING_DARK_SLOW_MULT := 0.5
+const PRESSING_DARK_SLOW_TIME := 2.5
 
 @onready var hammer_pivot: Node3D = $HammerPivot
 @onready var handle_mesh: MeshInstance3D = $HammerPivot/HandleMesh
@@ -286,6 +293,7 @@ func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
 	var hit_count := 0
 	var player := wielder as Player
 	var mass_driver := player != null and player.has_ability(&"mass_driver")
+	var pressing_dark := player != null and player.has_ability(&"pressing_dark")
 	# Bone Breaker wall-slams on shove_impact; Mass Driver also wall-slams (walls
 	# included) and additionally drives enemies through their neighbours.
 	var wall_damage := damage * BONE_BREAKER_MULT \
@@ -306,6 +314,10 @@ func _slam(point: Vector3, forward: Vector3, damage: float, aoe_mult: float,
 		if to_enemy.length() > 0.1 \
 				and rad_to_deg(forward.angle_to(to_enemy)) > arc_half_deg:
 			continue
+		# THE PRESSING DARK: everything caught (damage core AND outer control ring)
+		# is dragged down, turning even a glancing slam into crowd control.
+		if pressing_dark:
+			enemy.apply_slow(PRESSING_DARK_SLOW_MULT, PRESSING_DARK_SLOW_TIME)
 		if dist <= inner or full_damage:
 			# Damage core: full damage, meaty contact sound, full-force shove.
 			var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent

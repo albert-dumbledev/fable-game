@@ -92,6 +92,9 @@ func _ready() -> void:
 		_apply_ambient_tint()
 	_stats_tracker = RunStats.new()
 	add_child(_stats_tracker)
+	# Deep Cache (Reliquary QoL): begin a run with a magnet already primed. Deferred
+	# so the player node is up before we place it (same reason as the emits below).
+	_prime_deep_cache.call_deferred()
 	EventBus.enemy_killed.connect(_on_enemy_killed)
 	EventBus.pickup_collected.connect(_on_pickup_collected)
 	EventBus.player_died.connect(_on_player_died)
@@ -322,6 +325,10 @@ func _track_boss(boss: EnemyBase, boss_data: EnemyData) -> void:
 
 
 func _on_boss_died(boss: EnemyBase) -> void:
+	# Attempts pay (docs/DEPTHS.md Lane 2): every boss kill on a depth run banks
+	# depth.level shards on the spot, kept on death/abandon/quit — so this saves
+	# immediately, same rationale as grant_meta_ability. Surface banks nothing.
+	_bank_boss_shards()
 	_alive_bosses.erase(boss)
 	if is_instance_valid(boss):
 		_last_boss_pos = boss.global_position
@@ -467,6 +474,11 @@ func _on_unlock_claimed(_ability: StringName) -> void:
 ## finish_victory() guards on _run_active, so this is safe even if the player
 ## also dies in the same window (whichever handoff lands first wins).
 func _on_finale_boss_died() -> void:
+	# The finale is a boss kill too (docs/DEPTHS.md Lane 2): bank its depth.level
+	# shards immediately (the +2×level clear bonus lands separately in
+	# finish_victory), so even a player who somehow dies in the victory-delay window
+	# keeps the Revenant's shards.
+	_bank_boss_shards()
 	get_tree().create_timer(FINALE_VICTORY_DELAY, false).timeout.connect(finish_victory)
 
 
@@ -477,4 +489,32 @@ func finish_victory() -> void:
 	if not _run_active:
 		return
 	_run_active = false
+	# Clearing a Depth pays a +2×level bonus (docs/DEPTHS.md Lane 2) on top of the
+	# boss-kill income already banked. _final_stats' record_run + save_game write
+	# right after, so this lands in the same save.
+	if depth != null:
+		MetaProgression.add_currency(&"shards", 2 * depth.level)
 	GameManager.end_run.call_deferred(_final_stats({"victory": true}))
+
+
+## Bank a single boss kill's shards on a depth run (docs/DEPTHS.md Lane 2):
+## depth.level shards, saved immediately so they survive a death/abandon/quit in
+## the seconds after the kill. Surface runs (null depth) bank nothing.
+func _bank_boss_shards() -> void:
+	if depth == null:
+		return
+	MetaProgression.add_currency(&"shards", depth.level)
+	MetaProgression.save_game()
+
+
+## Deep Cache (Reliquary QoL, docs/DEPTHS.md): when the node is owned, start the
+## run with a magnet pickup already primed in the arena — reusing the elite-bounty
+## magnet spawn path, so there is no duplicate magnet logic and collecting it later
+## runs the exact same arena-wide vacuum any magnet does. Not gated on Depth: it is
+## a universal QoL node, so it primes on Surface runs too.
+func _prime_deep_cache() -> void:
+	if MetaProgression.get_upgrade_level(&"deep_cache") <= 0:
+		return
+	var player := get_tree().get_first_node_in_group(&"player") as Node3D
+	var pos := player.global_position if player != null else Vector3.ZERO
+	_spawn_utility_pickup(&"magnet", 1, EnemyBase.MAGNET_LIFETIME, pos)

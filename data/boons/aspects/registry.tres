@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BoonRegistry" load_steps=15 format=3]
+[gd_resource type="Resource" script_class="BoonRegistry" load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://core/boon_registry.gd" id="1_script"]
 [ext_resource type="Script" path="res://core/boon_data.gd" id="2_type"]
@@ -14,7 +14,10 @@
 [ext_resource type="Resource" path="res://data/boons/aspects/undying_will.tres" id="12"]
 [ext_resource type="Resource" path="res://data/boons/aspects/prospectors_idol.tres" id="13"]
 [ext_resource type="Resource" path="res://data/boons/aspects/slipstream.tres" id="14"]
+[ext_resource type="Resource" path="res://data/boons/aspects/the_floor_below.tres" id="15"]
+[ext_resource type="Resource" path="res://data/boons/aspects/the_pressing_dark.tres" id="16"]
+[ext_resource type="Resource" path="res://data/boons/aspects/the_twin_court.tres" id="17"]
 
 [resource]
 script = ExtResource("1_script")
-boons = Array[ExtResource("2_type")]([ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("9"), ExtResource("10"), ExtResource("11"), ExtResource("12"), ExtResource("13"), ExtResource("14")])
+boons = Array[ExtResource("2_type")]([ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("9"), ExtResource("10"), ExtResource("11"), ExtResource("12"), ExtResource("13"), ExtResource("14"), ExtResource("15"), ExtResource("16"), ExtResource("17")])

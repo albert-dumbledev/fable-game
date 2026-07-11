@@ -45,6 +45,11 @@ var _registry: BoonRegistry
 var _pending := 0
 var _current_level := 0
 var _reroll_cost := BASE_REROLL_COST
+## Second Thoughts (Reliquary QoL, docs/DEPTHS.md Lane 2): rerolls used this run,
+## so the first get_upgrade_level(&"second_thoughts") of them are free. Run-scoped
+## like _reroll_cost (the BoonScreen node lives for the whole run), so the free
+## budget spans level-ups rather than resetting each screen.
+var _free_rerolls_used := 0
 var _taken_uniques: Array[StringName] = []
 
 
@@ -80,7 +85,7 @@ func _show_choices() -> void:
 func _populate() -> void:
 	for child: Node in choice_row.get_children():
 		child.queue_free()
-	for offer: Offer in _roll_offers(CHOICE_COUNT):
+	for offer: Offer in _roll_offers(_offer_count()):
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(230, 150)
 		button.text = "[%s]\n%s\n\n%s" % [
@@ -96,9 +101,27 @@ func _populate() -> void:
 func _refresh_actions() -> void:
 	var gold := MetaProgression.get_currency(&"gold")
 	gold_label.text = "Gold: %d" % gold
-	reroll_button.text = "Reroll (-%d gold)" % _reroll_cost
-	reroll_button.disabled = gold < _reroll_cost
+	if _free_rerolls_used < _free_reroll_budget():
+		# A Second Thoughts reroll left this run: free, and it never disables.
+		reroll_button.text = "Reroll (free)"
+		reroll_button.disabled = false
+	else:
+		reroll_button.text = "Reroll (-%d gold)" % _reroll_cost
+		reroll_button.disabled = gold < _reroll_cost
 	skip_button.text = "Skip (+%d gold)" % _skip_gold()
+
+
+## Boons offered per level-up: the base 3, plus one for Fourth Card (Reliquary
+## QoL, docs/DEPTHS.md Lane 2) once owned — a leveled read, since it is a
+## universal node with no per-loadout gating.
+func _offer_count() -> int:
+	return CHOICE_COUNT + (1 if MetaProgression.get_upgrade_level(&"fourth_card") > 0 else 0)
+
+
+## Free rerolls granted this run by Second Thoughts (Reliquary QoL) — one per
+## owned level, spent before any gold reroll and never advancing the gold doubling.
+func _free_reroll_budget() -> int:
+	return MetaProgression.get_upgrade_level(&"second_thoughts")
 
 
 func _skip_gold() -> int:
@@ -245,6 +268,14 @@ func _on_pick(offer: Offer) -> void:
 
 
 func _on_reroll() -> void:
+	# Second Thoughts: spend a free reroll first — no gold, and crucially the gold
+	# doubling (_reroll_cost) is left untouched so a paid reroll later still starts
+	# from the base cost.
+	if _free_rerolls_used < _free_reroll_budget():
+		_free_rerolls_used += 1
+		AudioManager.play(&"click")
+		_populate()
+		return
 	if not MetaProgression.try_spend(&"gold", _reroll_cost):
 		return
 	AudioManager.play(&"click")
