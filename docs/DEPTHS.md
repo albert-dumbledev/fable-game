@@ -1,5 +1,31 @@
 # Depths — Post-Victory Ascension
 
+> **Status (2026-07-11): M1–M5 shipped** on branch `depths`, headless-verified
+> (`test/DepthSmoke.tscn`; all prior harnesses green). **M6 (balance playtest)
+> pending.** Implementation notes recorded against the design below:
+>
+> - The five `.tres` are authored as **compounded supersets** — each deeper
+>   Depth carries every shallower twist (Depth IV/V also run the twin
+>   Juggernaut, the elite window, etc.), per the "already compounded" rule.
+> - `DepthData` gained two fields beyond the schema below: `theme_color` (the
+>   saturated badge/trim identity hue — `ambient_tint` stays a near-white mood
+>   nudge; Depth V echoes the Revenant TrimRing teal) — plus static
+>   `numeral()` / `ordinal_word()` helpers shared by every numeral call site.
+> - Reliquary **QoL nodes read plain upgrade levels** (`get_upgrade_level`),
+>   not ability flags — cleaner for leveled universal QoL; **forge nodes use
+>   `grants_ability`** exactly as designed. Deep Cache spawns a magnet pickup
+>   at run start via the elite-bounty path (primes on Surface too).
+> - Boss-kill shard banking **saves immediately** (grant_meta_ability's
+>   rationale: a death seconds later must not eat the bank). Full clear =
+>   3 boss kills × N + 2×N = 5×N, matching the income table.
+> - Forged Aspects shipped: **THE FLOOR BELOW** (universal — 15% on-kill
+>   tremor, 4 m slow-to-0.55×/1.5 s + 0.25 s stagger that skips the already
+>   stunned), **THE PRESSING DARK** (hammer — every slam-caught enemy slowed
+>   to 0.5× for 2.5 s), **THE TWIN COURT** (sword — 0.22 s after a riposte
+>   swing, a phantom radial twin hits everything within 3 m for 0.5×).
+> - `BoonScreen`/`AspectScreen` gained `class_name`s (harness typing); the
+>   shard glyph in UI is ◆ (proven in-font, same as the recap's Aspect mark).
+
 ## Why
 
 The Revenant kill is the game's best moment and also where the reason to press
