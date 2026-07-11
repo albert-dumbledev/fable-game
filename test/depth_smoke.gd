@@ -35,6 +35,7 @@ func _run() -> void:
 	await _test_depth_run()
 	await _test_depth_v_run()
 	await _test_surface_control()
+	await _test_status_lane()
 
 	_restore_save()
 	print("SMOKE OK — depth" if _ok else "SMOKE FAIL — depth")
@@ -356,6 +357,151 @@ func _test_surface_control() -> void:
 
 	var stats := rd._final_stats({})
 	_check(int(stats.get("depth", -1)) == 0, "surface stats.depth == 0")
+
+
+## M4 (docs/DEPTHS.md Lane 3): badge grid, per-Depth fastest NEW BEST,
+## the title line, and weapon trim. Fabricates a richer save state directly
+## rather than driving a second full arena run — the death screen only reads
+## MetaProgression.records and GameManager.last_run_stats, so mounting those
+## and instancing a fresh DeathScreen is the cleaner seam. Scenario: the
+## current loadout (sword_and_shield) just freshly cleared Depth III, and a
+## second unlocked loadout (warhammer) already has an older Depth I clear —
+## two loadouts x uneven depths exercises the grid's rows/cleared-cell math
+## and the title's "OF THE THIRD" in one fabricated snapshot.
+func _test_status_lane() -> void:
+	MetaProgression.unlocked_abilities = [&"weapon_warhammer"]
+	MetaProgression.selected_weapon = &"sword_and_shield"
+	MetaProgression.records = {
+		"victories": 1,
+		"best_depth": 3,
+		"depth_wins": {
+			"3": {"fastest": 400.0, "loadouts": ["sword_and_shield"]},
+			"1": {"fastest": 200.0, "loadouts": ["warhammer"]},
+		},
+	}
+	GameManager.last_run_stats = {
+		"victory": true,
+		"time": 400.0,
+		"depth": 3,
+		"new_records": ["best_depth", "depth_fastest_3"],
+	}
+
+	var screen := await _boot_death_screen()
+	if screen == null:
+		return
+
+	# --- Badge grid: rows = unlocked loadouts, cols = authored max Depth ---
+	var grid := screen.get_node_or_null(^"Scroll/Center/Box/DepthGrid")
+	_check(grid != null and grid.visible, "status lane: badge grid exists and is visible")
+	if grid != null:
+		var max_level := MetaProgression.depth_registry.max_level() \
+				if MetaProgression.depth_registry != null else 0
+		var unlocked := MetaProgression.get_unlocked_weapons().size()
+		_check(grid.get_child_count() == unlocked,
+				"status lane: badge grid has %d rows == unlocked loadouts (%d)"
+				% [grid.get_child_count(), unlocked])
+		var total_cells := 0
+		for row: Node in grid.get_children():
+			total_cells += row.get_child_count() - 1  # minus the row's loadout label
+		_check(total_cells == unlocked * max_level,
+				"status lane: badge grid has %d cells == %d loadouts x %d Depths"
+				% [total_cells, unlocked, max_level])
+
+		_check(_cell_cleared(grid, &"sword_and_shield", 3),
+				"status lane: sword_and_shield's Depth III cell reads cleared")
+		_check(not _cell_cleared(grid, &"sword_and_shield", 2),
+				"status lane: sword_and_shield's Depth II cell reads uncleared")
+		_check(_cell_cleared(grid, &"warhammer", 1),
+				"status lane: warhammer's Depth I cell reads cleared")
+		_check(not _cell_cleared(grid, &"warhammer", 3),
+				"status lane: warhammer's Depth III cell reads uncleared")
+
+	# --- Title line: "DUELIST OF THE THIRD" from the same deepest-clear lookup ---
+	var banner := screen.get_node_or_null(^"Scroll/Center/Box/LoadoutBanner") as Label
+	var banner_text := banner.text if banner != null else ""
+	_check(banner_text.find("OF THE THIRD") != -1,
+			"status lane: loadout banner title reads 'OF THE THIRD' (got '%s')" % banner_text)
+
+	# --- NEW BEST label mapping: depth_fastest_3 -> "FASTEST — DEPTH III" ---
+	var found_label := false
+	for text: String in _collect_label_texts(screen):
+		if text.find("FASTEST") != -1 and text.find("DEPTH III") != -1:
+			found_label = true
+			break
+	_check(found_label, "status lane: records line carries the FASTEST — DEPTH III NEW BEST label")
+
+	_test_weapon_trim()
+
+
+## Whether the grid's cell for `loadout`/`level` reads cleared, via the
+## `cleared` meta _make_grid_cell stamps on every cell (structural handle so
+## this doesn't have to depend on cell layout/order).
+func _cell_cleared(grid: Node, loadout: StringName, level: int) -> bool:
+	var cell := grid.find_child("Cell_%s_%d" % [loadout, level], true, false)
+	if cell == null:
+		_check(false, "status lane: cell Cell_%s_%d exists" % [loadout, level])
+		return false
+	return bool(cell.get_meta(&"cleared", false))
+
+
+## Weapon trim (docs/DEPTHS.md Lane 3): mounts SwordAndShield directly the way
+## Player._mount_weapon does (weapon_data then setup()), off the status-lane
+## records fabricated above — sword_and_shield's Depth III clear should light
+## the trim in Depth III's theme_color. Then strips that loadout's win from
+## depth_wins and remounts fresh (trim reads records at mount) to prove the
+## trim goes hidden at deepest clear 0.
+func _test_weapon_trim() -> void:
+	var packed: PackedScene = load("res://weapons/SwordAndShield.tscn")
+	var data: WeaponData = load("res://data/weapons/sword.tres")
+
+	var weapon := packed.instantiate() as Weapon
+	weapon.weapon_data = data
+	weapon.setup(StatBlock.new(), null)
+	var trim := weapon.find_child("DepthTrim", true, false) as MeshInstance3D
+	_check(trim != null and trim.visible,
+			"weapon trim: DepthTrim visible after mounting at deepest clear 3")
+	if trim != null:
+		var mat := trim.get_active_material(0) as StandardMaterial3D
+		var expected := MetaProgression.depth_registry.get_depth(3).theme_color
+		_check(mat != null and mat.emission.is_equal_approx(expected),
+				"weapon trim: emission matches Depth III theme_color (%s == %s)"
+				% [mat.emission if mat != null else "null", expected])
+	weapon.free()
+
+	# Strip sword_and_shield's Depth III win, keep warhammer's Depth I intact.
+	var wins: Dictionary = MetaProgression.records.get("depth_wins", {})
+	var entry: Dictionary = wins.get("3", {})
+	var loadouts: Array = entry.get("loadouts", [])
+	loadouts.erase("sword_and_shield")
+	entry["loadouts"] = loadouts
+	wins["3"] = entry
+	MetaProgression.records["depth_wins"] = wins
+
+	var weapon2 := packed.instantiate() as Weapon
+	weapon2.weapon_data = data
+	weapon2.setup(StatBlock.new(), null)
+	var trim2 := weapon2.find_child("DepthTrim", true, false) as MeshInstance3D
+	_check(trim2 != null and not trim2.visible,
+			"weapon trim: hidden once records no longer credit this loadout with a clear")
+	weapon2.free()
+
+
+## Instantiate a fresh DeathScreen directly (not via a run's victory/death
+## handoff), front it, and free the previous scene — same free-before-ready
+## rule as _boot_arena, since the death screen's _ready() also does group
+## lookups (none here, but keeping the two boots symmetric avoids surprises).
+func _boot_death_screen() -> Node:
+	var prev := get_tree().current_scene
+	if prev != null and prev != self and is_instance_valid(prev):
+		prev.queue_free()
+		for i in 2:
+			await get_tree().physics_frame
+	var screen: Node = load("res://ui/DeathScreen.tscn").instantiate()
+	get_tree().root.add_child(screen)
+	get_tree().current_scene = screen
+	for i in 5:
+		await get_tree().physics_frame
+	return screen
 
 
 ## Instantiate a fresh Arena, front it, and free the previous scene (a spent

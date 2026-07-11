@@ -14,3 +14,4 @@ swarm_count_mult = 1.25
 rarity_time_bonus = 120.0
 elite_min_elapsed = 180.0
 ambient_tint = Color(0.95, 0.92, 0.97, 1)
+theme_color = Color(0.46, 0.16, 0.66, 1)

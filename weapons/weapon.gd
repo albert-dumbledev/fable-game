@@ -18,11 +18,41 @@ var is_stowed := false
 var _cooldown := 0.0
 var _secondary_cooldown := 0.0
 var _stow_tween: Tween
+var _trim_material: StandardMaterial3D
 
 
 func setup(stat_block: StatBlock, wielder_node: Node3D) -> void:
 	stats = stat_block
 	wielder = wielder_node
+	_apply_depth_trim()
+
+
+## Weapon trim (docs/DEPTHS.md Lane 3): tints the scene's "DepthTrim" mesh (if
+## it has one) with this loadout's deepest Depth clear color, hidden at
+## deepest clear 0 (nothing cleared yet). Each weapon scene nests DepthTrim at
+## a different depth (under whichever pivot actually swings), so this uses a
+## recursive find_child rather than a fixed relative path — either way, a
+## missing trim mesh is a no-op, so untrimmed/test scenes stay valid. The
+## material is duplicated before tinting since StandardMaterial3D resources
+## are shared across scene instances (the M3 Environment-duplicate gotcha).
+func _apply_depth_trim() -> void:
+	var trim := find_child("DepthTrim", true, false) as MeshInstance3D
+	if trim == null or weapon_data == null:
+		return
+	var depth_data: DepthData = null
+	var deepest := MetaProgression.deepest_clear_for(weapon_data.id)
+	if deepest > 0 and MetaProgression.depth_registry != null:
+		depth_data = MetaProgression.depth_registry.get_depth(deepest)
+	if depth_data == null:
+		trim.visible = false
+		return
+	var mat := trim.get_active_material(0)
+	_trim_material = mat.duplicate() as StandardMaterial3D if mat != null else StandardMaterial3D.new()
+	_trim_material.emission_enabled = true
+	_trim_material.emission = depth_data.theme_color
+	_trim_material.albedo_color = depth_data.theme_color
+	trim.material_override = _trim_material
+	trim.visible = true
 
 
 func _process(delta: float) -> void:

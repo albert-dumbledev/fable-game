@@ -227,6 +227,23 @@ func _record_depth_clear(stats: Dictionary, time: float, fresh: Array[String]) -
 	records["depth_wins"] = wins
 
 
+## The deepest Depth `loadout` has cleared (docs/DEPTHS.md Lane 3) — 0 if
+## none. Reads records.depth_wins the same way _record_depth_clear writes it
+## (the loadout's id present in that Depth's "loadouts" array); weapon trim
+## and the death-screen title both call this so they never drift from the
+## same lookup.
+func deepest_clear_for(loadout: StringName) -> int:
+	var wins: Dictionary = records.get("depth_wins", {})
+	var name := String(loadout)
+	var deepest := 0
+	for key: String in wins:
+		var entry: Dictionary = wins[key]
+		var loadouts: Array = entry.get("loadouts", [])
+		if loadouts.has(name):
+			deepest = maxi(deepest, int(key))
+	return deepest
+
+
 func save_game() -> void:
 	var data: Dictionary = {
 		"save_version": SAVE_VERSION,

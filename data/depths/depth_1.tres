@@ -12,3 +12,4 @@ reward_mult = 1.25
 rarity_time_bonus = 60.0
 elite_min_elapsed = 180.0
 ambient_tint = Color(0.92, 0.94, 0.98, 1)
+theme_color = Color(0.25, 0.42, 0.78, 1)

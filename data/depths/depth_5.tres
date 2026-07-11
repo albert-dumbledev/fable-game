@@ -31,3 +31,4 @@ windup_mult = 0.85
 finale_time_shift = -45.0
 extra_events = Array[ExtResource("2_event")]([SubResource("Resource_twin")])
 ambient_tint = Color(0.93, 0.96, 0.95, 1)
+theme_color = Color(0.3, 0.9, 0.95, 1)

@@ -31,6 +31,7 @@ var _loadout_banner: Label
 var _victory_banner: Label
 var _depth_box: HBoxContainer
 var _depth_label: Label
+var _depth_grid: VBoxContainer
 
 
 func _ready() -> void:
@@ -61,6 +62,7 @@ func _refresh() -> void:
 	gold_label.text = "Gold: %d" % gold
 	_refresh_loadout()
 	_refresh_depth()
+	_refresh_badge_grid()
 	for child: Node in branches_box.get_children():
 		child.queue_free()
 	_refresh_loadout_banner()
@@ -354,6 +356,7 @@ func _make_records_line(run_stats: Dictionary) -> Control:
 	_add_record_entry(entries, records, new_records, "victories", "Victories", false)
 	_add_record_entry(entries, records, new_records, "fastest_victory", "Fastest victory", true)
 	_add_depth_record_entry(entries, records, new_records)
+	_add_depth_fastest_entries(entries, records, new_records)
 	if entries.is_empty():
 		return null
 
@@ -416,6 +419,33 @@ func _add_depth_record_entry(
 	})
 
 
+## Per-Depth fastest NEW BEST surfacing (docs/DEPTHS.md M4). depth_wins has no
+## flat top-level records key (each Depth's fastest lives nested at
+## depth_wins[N].fastest), so _add_record_entry's generic records.get(key)
+## lookup can't reach it — this walks new_records for "depth_fastest_<N>"
+## instead and pulls the time straight out of depth_wins. Unlike the other
+## entries there is no persistent "current best" slot to keep showing
+## afterward, so a per-Depth fastest only ever appears the run it's set —
+## NEW-BEST-or-nothing by design, which is exactly what a record-setting deep
+## clear needs to badge correctly.
+func _add_depth_fastest_entries(
+		entries: Array[Dictionary], records: Dictionary, new_records: Array) -> void:
+	var wins: Dictionary = records.get("depth_wins", {})
+	for key: String in new_records:
+		if not key.begins_with("depth_fastest_"):
+			continue
+		var level := int(key.trim_prefix("depth_fastest_"))
+		var entry: Dictionary = wins.get(str(level), {})
+		var fastest := float(entry.get("fastest", 0.0))
+		if fastest <= 0.0:
+			continue
+		entries.append({
+			"label": "FASTEST — DEPTH %s" % DepthData.numeral(level),
+			"value": _format_time(fastest),
+			"is_new": true,
+		})
+
+
 ## The theme for the currently selected loadout (falls back to a neutral grey).
 func _loadout_color() -> Color:
 	var theme: Dictionary = LOADOUT_THEMES.get(MetaProgression.selected_weapon, {})
@@ -439,15 +469,35 @@ func _refresh_loadout_banner() -> void:
 	var box := branches_box.get_parent()
 	if _loadout_banner == null:
 		_loadout_banner = Label.new()
+		_loadout_banner.name = "LoadoutBanner"
 		_loadout_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_loadout_banner.add_theme_font_size_override(&"font_size", 26)
 		box.add_child(_loadout_banner)
 		box.move_child(_loadout_banner, branches_box.get_index())
 	var identity := _loadout_name()
 	_loadout_banner.visible = identity != ""
+	var lines: Array[String] = [identity]
 	var mobility := _loadout_mobility()
-	_loadout_banner.text = "%s\n%s" % [identity, mobility] if mobility != "" else identity
+	if mobility != "":
+		lines.append(mobility)
+	var title := _loadout_title()
+	if title != "":
+		lines.append(title)
+	_loadout_banner.text = "\n".join(lines)
 	_loadout_banner.add_theme_color_override(&"font_color", _loadout_color())
+
+
+## "DUELIST OF THE THIRD" (docs/DEPTHS.md): the selected loadout's identity
+## word plus an ordinal built from MetaProgression.deepest_clear_for, the same
+## lookup the weapon trim tints from. Display-only; no clears yet -> "".
+func _loadout_title() -> String:
+	var identity := _loadout_name()
+	if identity == "":
+		return ""
+	var deepest := MetaProgression.deepest_clear_for(MetaProgression.selected_weapon)
+	if deepest <= 0:
+		return ""
+	return "%s OF THE %s" % [identity, DepthData.ordinal_word(deepest)]
 
 
 func _make_column(branch: Dictionary, gold: int) -> Control:
@@ -655,6 +705,77 @@ func _on_depth_selected(level: int) -> void:
 	MetaProgression.select_depth(level)
 	MetaProgression.save_game()
 	_refresh()
+
+
+## Loadout x Depth badge grid (docs/DEPTHS.md Lane 3): one row per unlocked
+## loadout (weapon registry order, via get_unlocked_weapons), one column per
+## authored Depth. Cleared cells read purely from records.depth_wins (no new
+## save data) and light up in that Depth's theme_color; uncleared cells stay
+## dim/empty. Hidden entirely until the first Depth clear — the picker alone
+## covers the pre-Depth state, same hide-entirely idiom as _refresh_depth.
+## Rebuilt each _refresh() like the pickers above it; cells are named
+## Cell_<loadout>_<level> so the smoke test can key a specific cell without
+## depending on layout.
+func _refresh_badge_grid() -> void:
+	if _depth_grid == null:
+		_depth_grid = VBoxContainer.new()
+		_depth_grid.name = "DepthGrid"
+		_depth_grid.add_theme_constant_override(&"separation", 3)
+		loadout_box.get_parent().add_child(_depth_grid)
+	loadout_box.get_parent().move_child(_depth_grid, _depth_box.get_index() + 1)
+	for child: Node in _depth_grid.get_children():
+		child.queue_free()
+	var best := int(MetaProgression.records.get("best_depth", 0))
+	_depth_grid.visible = best >= 1
+	if best < 1 or MetaProgression.depth_registry == null:
+		return
+	var max_level := MetaProgression.depth_registry.max_level()
+	if max_level <= 0:
+		return
+	for weapon: WeaponData in MetaProgression.get_unlocked_weapons():
+		_depth_grid.add_child(_make_grid_row(weapon, max_level))
+
+
+func _make_grid_row(weapon: WeaponData, max_level: int) -> Control:
+	var row := HBoxContainer.new()
+	row.name = "Row_%s" % weapon.id
+	row.add_theme_constant_override(&"separation", 4)
+	var theme: Dictionary = LOADOUT_THEMES.get(weapon.id, {})
+	var label := Label.new()
+	label.text = String(theme.get("name", weapon.display_name))
+	label.custom_minimum_size = Vector2(90, 0)
+	label.add_theme_font_size_override(&"font_size", 12)
+	label.add_theme_color_override(&"font_color", theme.get("color", DEFAULT_LOADOUT_COLOR))
+	row.add_child(label)
+	for level: int in range(1, max_level + 1):
+		row.add_child(_make_grid_cell(weapon.id, level))
+	return row
+
+
+## A single loadout x Depth cell. Cleared reads purely from
+## records.depth_wins[str(level)].loadouts containing this loadout's id — no
+## new save data. The tooltip carries the per-Depth fastest on cleared cells.
+func _make_grid_cell(loadout: StringName, level: int) -> Control:
+	var wins: Dictionary = MetaProgression.records.get("depth_wins", {})
+	var entry: Dictionary = wins.get(str(level), {})
+	var loadouts: Array = entry.get("loadouts", [])
+	var cleared := loadouts.has(String(loadout))
+	var cell := PanelContainer.new()
+	cell.name = "Cell_%s_%d" % [loadout, level]
+	cell.custom_minimum_size = Vector2(16, 16)
+	cell.set_meta(&"cleared", cleared)
+	var style := StyleBoxFlat.new()
+	style.set_corner_radius_all(3)
+	if cleared:
+		var depth_data: DepthData = MetaProgression.depth_registry.get_depth(level)
+		style.bg_color = depth_data.theme_color if depth_data != null else Color.WHITE
+		cell.tooltip_text = "DEPTH %s — fastest %s" % [
+			DepthData.numeral(level), _format_time(float(entry.get("fastest", 0.0)))]
+	else:
+		style.bg_color = Color(1.0, 1.0, 1.0, 0.08)
+		cell.tooltip_text = "DEPTH %s" % DepthData.numeral(level)
+	cell.add_theme_stylebox_override(&"panel", style)
+	return cell
 
 
 func _on_buy(upgrade: UpgradeData) -> void:

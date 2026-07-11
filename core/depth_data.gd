@@ -31,7 +31,11 @@ extends Resource
 @export var extra_events: Array[WaveEvent] = []
 ## Subtle arena mood shift, kept close to white — a nudge, not a filter.
 @export var ambient_tint := Color.WHITE
-
+## Saturated identity color for this Depth (docs/DEPTHS.md Lane 3) — unlike
+## ambient_tint (kept near-white, a mood nudge), this is a bold, unmistakable
+## hue. Badges (death-screen grid) and weapon trim both tint from this one
+## field, so a Depth's color is defined exactly once.
+@export var theme_color := Color.WHITE
 
 ## Roman numeral for a Depth level (1-based), shared by the picker, victory
 ## banners, the records line, and the HUD chip so the numeral never drifts
@@ -49,3 +53,19 @@ static func numeral(level: int) -> String:
 			remaining -= VALUES[i]
 			result += SYMBOLS[i]
 	return result
+
+
+## English ordinal word for a Depth level ("FIRST".."FIFTH", …), the house-voice
+## title line's "OF THE <ORDINAL>" (death screen). Plain words rather than
+## "1ST" to match numeral()'s all-caps voice. A lookup table over English's
+## irregular ordinals; past the authored words it falls back to "<numeral>TH"
+## rather than guessing the rest of the ladder's suffixes — fine since this
+## only degrades gracefully once the ladder outgrows the list.
+static func ordinal_word(level: int) -> String:
+	const WORDS: Array[String] = [
+		"FIRST", "SECOND", "THIRD", "FOURTH", "FIFTH",
+		"SIXTH", "SEVENTH", "EIGHTH", "NINTH", "TENTH",
+	]
+	if level >= 1 and level <= WORDS.size():
+		return WORDS[level - 1]
+	return "%sTH" % numeral(level)

@@ -27,3 +27,4 @@ boss_relic_count = 2
 rarity_time_bonus = 180.0
 extra_events = Array[ExtResource("2_event")]([SubResource("Resource_twin")])
 ambient_tint = Color(0.98, 0.92, 0.92, 1)
+theme_color = Color(0.82, 0.1, 0.16, 1)
