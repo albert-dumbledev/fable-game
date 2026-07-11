@@ -62,6 +62,7 @@ static func build_all() -> Dictionary[StringName, AudioStreamWAV]:
 	sounds[&"revenant_slash"] = _revenant_slash()
 	sounds[&"revenant_overhead"] = _revenant_overhead()
 	sounds[&"revenant_crescent"] = _revenant_crescent()
+	sounds[&"descend"] = _descend()
 	return sounds
 
 
@@ -540,6 +541,21 @@ static func _revenant_crescent() -> AudioStreamWAV:
 	var doppler_b := _env(_tone(0.4, 235.0, 150.0, 0.3, SINE), 0.02, 1.0)
 	var out := _overlay(whirr, doppler_a, 0.0)
 	return _to_wav(_overlay(out, doppler_b, 0.015), 0.5)
+
+
+## Depth run-start stinger (docs/DEPTHS.md): a low, ominous three-note descent
+## — each note a step lower and a beat later than the last — laid over a soft
+## dark rumble that swells underneath the whole figure. Distinct from
+## `_boss_horn()`'s steady detuned drone by actually falling in pitch/time
+## rather than holding a chord; fundamentals stay well under the 1.5kHz rule.
+static func _descend() -> AudioStreamWAV:
+	var note1 := _env(_tone(0.34, 130.0, 110.0, 0.7, SINE), 0.02, 1.3)
+	var note2 := _env(_tone(0.34, 98.0, 82.0, 0.65, SINE), 0.02, 1.3)
+	var note3 := _env(_tone(0.42, 65.0, 50.0, 0.7, SINE), 0.03, 1.2)
+	var out := _overlay(note1, note2, 0.22)
+	out = _overlay(out, note3, 0.46)
+	var rumble := _env(_noise(0.9, 140.0, 40.0, 0.5), 0.05, 1.0)
+	return _to_wav(_overlay(out, rumble, 0.0), 0.65)
 
 
 # --- Synthesis primitives ---------------------------------------------------

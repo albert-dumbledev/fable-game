@@ -77,6 +77,20 @@ func _ready() -> void:
 	EventBus.run_started.emit()
 	# Deferred so the HUD (readied after us) catches the initial state.
 	EventBus.xp_changed.emit.call_deferred(xp, _xp_required(level), level)
+	if depth != null:
+		# Deferred for the same reason as the xp_changed emit above — the HUD's
+		# announce label isn't ready yet on this frame.
+		_announce_depth.call_deferred()
+
+
+## Depth run-start announcement + stinger (docs/DEPTHS.md M2): the existing
+## wave-announcement banner path carries the Depth's numeral + name, and a low
+## descend stinger plays alongside it — Surface runs (depth == null) get
+## neither, so today's run-start is untouched.
+func _announce_depth() -> void:
+	EventBus.wave_announcement.emit(
+			"DEPTH %s — %s" % [DepthData.numeral(depth.level), depth.display_name])
+	AudioManager.play(&"descend")
 
 
 func _physics_process(delta: float) -> void:

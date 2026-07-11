@@ -28,6 +28,9 @@ const DEFAULT_LOADOUT_COLOR := Color(0.8, 0.8, 0.85)
 @onready var menu_button: Button = $Scroll/Center/Box/Buttons/MenuButton
 
 var _loadout_banner: Label
+var _victory_banner: Label
+var _depth_box: HBoxContainer
+var _depth_label: Label
 
 
 func _ready() -> void:
@@ -48,6 +51,7 @@ func _ready() -> void:
 		int(run_stats.get("level", 0)),
 		int(run_stats.get("gold", 0)),
 	]
+	_build_victory_banner(run_stats)
 	_build_run_recap(run_stats)
 	_refresh()
 
@@ -56,6 +60,7 @@ func _refresh() -> void:
 	var gold := MetaProgression.get_currency(&"gold")
 	gold_label.text = "Gold: %d" % gold
 	_refresh_loadout()
+	_refresh_depth()
 	for child: Node in branches_box.get_children():
 		child.queue_free()
 	_refresh_loadout_banner()
@@ -76,6 +81,47 @@ func _refresh() -> void:
 			hidden += 1
 	if placed + hidden < MetaProgression.registry.upgrades.size():
 		push_warning("Some upgrades have a branch not listed in DeathScreen.BRANCHES.")
+
+
+## --- Depth victory banners (docs/DEPTHS.md) -------------------------------
+## The moment-defining lines for the first-ever Revenant kill and each
+## Depth's first clear. Re-clears and Surface re-wins get no second banner —
+## the plain "VICTORY" title already covers those.
+func _victory_banner_text(run_stats: Dictionary) -> String:
+	if not run_stats.get("victory", false):
+		return ""
+	var new_records: Array = run_stats.get("new_records", [])
+	var depth := int(run_stats.get("depth", 0))
+	if depth > 0 and new_records.has("best_depth"):
+		var max_level := 0
+		if MetaProgression.depth_registry != null:
+			max_level = MetaProgression.depth_registry.max_level()
+		if depth >= max_level:
+			return "DEPTH %s CLEARED — THE LADDER ENDS HERE" % DepthData.numeral(depth)
+		return "DEPTH %s CLEARED — DEPTH %s UNLOCKED" % [
+			DepthData.numeral(depth), DepthData.numeral(depth + 1)]
+	if int(MetaProgression.records.get("victories", 0)) == 1:
+		return "THE WAY DOWN OPENS — DEPTH I UNLOCKED"
+	return ""
+
+
+## Builds (once) and shows the banner Label just below Title when
+## _victory_banner_text has something to say; a no-op otherwise — the death
+## and abandon paths, and ordinary re-clear victories, never grow this label.
+func _build_victory_banner(run_stats: Dictionary) -> void:
+	var text := _victory_banner_text(run_stats)
+	if text == "":
+		return
+	if _victory_banner == null:
+		_victory_banner = Label.new()
+		_victory_banner.name = "VictoryBanner"
+		_victory_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_victory_banner.add_theme_font_size_override(&"font_size", 20)
+		_victory_banner.add_theme_color_override(&"font_color", Color(0.55, 0.85, 1.0))
+		var box := title_label.get_parent()
+		box.add_child(_victory_banner)
+		box.move_child(_victory_banner, title_label.get_index() + 1)
+	_victory_banner.text = text
 
 
 ## --- Run Recap (docs/RUN_RECAP.md) ---------------------------------------
@@ -307,6 +353,7 @@ func _make_records_line(run_stats: Dictionary) -> Control:
 	_add_record_entry(entries, records, new_records, "most_gold", "Gold", false)
 	_add_record_entry(entries, records, new_records, "victories", "Victories", false)
 	_add_record_entry(entries, records, new_records, "fastest_victory", "Fastest victory", true)
+	_add_depth_record_entry(entries, records, new_records)
 	if entries.is_empty():
 		return null
 
@@ -352,6 +399,21 @@ func _add_record_entry(
 		return
 	var formatted := _format_time(value) if is_time else str(int(value))
 	entries.append({"label": label, "value": formatted, "is_new": new_records.has(key)})
+
+
+## Deepest Depth cleared (docs/DEPTHS.md), roman-numeralled instead of the raw
+## int/time formatting _add_record_entry uses — same {label, value, is_new}
+## shape so it drops into the same row, NEW BEST chip included.
+func _add_depth_record_entry(
+		entries: Array[Dictionary], records: Dictionary, new_records: Array) -> void:
+	var best := int(records.get("best_depth", 0))
+	if best <= 0:
+		return
+	entries.append({
+		"label": "Deepest",
+		"value": DepthData.numeral(best),
+		"is_new": new_records.has("best_depth"),
+	})
 
 
 ## The theme for the currently selected loadout (falls back to a neutral grey).
@@ -542,6 +604,55 @@ func _refresh_loadout() -> void:
 func _on_weapon_selected(weapon: WeaponData) -> void:
 	AudioManager.play(&"click")
 	MetaProgression.select_weapon(weapon.id)
+	MetaProgression.save_game()
+	_refresh()
+
+
+## Depth picker (docs/DEPTHS.md): SURFACE + one button per unlocked Depth,
+## mirroring _refresh_loadout exactly — toggle-mode buttons, the current
+## selection pressed+disabled. Hidden entirely until the first victory opens
+## Depth I; locked Depths beyond max_selectable_depth() are never shown (no
+## tease-noise). The row itself is code-built (lazily created once) since this
+## screen has no scene edits, same as _loadout_banner below.
+func _refresh_depth() -> void:
+	if _depth_box == null:
+		_depth_box = HBoxContainer.new()
+		_depth_box.name = "DepthPicker"
+		_depth_box.add_theme_constant_override(&"separation", 10)
+		_depth_box.alignment = BoxContainer.ALIGNMENT_CENTER
+		_depth_label = Label.new()
+		_depth_label.text = "Depth:"
+		_depth_label.add_theme_font_size_override(&"font_size", 18)
+		_depth_box.add_child(_depth_label)
+		loadout_box.get_parent().add_child(_depth_box)
+	loadout_box.get_parent().move_child(_depth_box, loadout_box.get_index() + 1)
+	for child: Node in _depth_box.get_children():
+		if child != _depth_label:
+			child.queue_free()
+	var max_depth := MetaProgression.max_selectable_depth()
+	_depth_box.visible = max_depth > 0
+	if max_depth == 0:
+		return
+	# An edited/stale save's selection clamps down to the unlocked range —
+	# the clamped value is what reads as selected, same as get_selected_depth_data.
+	var selected := clampi(MetaProgression.selected_depth, 0, max_depth)
+	for level: int in range(max_depth + 1):
+		var button := Button.new()
+		button.text = "SURFACE" if level == 0 else DepthData.numeral(level)
+		if level > 0 and MetaProgression.depth_registry != null:
+			var depth_data := MetaProgression.depth_registry.get_depth(level)
+			if depth_data != null:
+				button.tooltip_text = depth_data.display_name
+		button.toggle_mode = true
+		button.button_pressed = level == selected
+		button.disabled = level == selected
+		button.pressed.connect(_on_depth_selected.bind(level))
+		_depth_box.add_child(button)
+
+
+func _on_depth_selected(level: int) -> void:
+	AudioManager.play(&"click")
+	MetaProgression.select_depth(level)
 	MetaProgression.save_game()
 	_refresh()
 

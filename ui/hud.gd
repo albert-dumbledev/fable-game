@@ -38,6 +38,9 @@ const LOW_HEALTH_FRACTION := 0.25
 const GHOST_DELAY := 0.35
 const GHOST_DRAIN_TIME := 0.4
 const BOSS_BAR_COLOR := Color(1, 0.4, 0.35)
+## Depth chip tint (docs/DEPTHS.md): a quiet, desaturated accent — ambient
+## status, not an alert, so it stays well off the boss/kill/gold palette.
+const DEPTH_CHIP_COLOR := Color(0.62, 0.68, 0.85)
 ## Kill streak: purely cosmetic combo ticker. Shows from this many kills,
 ## resets after this long without one.
 const STREAK_MIN := 3
@@ -48,6 +51,7 @@ var _shown_second := -1
 var _kills := 0
 var _running := true
 var _player: Player
+var _depth_chip: Label
 var _skill_slots: Dictionary[StringName, SkillSlot] = {}
 var _health_fill: StyleBoxFlat
 var _mana_bar: ProgressBar
@@ -115,6 +119,7 @@ func _ready() -> void:
 	_mana_bar.add_theme_stylebox_override(&"fill", mana_fill)
 	_mana_bar.visible = false
 	add_child(_mana_bar)
+	_setup_depth_chip()
 	_bind_player.call_deferred()
 
 
@@ -141,6 +146,25 @@ func _process(delta: float) -> void:
 		if _streak_time <= 0.0:
 			_end_streak()
 	_update_vignette(delta)
+
+
+## Depth chip (docs/DEPTHS.md): a quiet `DEPTH II` label next to the run
+## timer, shown only on depth runs. The Depth is fixed for the run's lifetime
+## (chosen pre-run), so this reads it once here rather than wiring a signal —
+## RunDirector readies before the HUD (see its _ready comment), so the group
+## lookup is safe to do synchronously on this frame.
+func _setup_depth_chip() -> void:
+	_depth_chip = Label.new()
+	_depth_chip.name = "DepthChip"
+	_depth_chip.add_theme_font_size_override(&"font_size", 20)
+	_depth_chip.add_theme_color_override(&"font_color", DEPTH_CHIP_COLOR)
+	timer_label.get_parent().add_child(_depth_chip)
+	timer_label.get_parent().move_child(_depth_chip, timer_label.get_index() + 1)
+	var rd := get_tree().get_first_node_in_group(&"run_director") as RunDirector
+	var depth: DepthData = rd.depth if rd != null else null
+	_depth_chip.visible = depth != null
+	if depth != null:
+		_depth_chip.text = "DEPTH %s" % DepthData.numeral(depth.level)
 
 
 func _bind_player() -> void:

@@ -31,3 +31,21 @@ extends Resource
 @export var extra_events: Array[WaveEvent] = []
 ## Subtle arena mood shift, kept close to white — a nudge, not a filter.
 @export var ambient_tint := Color.WHITE
+
+
+## Roman numeral for a Depth level (1-based), shared by the picker, victory
+## banners, the records line, and the HUD chip so the numeral never drifts
+## between call sites. A general conversion rather than a lookup table, so it
+## extends past the currently authored ladder (V) for free.
+static func numeral(level: int) -> String:
+	if level <= 0:
+		return str(level)
+	const VALUES: Array[int] = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+	const SYMBOLS: Array[String] = ["M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"]
+	var remaining := level
+	var result := ""
+	for i: int in VALUES.size():
+		while remaining >= VALUES[i]:
+			remaining -= VALUES[i]
+			result += SYMBOLS[i]
+	return result
