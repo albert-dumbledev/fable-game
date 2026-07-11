@@ -40,6 +40,11 @@ const BURST_BONUS_ATK_STEP := 1.0
 ## Arcane Surge: bolts hit harder while mana is at least this full.
 const SURGE_MANA_FRACTION := 0.8
 const SURGE_DAMAGE_MULT := 1.3
+## Stormcaller (Arcanist Aspect): while levitating, every trigger pull forks into
+## three aimed fans, the outer two offset this many degrees. The forks share the
+## volley's single mana budget, so they are extra chances to land the capped
+## refund (funding flight), never extra income.
+const STORMCALLER_FORK_DEG := 10.0
 
 @onready var staff_pivot: Node3D = $StaffPivot
 @onready var orb: MeshInstance3D = $StaffPivot/Orb
@@ -75,14 +80,37 @@ func _do_attack(duration: float) -> void:
 		_fire_volley(player)
 
 
-## One trigger pull's worth of bolts: a single bolt, or a Scatter Shot spread.
-## All bolts (and their split children) share one mana budget so the refund is
-## capped per volley. Each volley kicks the viewmodel.
+## One trigger pull's worth of bolts. Every bolt (scatter fan, split children,
+## and Stormcaller forks) shares ONE mana budget so the refund is capped per
+## volley — the anti-printer rule. Each volley kicks the viewmodel.
 func _fire_volley(player: Player) -> void:
 	var base_damage := _bolt_damage(player)
 	var budget := BoltManaBudget.new(player, Player.BOLT_MANA_RESTORE)
 	var can_split := player.has_ability(&"split_shot")
-	var dir := player.aim_direction()
+	# Fork the whole pull three ways when Stormcaller is levitating; each fork
+	# then fans/splits exactly like a normal volley would.
+	for fork_dir: Vector3 in _volley_directions(player):
+		_fire_fan(player, fork_dir, base_damage, budget, can_split)
+	_recoil()
+
+
+## The aim directions this trigger pull fires along: just the aim vector, or a
+## three-way ±STORMCALLER_FORK_DEG fork while Stormcaller is levitating.
+func _volley_directions(player: Player) -> Array[Vector3]:
+	var aim := player.aim_direction()
+	if player.has_ability(&"stormcaller") and player.is_levitating():
+		return [
+			aim.rotated(Vector3.UP, deg_to_rad(-STORMCALLER_FORK_DEG)),
+			aim,
+			aim.rotated(Vector3.UP, deg_to_rad(STORMCALLER_FORK_DEG)),
+		]
+	return [aim]
+
+
+## One aim direction's worth of bolts: a single bolt, or a Scatter Shot spread.
+## Shares the passed-in budget so forks/scatter/split never exceed the cap.
+func _fire_fan(player: Player, dir: Vector3, base_damage: float,
+		budget: BoltManaBudget, can_split: bool) -> void:
 	if player.has_ability(&"scatter_shot"):
 		for i: int in SCATTER_COUNT:
 			var t := float(i) - float(SCATTER_COUNT - 1) * 0.5
@@ -90,7 +118,6 @@ func _fire_volley(player: Player) -> void:
 			_spawn_bolt(player, spread, base_damage * SCATTER_DAMAGE_MULT, budget, can_split)
 	else:
 		_spawn_bolt(player, dir, base_damage, budget, can_split)
-	_recoil()
 
 
 ## Burst Fire: fire now and schedule the remaining rounds, then hold the primary

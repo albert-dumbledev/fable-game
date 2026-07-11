@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"shatterflux"
+display_name = "Shatterflux"
+description = "Frost-chilled enemies struck by Fireball shatter for double blast damage plus a mini-nova that chills their neighbors"
+weight = 1.0
+unique = true
+grants_ability = &"shatterflux"
+requires_weapon = &"battle_staff"

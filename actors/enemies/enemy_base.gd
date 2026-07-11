@@ -301,6 +301,13 @@ func apply_slow(mult: float, duration: float) -> void:
 	_refresh_resting_color()
 
 
+## True while a Frost Nova chill is still ticking. Shatterflux (Arcanist Aspect)
+## keys its shatter bonus off this — a chilled enemy caught by a Fireball takes
+## double blast damage and spawns a chill mini-nova.
+func is_chilled() -> bool:
+	return _slow_time > 0.0
+
+
 ## Hatch frenzy (broodlings): a temporary speed burst applied when hatched
 ## from a death-burst. Decays after `duration` like the slow does.
 func apply_spawn_frenzy(mult: float, duration: float) -> void:

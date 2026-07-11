@@ -68,6 +68,11 @@ signal player_dashed
 @warning_ignore("unused_signal")
 signal mana_cast_denied
 
+## Emitted when Blood Pact (Arcanist Aspect) pays a spell's mana shortfall in
+## health — `amount` is the HP burned, so the HUD can flash the mana bar red.
+@warning_ignore("unused_signal")
+signal mana_burned(amount: float)
+
 ## Emitted when the player walks onto an Aspect relic. No args — the AspectScreen
 ## does the pick-1-of-2 roll itself. Opening the screen is the whole payload.
 @warning_ignore("unused_signal")

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"blood_pact"
+display_name = "Blood Pact"
+description = "Cast spells without mana — the shortfall is paid in health (0.5 HP per mana). A cast that would kill you is refused"
+weight = 1.0
+unique = true
+grants_ability = &"blood_pact"
+requires_weapon = &"battle_staff"

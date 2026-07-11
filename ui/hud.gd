@@ -78,6 +78,7 @@ func _ready() -> void:
 	EventBus.wave_announcement.connect(_on_wave_announcement)
 	EventBus.boss_spawned.connect(_on_boss_spawned)
 	EventBus.mana_cast_denied.connect(_on_cast_denied)
+	EventBus.mana_burned.connect(_on_mana_burned)
 	_gold_target = MetaProgression.get_currency(&"gold")
 	_gold_display = float(_gold_target)
 	gold_label.text = "Gold: %d" % _gold_target
@@ -318,6 +319,17 @@ func _on_cast_denied() -> void:
 	_mana_bar.modulate = Color(1.7, 1.5, 1.5)
 	var tween := create_tween()
 	tween.tween_property(_mana_bar, "modulate", Color.WHITE, 0.35)
+
+
+## Blood Pact burned health to fund a cast — pulse the mana bar red so the price
+## reads on the same bar that would normally have paid it. `_amount` is the HP
+## spent (unused for now; the flash is a fixed cue).
+func _on_mana_burned(_amount: float) -> void:
+	if _mana_bar == null:
+		return
+	_mana_bar.modulate = Color(2.0, 0.5, 0.5)
+	var tween := create_tween()
+	tween.tween_property(_mana_bar, "modulate", Color.WHITE, 0.4)
 
 
 func _on_xp_changed(current: int, required: int, level: int) -> void:

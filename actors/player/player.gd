@@ -67,6 +67,11 @@ const LEAP_COOLDOWN := 5.0
 ## that only starts on landing keep it a power moment, not a roof camp.
 const LEVITATE_DURATION := 2.5
 const LEVITATE_COOLDOWN := 8.0
+## Stormcaller (Arcanist Aspect): with the flag owned, Levitate stops being a
+## fixed-timer hover and becomes a mana-funded flight stance — it drains this
+## much mana per second and drops when the pool empties, so landing bolt hits
+## (which refund mana) are what keep the player aloft. Base Levitate is untouched.
+const LEVITATE_MANA_DRAIN := 20.0
 const LEVITATE_RISE_SPEED := 8.0
 const LEVITATE_HOVER_DAMP := 6.0
 const LEVITATE_STRAFE_MULT := 0.8
@@ -103,6 +108,10 @@ const MANA_REGEN := 4.0
 const BOLT_MANA_RESTORE := 8.0
 const FIREBALL_MANA_COST := 40.0
 const FROST_NOVA_MANA_COST := 30.0
+## Blood Pact (Arcanist Aspect): a spell cast without enough mana pays the
+## shortfall in health at this rate (0.5 HP per missing mana). A cast whose HP
+## price would drop the player to 0 is refused outright — see _spend_mana.
+const BLOOD_PACT_HP_PER_MANA := 0.5
 ## Echo Nova (unique boon): a second, weaker pulse after the first.
 const NOVA_ECHO_DELAY := 1.0
 const NOVA_ECHO_DAMAGE_MULT := 0.5
@@ -295,11 +304,8 @@ func _physics_process(delta: float) -> void:
 			weapon.try_attack()
 		if weapon is Staff and has_ability(&"frost_nova") \
 				and Input.is_action_just_pressed("cast_2") and _nova_cooldown <= 0.0:
-			if _mana >= FROST_NOVA_MANA_COST:
-				_mana -= FROST_NOVA_MANA_COST
+			if _spend_mana(FROST_NOVA_MANA_COST):
 				_cast_frost_nova()
-			else:
-				_deny_cast()
 
 	if Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = JUMP_VELOCITY
@@ -340,13 +346,23 @@ func _physics_process(delta: float) -> void:
 		return
 
 	if _levitating:
-		_levitate_time -= delta
 		# Require a Shift release before a second press can end flight, so the
 		# takeoff press doesn't cancel on the same frame it launched.
 		if not Input.is_action_pressed("dash"):
 			_levitate_can_cancel = true
 		var recast := _levitate_can_cancel and Input.is_action_just_pressed("dash")
-		if _levitate_time <= 0.0 or recast:
+		# Stormcaller (Aspect) reroutes flight to the mana pool: drain while aloft
+		# and drop when it empties, so bolt hits (which refund mana) sustain the
+		# hover. Without the flag, the base LEVITATE_DURATION countdown below runs
+		# exactly as before — one decrement per frame, ending at <= 0.
+		var flight_over := false
+		if has_ability(&"stormcaller"):
+			_mana = maxf(0.0, _mana - LEVITATE_MANA_DRAIN * delta)
+			flight_over = _mana <= 0.0
+		else:
+			_levitate_time -= delta
+			flight_over = _levitate_time <= 0.0
+		if flight_over or recast:
 			_end_levitate()
 		else:
 			# Hover: coast up from the takeoff boost then settle; WASD air-strafe
@@ -882,11 +898,36 @@ func get_cooldown_max(id: StringName) -> float:
 func try_cast_fireball() -> void:
 	if _charging or _fireball_charges <= 0:
 		return
-	if _mana < FIREBALL_MANA_COST:
-		_deny_cast()
+	if not _spend_mana(FIREBALL_MANA_COST):
 		return
-	_mana -= FIREBALL_MANA_COST
 	_begin_cast()
+
+
+## Single gate for every staff spell's mana cost. Normally subtracts `cost` from
+## the pool and returns true. With Blood Pact (Aspect), a shortfall is paid in
+## health at BLOOD_PACT_HP_PER_MANA per missing mana — but a payment that would
+## kill the caster is refused (a lethal cast is never allowed). Returns whether
+## the caller may proceed with the cast; a refusal has already thunked via
+## _deny_cast, so no cooldown/charge is consumed upstream.
+func _spend_mana(cost: float) -> bool:
+	if _mana >= cost:
+		_mana -= cost
+		return true
+	if has_ability(&"blood_pact"):
+		var deficit := cost - _mana
+		var hp_cost := deficit * BLOOD_PACT_HP_PER_MANA
+		if hp_cost >= health.current:
+			_deny_cast()
+			return false
+		_mana = 0.0
+		# Route the HP price through the health component so the bar, Bulwark
+		# scaling, and damage feedback all apply; the guard above keeps it
+		# non-lethal. The mana bar flashes red for the burned portion.
+		health.take_damage(AttackInfo.new(self, hp_cost))
+		EventBus.mana_burned.emit(hp_cost)
+		return true
+	_deny_cast()
+	return false
 
 
 ## A spell was triggered without the mana to pay for it: a dull thunk and a
@@ -959,6 +1000,12 @@ func grant_ability(id: StringName) -> void:
 
 func has_ability(id: StringName) -> bool:
 	return _abilities.get(id, false)
+
+
+## Whether the player is currently in a Levitate hover — read by the staff so
+## Stormcaller's bolt fork only fires while aloft.
+func is_levitating() -> bool:
+	return _levitating
 
 
 ## A perfect block primes/refreshes the riposte window and lights the blade.

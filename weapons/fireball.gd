@@ -10,6 +10,15 @@ const BLAST_DURATION := 0.25
 ## Scorched Earth (unique boon): the blast leaves burning ground behind.
 const BURN_DAMAGE_MULT := 0.2
 const BURN_RADIUS_MULT := 0.55
+## Shatterflux (Arcanist Aspect): a frost-chilled enemy caught in the blast
+## "shatters" — double blast damage to it, plus a small chill nova at its feet
+## that freezes neighbours. The mini-nova only chills (no damage), so it can
+## prime the NEXT Fireball but never cascades within this blast.
+const SHATTERFLUX_DAMAGE_MULT := 2.0
+const SHATTERFLUX_NOVA_RADIUS := 2.5
+const SHATTERFLUX_NOVA_SLOW_MULT := 0.5
+const SHATTERFLUX_NOVA_SLOW_TIME := 2.0
+const SHATTERFLUX_NOVA_COLOR := Color(0.6, 0.85, 1.0, 0.6)
 
 @export var speed := 18.0
 
@@ -83,15 +92,28 @@ func _explode() -> void:
 	if _exploded:
 		return
 	_exploded = true
+	# Fireball is generic, so reach the caster through the shared AttackInfo to
+	# check the Aspect flag. Shatter points are collected during the blast and
+	# resolved after it, so a mini-nova's chill can't retro-shatter a neighbour
+	# within this same explosion (single generation).
+	var caster := _info.source as Player
+	var shatterflux := caster != null and caster.has_ability(&"shatterflux")
+	var shatter_points: Array[Vector3] = []
 	for enemy: EnemyBase in EnemyBase.alive.duplicate():
 		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
 			continue
 		var offset := enemy.global_position - global_position
 		if offset.length() > _radius:
 			continue
+		var damage := _info.damage
+		if shatterflux and enemy.is_chilled():
+			damage *= SHATTERFLUX_DAMAGE_MULT
+			shatter_points.append(enemy.global_position)
 		var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 		if hurtbox != null:
-			hurtbox.receive_hit(AttackInfo.new(_info.source, _info.damage))
+			hurtbox.receive_hit(AttackInfo.new(_info.source, damage))
+	for point: Vector3 in shatter_points:
+		_shatterflux_nova(point)
 	if _burning_ground:
 		FlamePatch.spawn(get_tree().current_scene,
 				Vector3(global_position.x, 0.05, global_position.z),
@@ -107,3 +129,20 @@ func _explode() -> void:
 	if player != null and player.global_position.distance_to(global_position) < 9.0:
 		player.add_shake(0.3)
 	queue_free()
+
+
+## Shatterflux mini-nova: chill every enemy near a shattered target. Applies slow
+## only — no damage — so it spreads the freeze to prime the next Fireball without
+## ever re-triggering a shatter (or fresh damage) inside this blast.
+func _shatterflux_nova(center: Vector3) -> void:
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
+			continue
+		var offset := enemy.global_position - center
+		offset.y = 0.0
+		if offset.length() > SHATTERFLUX_NOVA_RADIUS:
+			continue
+		enemy.apply_slow(SHATTERFLUX_NOVA_SLOW_MULT, SHATTERFLUX_NOVA_SLOW_TIME)
+	BlastVfx.spawn(get_tree().current_scene, center, SHATTERFLUX_NOVA_RADIUS,
+			SHATTERFLUX_NOVA_COLOR, 0.3, 0.3)
+	AudioManager.play_at(&"frost_nova", center)
