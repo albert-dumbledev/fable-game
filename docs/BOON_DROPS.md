@@ -4,7 +4,7 @@ A loot tier above the level-up screen: **Aspects** — build-warping boons dropp
 relics by **elite enemies** and **wave bosses**. Where a legendary boon makes a number bigger,
 an Aspect rewires one of the loadout's verbs (riposte chains, slams refund, blinks cut). This
 is also the system that finally justifies building the elite variants parked in
-[SCALING_REWORK.md](SCALING_REWORK.md) M6 — an elite is a visible ×4-HP problem with a
+[SCALING_REWORK.md](SCALING_REWORK.md) M6 — an elite is a visible ×15-HP problem with a
 promise attached.
 
 Design decisions (settled 2026-07-10):
@@ -34,12 +34,12 @@ Per the parked sketch, pure data/spawner work — no new AI:
 
 - Elite roll on **pool spawns only** (never wave events, never death spawns) past **4:00**:
   `Spawner._spawn` rolls ~3% and calls `spawn_enemy` with an elite flag →
-  `EnemyBase.make_elite()`: **×4 HP, ×1.3 scale, emissive tint** (reuse the material-override
-  pattern from the pickup pulse), **×3 gold/XP reward**.
+  `EnemyBase.make_elite()`: **×15 HP, ×1.3 scale, emissive tint** (reuse the material-override
+  pattern from the pickup pulse), **×5 gold/XP reward**.
 - **Rate limiting** (the 3% raw rate is ~7/min at late spawn cadence — way too hot):
   at most **one elite alive**, and a **≥50s cooldown** between elite spawns. Mirrors the
   magnet's one-at-a-time rule.
-- Elite death drop, this milestone: guaranteed **magnet-or-health** + the ×3 bounty (the
+- Elite death drop, this milestone: guaranteed **magnet-or-health** + the ×5 bounty (the
   original M6 spec). M2 upgrades the first two elites to Aspect relics; this stays the
   fallback for elite #3+ and for an exhausted Aspect pool.
 - Minimap ping (magnet-blip pattern, distinct color) + a low spawn cue — new SFX obeys the
@@ -48,7 +48,7 @@ Per the parked sketch, pure data/spawner work — no new AI:
   already exempt by the pool-only rule), the Gilded One and Scavenger (their identity *is*
   their drop; keep `WaveEvent`-spawned mobs out entirely).
 
-Watch item: a ×4 HP Brute at 4:00 on a fresh hammer/staff save (per-loadout trees = no base
+Watch item: a ×15 HP Brute at 4:00 on a fresh hammer/staff save (per-loadout trees = no base
 upgrades) may be a wall. Elites must stay skippable — normal steering, no forced engage.
 
 ## M2 — Aspect plumbing: registry, relic, pick screen
