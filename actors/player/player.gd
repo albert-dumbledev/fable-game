@@ -71,7 +71,7 @@ const LEVITATE_COOLDOWN := 8.0
 ## fixed-timer hover and becomes a mana-funded flight stance — it drains this
 ## much mana per second and drops when the pool empties, so landing bolt hits
 ## (which refund mana) are what keep the player aloft. Base Levitate is untouched.
-const LEVITATE_MANA_DRAIN := 20.0
+const LEVITATE_MANA_DRAIN := 30.0
 const LEVITATE_RISE_SPEED := 8.0
 const LEVITATE_HOVER_DAMP := 6.0
 const LEVITATE_STRAFE_MULT := 0.8

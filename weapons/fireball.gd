@@ -19,6 +19,12 @@ const SHATTERFLUX_NOVA_RADIUS := 2.5
 const SHATTERFLUX_NOVA_SLOW_MULT := 0.5
 const SHATTERFLUX_NOVA_SLOW_TIME := 2.0
 const SHATTERFLUX_NOVA_COLOR := Color(0.6, 0.85, 1.0, 0.6)
+## Icy shatter overlay: when Shatterflux actually triggers, the blast gets an
+## extra icy-white flash + ice shards layered on top of the normal orange
+## blast so the player can instantly tell the shatter procced.
+const SHATTER_BLAST_COLOR := Color(0.7, 0.9, 1.0, 0.8)
+const SHATTER_BLAST_RADIUS_MULT := 1.25
+const SHATTER_SHARD_COLOR := Color(0.75, 0.9, 1.0)
 
 @export var speed := 18.0
 
@@ -124,6 +130,16 @@ func _explode() -> void:
 			Color(1.0, 0.5, 0.1, 0.7), 1.0, BLAST_DURATION)
 	ShardBurst.spawn(get_tree().current_scene, global_position,
 			Color(1.0, 0.55, 0.15), 12, 7.0, 0.1, 0.7)
+	# Shatterflux triggered this blast: layer an icy-white flash + ice shards
+	# (and a crisp frost sting) on top of the normal fireball so the shatter
+	# is unmistakable rather than looking like a regular explosion.
+	if not shatter_points.is_empty():
+		AudioManager.play_at(&"frost_nova", global_position)
+		BlastVfx.spawn(get_tree().current_scene, global_position,
+				_radius * SHATTER_BLAST_RADIUS_MULT, SHATTER_BLAST_COLOR, 1.0,
+				BLAST_DURATION)
+		ShardBurst.spawn(get_tree().current_scene, global_position,
+				SHATTER_SHARD_COLOR, 10, 8.0, 0.1, 0.6)
 	# Nearby blasts rattle the camera a little.
 	var player := get_tree().get_first_node_in_group(&"player") as Player
 	if player != null and player.global_position.distance_to(global_position) < 9.0:
@@ -145,4 +161,8 @@ func _shatterflux_nova(center: Vector3) -> void:
 		enemy.apply_slow(SHATTERFLUX_NOVA_SLOW_MULT, SHATTERFLUX_NOVA_SLOW_TIME)
 	BlastVfx.spawn(get_tree().current_scene, center, SHATTERFLUX_NOVA_RADIUS,
 			SHATTERFLUX_NOVA_COLOR, 0.3, 0.3)
+	# Small icy shard pop right at the shattered enemy so each individual
+	# shatter reads clearly, distinct from the mini chill nova ring.
+	ShardBurst.spawn(get_tree().current_scene, center,
+			SHATTER_SHARD_COLOR, 6, 5.0, 0.08, 0.45)
 	AudioManager.play_at(&"frost_nova", center)

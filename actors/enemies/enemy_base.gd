@@ -26,11 +26,11 @@ const DEATH_SPAWN_ARENA_HALF := 18.5
 const DEATH_SPAWN_HEIGHT := 1.0
 
 ## Elite variants (Aspect Drops M1): a rare buffed pool spawn — a visible
-## ×4-HP bounty. The spawner gates the roll (rate + time); make_elite() only
+## ×15-HP bounty. The spawner gates the roll (rate + time); make_elite() only
 ## folds in the stat mults, and _ready applies the look. Emission is a hot
 ## magenta that persists through windup/stun (those drive albedo, not emission).
-const ELITE_HP_MULT := 4.0
-const ELITE_REWARD_MULT := 3.0
+const ELITE_HP_MULT := 15.0
+const ELITE_REWARD_MULT := 5.0
 const ELITE_SCALE := 1.3
 const ELITE_EMISSION := Color(1.0, 0.15, 0.6)
 const ELITE_EMISSION_ENERGY := 2.5
