@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="DepthData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/depth_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+level = 2
+display_name = "THE PRESSING DARK"
+hp_mult = 1.6
+dmg_mult = 1.4
+reward_mult = 1.5
+alive_cap_bonus = 15
+swarm_count_mult = 1.25
+rarity_time_bonus = 120.0
+elite_min_elapsed = 180.0
+ambient_tint = Color(0.95, 0.92, 0.97, 1)

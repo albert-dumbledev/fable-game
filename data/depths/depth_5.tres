@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="DepthData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://core/depth_data.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://cs5y5yhlxd13f" path="res://core/wave_event.gd" id="2_event"]
+[ext_resource type="Resource" uid="uid://bkognv01ld0bw" path="res://data/enemies/juggernaut.tres" id="3_boss"]
+
+[sub_resource type="Resource" id="Resource_twin"]
+script = ExtResource("2_event")
+time = 158.0
+enemy = ExtResource("3_boss")
+count = 1
+announcement = "THE TWIN COURT CONVENES"
+
+[resource]
+script = ExtResource("1_script")
+level = 5
+display_name = "THE REVENANT'S HOUR"
+hp_mult = 3.1
+dmg_mult = 2.1
+reward_mult = 2.6
+interval_mult = 0.85
+alive_cap_bonus = 15
+swarm_count_mult = 1.25
+elite_min_elapsed = 180.0
+elite_max_alive = 2
+aspect_elite_cap = 3
+boss_relic_count = 2
+rarity_time_bonus = 300.0
+pin_legendary = true
+windup_mult = 0.85
+finale_time_shift = -45.0
+extra_events = Array[ExtResource("2_event")]([SubResource("Resource_twin")])
+ambient_tint = Color(0.93, 0.96, 0.95, 1)

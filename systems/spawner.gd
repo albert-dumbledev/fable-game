@@ -18,6 +18,10 @@ const ELITE_COOLDOWN := 50.0
 
 @export var wave_table: WaveTable
 
+## The active Depth (docs/DEPTHS.md), set by RunDirector. null = Surface: every
+## code path below reads it as identity so Surface runs are byte-identical.
+var depth: DepthData
+
 var _spawn_timer := 0.0
 var _elite_cooldown := 0.0
 
@@ -29,8 +33,13 @@ func tick(elapsed: float, delta: float) -> void:
 	_spawn_timer -= delta
 	if _spawn_timer > 0.0:
 		return
-	_spawn_timer = wave_table.spawn_interval_at(elapsed)
-	if EnemyBase.alive.size() >= wave_table.max_alive_at(elapsed):
+	var interval := wave_table.spawn_interval_at(elapsed)
+	var cap := wave_table.max_alive_at(elapsed)
+	if depth != null:
+		interval *= depth.interval_mult
+		cap += depth.alive_cap_bonus
+	_spawn_timer = interval
+	if EnemyBase.alive.size() >= cap:
 		return
 	_spawn(elapsed)
 
@@ -78,8 +87,17 @@ func spawn_enemy(data: EnemyData, elapsed: float, elite: bool = false) -> EnemyB
 	var enemy := data.scene.instantiate() as EnemyBase
 	if enemy == null:
 		return null
-	enemy.setup(data, wave_table.hp_mult_at(elapsed), wave_table.dmg_mult_at(elapsed),
-			wave_table.reward_mult_at(elapsed))
+	# Depth folds its flat mults on top of the WaveTable's time scaling; this one
+	# site covers pool spawns, scheduled events, and death-spawned Broodlings
+	# (children inherit the parent's mults in EnemyBase._spawn_death_spawns).
+	var hp := wave_table.hp_mult_at(elapsed)
+	var dmg := wave_table.dmg_mult_at(elapsed)
+	var reward := wave_table.reward_mult_at(elapsed)
+	if depth != null:
+		hp *= depth.hp_mult
+		dmg *= depth.dmg_mult
+		reward *= depth.reward_mult
+	enemy.setup(data, hp, dmg, reward)
 	# make_elite folds the ×4 HP into _hp_mult, which _ready reads — so it must
 	# land before add_child (which triggers _ready).
 	if elite:

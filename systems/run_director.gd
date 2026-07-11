@@ -41,6 +41,9 @@ var level := 0
 var _scavenger_cooldown := 0.0
 
 var _run_active := true
+## The active Depth (docs/DEPTHS.md), resolved from the save in _ready and handed
+## to the spawner. null = Surface — every consumer treats null as today's run.
+var depth: DepthData
 ## Recap accumulator (docs/RUN_RECAP.md) — a child node so it dies with the run.
 var _stats_tracker: RunStats
 ## Per-event next-fire clock (repeating events re-arm; one-shots go INF).
@@ -61,6 +64,9 @@ var _elite_kills := 0
 func _ready() -> void:
 	GameManager.state = GameManager.State.IN_RUN
 	add_to_group(&"run_director")
+	# Resolve the chosen Depth once and hand it to the spawner (null = Surface).
+	depth = MetaProgression.get_selected_depth_data()
+	spawner.depth = depth
 	_stats_tracker = RunStats.new()
 	add_child(_stats_tracker)
 	EventBus.enemy_killed.connect(_on_enemy_killed)
@@ -109,7 +115,12 @@ func _fire_due_events() -> void:
 			continue
 		if event.announcement != "":
 			EventBus.wave_announcement.emit(event.announcement)
-		for j: int in event.count:
+		# Depth swarms come thicker: scale repeating-event counts only, so
+		# bosses and one-shots stay exactly as authored.
+		var count := event.count
+		if event.repeat_every > 0.0 and depth != null:
+			count = int(round(count * depth.swarm_count_mult))
+		for j: int in count:
 			var enemy := spawner.spawn_enemy(event.enemy, elapsed)
 			if enemy != null and event.enemy.tags.has(&"boss"):
 				EventBus.boss_spawned.emit(enemy)
@@ -199,6 +210,9 @@ func abandon_run() -> void:
 func _final_stats(extra: Dictionary) -> Dictionary:
 	var stats := {"time": elapsed, "kills": kills, "gold": gold_earned, "level": level}
 	stats.merge(extra)
+	# The Depth this run was played at (0 = Surface); record_run keys the
+	# depth-scoped bests off it.
+	stats["depth"] = depth.level if depth != null else 0
 	if _stats_tracker != null:
 		stats["recap"] = _stats_tracker.to_dict()
 	stats["new_records"] = MetaProgression.record_run(stats)
