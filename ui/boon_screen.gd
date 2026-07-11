@@ -187,6 +187,13 @@ func _on_pick(offer: Offer) -> void:
 		player.apply_boon(offer.boon, offer.mult)
 	if offer.boon.unique:
 		_taken_uniques.append(offer.boon.id)
+	EventBus.boon_picked.emit({
+		"id": offer.boon.id,
+		"name": offer.boon.display_name,
+		"rarity": offer.tag,
+		"color": offer.color,
+		"mult": offer.mult,
+	})
 	_advance()
 
 

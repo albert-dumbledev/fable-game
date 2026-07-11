@@ -82,3 +82,19 @@ signal aspect_relic_claimed
 ## decides the drop (Aspect relic for the first elites, bounty fallback after).
 @warning_ignore("unused_signal")
 signal elite_died(position: Vector3)
+
+## Emitted when the player takes a hit, with full attribution (post-mitigation —
+## fires alongside player_damaged, which only carries the amount). `info.source`
+## identifies the attacker; RunStats builds the damage-taken recap from this.
+@warning_ignore("unused_signal")
+signal player_hit(info: AttackInfo)
+
+## Emitted when a level-up boon is picked. `ctx` carries the resolved offer:
+## {id, name, rarity, color, mult} — rarity/color are the rolled values the
+## player actually saw on the card.
+@warning_ignore("unused_signal")
+signal boon_picked(ctx: Dictionary)
+
+## Emitted when an Aspect is picked from a relic. `ctx` is {id, name}.
+@warning_ignore("unused_signal")
+signal aspect_picked(ctx: Dictionary)

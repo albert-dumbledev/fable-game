@@ -63,6 +63,7 @@ func _on_pick(aspect: BoonData, player: Player) -> void:
 	if player != null:
 		player.apply_boon(aspect)
 	EventBus.wave_announcement.emit("ASPECT CLAIMED — %s" % aspect.display_name.to_upper())
+	EventBus.aspect_picked.emit({"id": aspect.id, "name": aspect.display_name})
 	_resume(player)
 
 

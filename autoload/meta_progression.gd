@@ -18,6 +18,10 @@ var selected_weapon: StringName = DEFAULT_WEAPON
 ## Permanent abilities granted by boss drops (weapon unlocks). Persisted
 ## separately from shop upgrades; unioned into get_granted_abilities().
 var unlocked_abilities: Array[StringName] = []
+## Lifetime personal bests, shown on the death screen (docs/RUN_RECAP.md).
+## String keys (JSON round-trip): longest_run/fastest_victory are seconds
+## (floats), the rest ints. Missing keys default to 0 — additive save change.
+var records: Dictionary = {}
 
 
 func _ready() -> void:
@@ -128,6 +132,35 @@ func increment_upgrade(id: StringName) -> void:
 	upgrade_levels[id] = get_upgrade_level(id) + 1
 
 
+## Fold a finished run into the lifetime records and return which bests were
+## newly set (keys from `records`); the death screen turns those into NEW BEST
+## badges. Abandoned runs count as runs but never set bests — quitting isn't
+## surviving. Caller (RunDirector) saves right after, so no save here.
+func record_run(stats: Dictionary) -> Array[String]:
+	var fresh: Array[String] = []
+	records["runs"] = int(records.get("runs", 0)) + 1
+	if stats.get("abandoned", false):
+		return fresh
+	var time := float(stats.get("time", 0.0))
+	var maxima: Dictionary = {
+		"longest_run": time,
+		"most_kills": float(stats.get("kills", 0)),
+		"best_level": float(stats.get("level", 0)),
+		"most_gold": float(stats.get("gold", 0)),
+	}
+	for key: String in maxima:
+		if float(maxima[key]) > float(records.get(key, 0)):
+			records[key] = maxima[key]
+			fresh.append(key)
+	if stats.get("victory", false):
+		records["victories"] = int(records.get("victories", 0)) + 1
+		var best := float(records.get("fastest_victory", 0.0))
+		if best <= 0.0 or time < best:
+			records["fastest_victory"] = time
+			fresh.append("fastest_victory")
+	return fresh
+
+
 func save_game() -> void:
 	var data: Dictionary = {
 		"save_version": SAVE_VERSION,
@@ -135,6 +168,7 @@ func save_game() -> void:
 		"upgrade_levels": _to_string_keys(upgrade_levels),
 		"unlocked_abilities": _abilities_to_array(unlocked_abilities),
 		"selected_weapon": String(selected_weapon),
+		"records": records,
 	}
 	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -161,6 +195,8 @@ func load_game() -> void:
 	var weapon_id: Variant = data.get("selected_weapon", String(DEFAULT_WEAPON))
 	if weapon_id is String:
 		selected_weapon = StringName(weapon_id)
+	var loaded_records: Variant = data.get("records", {})
+	records = loaded_records if loaded_records is Dictionary else {}
 	# Legacy-data migration: keyed on pre-rework upgrade keys and self-erasing,
 	# so it runs once per save and stays correct even after the version bumps
 	# (a save migrated by an earlier milestone still gets later steps).

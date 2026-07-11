@@ -41,6 +41,8 @@ var level := 0
 var _scavenger_cooldown := 0.0
 
 var _run_active := true
+## Recap accumulator (docs/RUN_RECAP.md) — a child node so it dies with the run.
+var _stats_tracker: RunStats
 ## Per-event next-fire clock (repeating events re-arm; one-shots go INF).
 var _next_event_at: PackedFloat64Array = []
 
@@ -59,6 +61,8 @@ var _elite_kills := 0
 func _ready() -> void:
 	GameManager.state = GameManager.State.IN_RUN
 	add_to_group(&"run_director")
+	_stats_tracker = RunStats.new()
+	add_child(_stats_tracker)
 	EventBus.enemy_killed.connect(_on_enemy_killed)
 	EventBus.pickup_collected.connect(_on_pickup_collected)
 	EventBus.player_died.connect(_on_player_died)
@@ -175,10 +179,9 @@ func _on_player_died() -> void:
 	if not _run_active:
 		return
 	_run_active = false
-	MetaProgression.save_game()
 	# Deferred: player_died fires mid-physics-frame; changing scene immediately
 	# would yank nodes out of the tree while they still get processed this frame.
-	GameManager.end_run.call_deferred({"time": elapsed, "kills": kills, "gold": gold_earned})
+	GameManager.end_run.call_deferred(_final_stats({}))
 
 
 ## Quit from the pause menu: bank progress and take the same handoff as
@@ -187,9 +190,20 @@ func abandon_run() -> void:
 	if not _run_active:
 		return
 	_run_active = false
+	GameManager.end_run.call_deferred(_final_stats({"abandoned": true}))
+
+
+## The end-of-run stats dict, shared by all three end paths: base tallies +
+## the recap payload + which lifetime records this run set. record_run must
+## precede save_game so the new bests land in the same write.
+func _final_stats(extra: Dictionary) -> Dictionary:
+	var stats := {"time": elapsed, "kills": kills, "gold": gold_earned, "level": level}
+	stats.merge(extra)
+	if _stats_tracker != null:
+		stats["recap"] = _stats_tracker.to_dict()
+	stats["new_records"] = MetaProgression.record_run(stats)
 	MetaProgression.save_game()
-	GameManager.end_run.call_deferred(
-			{"time": elapsed, "kills": kills, "gold": gold_earned, "abandoned": true})
+	return stats
 
 
 ## Register a spawned boss so the wave can tell when the last one falls. The
@@ -339,6 +353,4 @@ func finish_victory() -> void:
 	if not _run_active:
 		return
 	_run_active = false
-	MetaProgression.save_game()
-	GameManager.end_run.call_deferred(
-			{"time": elapsed, "kills": kills, "gold": gold_earned, "victory": true})
+	GameManager.end_run.call_deferred(_final_stats({"victory": true}))
