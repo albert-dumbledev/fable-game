@@ -27,6 +27,12 @@ const LONG_PARRY_BONUS := 0.15
 ## refreshes the window — there is never more than one riposte buffered.
 const RIPOSTE_BASE_BONUS := 0.75
 const RIPOSTE_WINDOW := 2.0
+## Crescendo (duelist Aspect, riposte_chain): a riposte swing that kills refreshes
+## the prime instead of consuming it, and each successive riposte in the chain
+## deals this much more. Stacks reset when the window finally lapses.
+const CRESCENDO_STACK_BONUS := 0.25
+## Mirror Ward (duelist Aspect): AoE radius of the reflected projectile's blast.
+const MIRROR_WARD_RADIUS := 4.0
 ## Dash: a fixed-distance blink — traveled, not teleported — with full
 ## intangibility (no enemy collision, no damage, projectiles pass through).
 const DASH_DISTANCE := 6.0
@@ -138,6 +144,9 @@ var _omni_window_end_ms := -10000
 var _omni_next_ms := 0
 ## ticks_msec deadline for the primed riposte; 0.0 = not primed.
 var _riposte_until := 0.0
+## Crescendo (riposte_chain): consecutive riposte kills escalate the bonus.
+## Reset to 0 when the riposte window lapses (checked in consume_riposte).
+var _riposte_chain_stacks := 0
 ## Second Wind (parry_heal): a perfect block primes lifesteal on the next swing.
 var _lifesteal_pending := false
 var _guard := GUARD_MAX
@@ -404,6 +413,13 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 			if perfect:
 				EventBus.perfect_block.emit()
 				FreezeFrame.hit_pause(PARRY_HIT_PAUSE)
+				# A fresh parry after the riposte window lapsed starts a new
+				# Crescendo chain; a parry landed mid-window lets the running
+				# chain stand (a killing riposte, not a re-parry, sustains it).
+				# Without this a stale chain would leak its inflated bonus into
+				# the next unrelated parry.
+				if _riposte_until <= 0.0 or float(Time.get_ticks_msec()) > _riposte_until:
+					_riposte_chain_stacks = 0
 				_prime_riposte()
 				var stun_dur := PERFECT_BLOCK_STUN * stats.get_stat(Stats.PARRY_STUN)
 				if info.source.has_method(&"stun"):
@@ -412,6 +428,10 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 					(info.source as EnemyBase).mark_vulnerable(stun_dur)
 				if has_ability(&"parry_nova"):
 					_parry_nova()
+				# Mirror Ward: a perfect-blocked projectile is hurled back at
+				# the shooter to detonate on impact (melee hits are ignored).
+				if has_ability(&"mirror_ward") and info.projectile:
+					_mirror_ward_return(info.source)
 				if has_ability(&"parry_heal"):
 					_lifesteal_pending = true
 					_guard = minf(GUARD_MAX, _guard + PARRY_GUARD_REFUND)
@@ -535,7 +555,9 @@ func _begin_dash(direction: Vector3) -> void:
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_dash_kick_tween.tween_property(weapon_mount, "rotation_degrees", Vector3.ZERO, 0.2) \
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	if has_ability(&"shield_dash"):
+	# Shield Dash (stun + prime) and Blade Waltz (damage) both ride this sweep;
+	# owning either arms it, owning both stacks the dash-weave fantasy.
+	if has_ability(&"shield_dash") or has_ability(&"blade_waltz"):
 		_shield_dash_sweep()
 
 
@@ -548,6 +570,10 @@ func _shield_dash_sweep() -> void:
 	start.y = 0.0
 	var end := start + _dash_dir * DASH_DISTANCE
 	var stun := SHIELD_DASH_STUN * stats.get_stat(Stats.PARRY_STUN)
+	# Which effects the sweep carries this blink (either flag arms it).
+	var stagger := has_ability(&"shield_dash")
+	var waltz := has_ability(&"blade_waltz")
+	var waltz_damage := _riposte_scaled_damage() if waltz else 0.0
 	var caught := false
 	for enemy: EnemyBase in EnemyBase.alive.duplicate():
 		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
@@ -561,7 +587,14 @@ func _shield_dash_sweep() -> void:
 		var at_end := flat.distance_to(end) <= SHIELD_DASH_END_RADIUS
 		if not on_path and not at_end:
 			continue
-		enemy.stun(stun)
+		# Shield Dash staggers; Blade Waltz turns the blink into a slash. Both
+		# owned means the enemy is stunned and cut in the same pass.
+		if stagger:
+			enemy.stun(stun)
+		if waltz:
+			var enemy_hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
+			if enemy_hurtbox != null:
+				enemy_hurtbox.receive_hit(AttackInfo.new(self, waltz_damage))
 		BlastVfx.spawn(get_tree().current_scene,
 				enemy.global_position + Vector3(0.0, 0.1, 0.0), 1.0,
 				DASH_RING_COLOR, 0.12, 0.2)
@@ -571,7 +604,9 @@ func _shield_dash_sweep() -> void:
 		BlastVfx.spawn(get_tree().current_scene,
 				end + Vector3(0.0, 0.1, 0.0), SHIELD_DASH_END_RADIUS,
 				DASH_RING_COLOR, 0.1, 0.18)
-		_prime_riposte()
+		# Only Shield Dash primes a riposte — Blade Waltz's blink *is* the strike.
+		if stagger:
+			_prime_riposte()
 		AudioManager.play(&"parry")
 
 
@@ -934,12 +969,47 @@ func _prime_riposte() -> void:
 
 ## Consumed by the sword at swing start: the riposte damage bonus (0.0 if not
 ## primed), base +75% scaled by the riposte_damage stat. Clears the prime, so
-## exactly one swing is buffed per parry.
+## exactly one swing is buffed per parry. With Crescendo (riposte_chain) the
+## bonus is further scaled by the current chain length; the prime is only
+## re-armed (not cleared) by a killing riposte, so the escalation persists.
 func consume_riposte() -> float:
 	if _riposte_until <= 0.0 or float(Time.get_ticks_msec()) > _riposte_until:
+		# Window lapsed: any Crescendo chain ends here.
+		_riposte_chain_stacks = 0
 		return 0.0
 	_riposte_until = 0.0
-	return RIPOSTE_BASE_BONUS * stats.get_stat(Stats.RIPOSTE_DAMAGE)
+	var bonus := RIPOSTE_BASE_BONUS * stats.get_stat(Stats.RIPOSTE_DAMAGE)
+	if has_ability(&"riposte_chain"):
+		bonus *= 1.0 + CRESCENDO_STACK_BONUS * float(_riposte_chain_stacks)
+	return bonus
+
+
+## Crescendo: a riposte swing landed a killing blow. Refresh the prime instead
+## of letting it lapse and grow the chain, so the next swing hits even harder.
+## Re-fires the primed tell so the sustained window reads on the blade.
+func notify_riposte_chain_kill() -> void:
+	_riposte_chain_stacks += 1
+	_prime_riposte()
+
+
+## Weapon base damage scaled by the riposte_damage stat — the shared strike
+## figure for the duelist Aspects that deal damage outside the normal swing
+## (Mirror Ward's return blast, Blade Waltz's blink slash).
+func _riposte_scaled_damage() -> float:
+	if weapon == null or weapon.weapon_data == null:
+		return 0.0
+	return (weapon.weapon_data.damage + stats.get_stat(Stats.DAMAGE)) \
+			* stats.get_stat(Stats.RIPOSTE_DAMAGE)
+
+
+## Mirror Ward: fling a perfect-blocked projectile back at its shooter. The
+## return shot homes to `shooter` and detonates in a MIRROR_WARD_RADIUS blast
+## for riposte-scaled weapon damage. A dead/gone shooter lets it fly straight
+## and detonate at the end of its life.
+func _mirror_ward_return(shooter: Node3D) -> void:
+	MirrorShot.spawn(get_tree().current_scene,
+			global_position + Vector3(0.0, 1.0, 0.0), shooter,
+			_riposte_scaled_damage(), MIRROR_WARD_RADIUS, self)
 
 
 ## Consumed by the sword at swing start: whether the next swing should steal

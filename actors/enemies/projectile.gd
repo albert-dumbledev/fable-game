@@ -14,6 +14,8 @@ var _age := 0.0
 
 func setup(info: AttackInfo, direction: Vector3) -> void:
 	_info = info
+	# Mark the hit as ranged so a perfect block can single it out (Mirror Ward).
+	_info.projectile = true
 	_dir = direction.normalized()
 
 

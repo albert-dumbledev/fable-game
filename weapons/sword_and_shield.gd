@@ -50,6 +50,11 @@ var _blade_material: StandardMaterial3D
 var _riposte_tween: Tween
 var _lifesteal_swing := false
 var _swing_damage := 0.0
+## Crescendo (riposte_chain): the active swing consumed a riposte, and whether
+## its chain kill has already been credited (once per swing, however many
+## enemies it drops).
+var _riposte_swing := false
+var _riposte_kill_logged := false
 
 
 func _ready() -> void:
@@ -69,12 +74,31 @@ func _ready() -> void:
 		blade.material_override = _blade_material
 
 
-func _on_hit_landed(_hurtbox: HurtboxComponent) -> void:
+func _on_hit_landed(hurtbox: HurtboxComponent) -> void:
 	FreezeFrame.hit_pause(HIT_PAUSE)
 	if _lifesteal_swing:
 		var player := wielder as Player
 		if player != null:
 			player.heal(_swing_damage * LIFESTEAL_PCT)
+	_try_riposte_chain(hurtbox)
+
+
+## Crescendo (riposte_chain): a riposte swing that just killed an enemy feeds
+## the chain. Attribution runs through the swing's own hit path — not the global
+## enemy_killed, which swarm deaths would false-positive — and is credited at
+## most once per swing. The hitbox's `landed` fires after receive_hit, so the
+## resolved enemy's health already reflects this hit.
+func _try_riposte_chain(hurtbox: HurtboxComponent) -> void:
+	if not _riposte_swing or _riposte_kill_logged or hurtbox == null:
+		return
+	var player := wielder as Player
+	if player == null or not player.has_ability(&"riposte_chain"):
+		return
+	var enemy := hurtbox.get_parent() as EnemyBase
+	if enemy == null or enemy.health == null or enemy.health.current > 0.0:
+		return
+	_riposte_kill_logged = true
+	player.notify_riposte_chain_kill()
 
 
 ## Swaps between the real models and the post-it/pencil easter egg
@@ -105,6 +129,9 @@ func _do_attack(duration: float) -> void:
 	if riposte > 0.0:
 		damage *= 1.0 + riposte
 		_flash_riposte(duration)
+	# Crescendo tracks kills on riposte swings only, once per swing.
+	_riposte_swing = riposte > 0.0
+	_riposte_kill_logged = false
 	var sweep := riposte > 0.0 and player != null and player.has_ability(&"riposte_sweep")
 	_swing_damage = damage
 	_lifesteal_swing = player != null and player.consume_lifesteal()
@@ -232,6 +259,8 @@ func _sweep_hit(info: AttackInfo) -> void:
 		var enemy_hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 		if enemy_hurtbox != null:
 			enemy_hurtbox.receive_hit(info)
+			# Blade Cyclone is the riposte swing itself — feed Crescendo here too.
+			_try_riposte_chain(enemy_hurtbox)
 	BlastVfx.spawn(get_tree().current_scene,
 			wielder.global_position + Vector3(0.0, 0.1, 0.0), SWEEP_RADIUS,
 			Color(1.0, 0.85, 0.3, 0.4), 0.12, 0.3)

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"mirror_ward"
+display_name = "Mirror Ward"
+description = "Perfect-blocking a projectile hurls it back at the shooter — it detonates on impact in a 4m blast at riposte-scaled damage"
+weight = 1.0
+unique = true
+grants_ability = &"mirror_ward"
+requires_weapon = &"sword_and_shield"

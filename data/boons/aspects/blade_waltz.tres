@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"blade_waltz"
+display_name = "Blade Waltz"
+description = "Blinking through enemies slashes each for riposte-scaled damage — the blink is the strike, no prime needed"
+weight = 1.0
+unique = true
+grants_ability = &"blade_waltz"
+requires_weapon = &"sword_and_shield"

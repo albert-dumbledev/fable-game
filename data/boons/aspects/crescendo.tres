@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"crescendo"
+display_name = "Crescendo"
+description = "Riposte kills refresh the prime instead of consuming it — each strike in the chain hits 25% harder until the window lapses"
+weight = 1.0
+unique = true
+grants_ability = &"riposte_chain"
+requires_weapon = &"sword_and_shield"

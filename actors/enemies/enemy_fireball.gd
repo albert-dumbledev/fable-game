@@ -23,6 +23,8 @@ static func spawn(parent: Node, position: Vector3, direction: Vector3, info: Att
 		return
 	var fb := EnemyFireball.new()
 	fb._info = info
+	# Mark the hit as ranged so a perfect block can single it out (Mirror Ward).
+	fb._info.projectile = true
 	fb._dir = direction.normalized()
 	parent.add_child(fb)
 	fb.global_position = position
