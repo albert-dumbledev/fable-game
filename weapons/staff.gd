@@ -156,8 +156,7 @@ func _spawn_bolt(player: Player, dir: Vector3, damage: float, budget: BoltManaBu
 ## Base per-bolt damage, before any scatter/split fraction. Arcane Surge adds a
 ## flat multiplier while mana is banked high, rewarding not hoarding casts.
 func _bolt_damage(player: Player) -> float:
-	var damage := (weapon_data.damage + stats.get_stat(Stats.DAMAGE) * 0.8) \
-			* stats.get_stat(Stats.SPELL_DAMAGE)
+	var damage := (weapon_data.damage + stats.get_stat(Stats.DAMAGE) * 0.8)
 	if player.has_ability(&"arcane_surge") \
 			and player.get_mana() >= player.get_mana_max() * SURGE_MANA_FRACTION:
 		damage *= SURGE_DAMAGE_MULT

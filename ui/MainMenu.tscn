@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://51c04fdtl0dx" path="res://ui/main_menu.gd" id="1_script"]
 [ext_resource type="PackedScene" uid="uid://cegex1qy26lcq" path="res://ui/SettingsPanel.tscn" id="2_settings"]
-[ext_resource type="Script" path="res://ui/menu_backdrop.gd" id="3_backdrop"]
+[ext_resource type="Script" uid="uid://cvn1qocgg625n" path="res://ui/menu_backdrop.gd" id="3_backdrop"]
 
 [node name="MainMenu" type="Control" unique_id=1285789167]
 layout_mode = 3
@@ -19,19 +19,23 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0.055, 0.055, 0.075, 1)
 
-[node name="BackdropView" type="SubViewportContainer" parent="."]
+[node name="BackdropView" type="SubViewportContainer" parent="." unique_id=1953178833]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 stretch = true
 
-[node name="Viewport" type="SubViewport" parent="BackdropView"]
+[node name="Viewport" type="SubViewport" parent="BackdropView" unique_id=2102860822]
 handle_input_locally = false
+size = Vector2i(1152, 648)
+render_target_update_mode = 4
 
-[node name="Backdrop" type="Node3D" parent="BackdropView/Viewport"]
+[node name="Backdrop" type="Node3D" parent="BackdropView/Viewport" unique_id=2080376724]
 script = ExtResource("3_backdrop")
 
-[node name="Dim" type="ColorRect" parent="."]
+[node name="Dim" type="ColorRect" parent="." unique_id=548171777]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
