@@ -191,6 +191,62 @@ loadout-themed forges (Depth II–III)**, themes drawn from the Depth names
 (Twin Court → a twin/echo mechanic, etc.); the remaining slots are authored
 later — the structure is the feature, the pool can grow.
 
+#### Forge wave 2 — planned roster (jam outcome 2026-07-11, unimplemented)
+
+Brings every loadout to 3 forged Aspects and universals to 5. Design rules the
+jam settled on: rewire a verb or add a decision, never a flat stat or an RNG
+proc; don't collide with the base pool (burning ground = Scorched Earth, bolt
+chaining = Split Shot, mana-on-kill = redundant beside the 8-mana bolt
+generator); don't add more *sources* of control (the pool's most saturated
+axis) — pay existing control off instead (Cold Blood). Execute thresholds and
+windup dampeners were considered and rejected (chaff dies in 1–2 hits; not
+rewarding). Prices extend the gate ladder: I=12 II=16 III=20 IV=25 V=30.
+
+| Aspect | Slot | Gate | ◆ | Effect |
+|---|---|---|---|---|
+| THE PATIENT DARK | sword | II | 16 | ~6s without taking damage primes your next swing as a full riposte (all riposte boons apply; Crescendo can chain off it, Twin Court echoes it) |
+| THE VANISHING STAIR | sword | IV | 25 | Riposte kills instantly refund a blink charge |
+| THE OPEN GRAVE | hammer | III | 20 | During Crashing Leap's descent, enemies are dragged toward the landing marker — the grave opens before you land |
+| HOLLOW EARTH | hammer | IV | 25 | Enemies killed by a Seismic wave erupt a 0.5× shockwave from where they fall (single generation, no cascade) |
+| THE DEEP DRAUGHT | staff | I | 12 | Hold the Fireball cast to overcharge: up to 2× mana cost for up-to-2× blast size and damage |
+| THE DROWNED VEIL | staff | II | 16 | Damage drains mana before health (~2 mana per 1 damage; remainder spills to HP when dry) |
+| THE WAITING COLD | staff | III | 20 | Frost Nova plants a rune at your feet (~0.5s arm) that detonates at 1.5× when trodden on, auto-firing after ~6s; nova boons apply |
+| DEAD WEIGHT | universal | I | 12 | Overkill damage carries to the nearest enemy (~4m) and keeps chaining until the surplus is spent |
+| THE UNCLOSED WOUND | universal | III | 20 | Hits open wounds: ~30% of damage dealt bleeds over 4s, stacking |
+| COLD BLOOD | universal | IV | 25 | Held enemies — staggered, stunned, slowed, or chilled — take 1.5× damage |
+| THE REVENANT'S HOUR | universal | V | 30 | Every boss horn restores you fully: health, mana, cooldowns, charges |
+
+Gate spread including the shipped three: I×3 · II×3 · III×4 · IV×3 · V×1 — the
+shop stays dense at the foot and V keeps a single crown.
+
+Implementation notes (the non-obvious hooks):
+
+- **Patient Dark:** run-scoped timer in `player.gd` reusing the
+  riposte-primed swing path; resets when the player takes damage.
+- **Vanishing Stair:** riposte-kill attribution already exists (Crescendo's
+  path); refund lands on the 8C dash-charge resource.
+- **Open Grave:** Implosion-style pull force toward the landing marker,
+  applied only during the crash phase.
+- **Hollow Earth:** wave-kill attribution → spawn a 0.5× `GroundShockwave` at
+  the corpse; generation flag per the Mass Driver/Shatterflux stance.
+- **Deep Draught:** press/release split on the fireball input; cost/blast/
+  damage scale with held fraction.
+- **Drowned Veil:** intercept in `Player.mitigate_hit` before HP applies;
+  flash the mana bar on absorb. Deliberate tension with Blood Pact (both
+  spend the same pool) and Arcane Surge (hits starve the ≥80% threshold).
+- **Waiting Cold:** placed Area3D + GroundTelegraph decal; enemies already in
+  range when it arms trigger it, preserving panic-button use.
+- **Dead Weight:** on-kill surplus = damage − remaining HP → nearest enemy;
+  the chain is strictly bounded by the original surplus (self-limiting).
+- **Unclosed Wound:** needs a small ticking-stack DoT tracker on `EnemyBase`
+  (reusable infra — future burn/poison rides it). Bleed ticks count as player
+  damage (vampire, Dead Weight) but must not re-open wounds (no recursion).
+- **Cold Blood:** status check in the enemy damage path against states that
+  already exist. Watch item: a universal 1.5× is the strongest raw multiplier
+  in the pool — if it playtests as a must-pick, trim to 1.35× before
+  narrowing the status list.
+- **Revenant's Hour:** RunDirector's boss-wave start hook, finale included.
+
 One real plumbing gap (verified): `AspectPool.available()`
 (`core/aspect_pool.gd:19`) filters by owned-flag and `requires_weapon` but
 never checks `requires_any_ability` — the level-up boon screen does
@@ -424,9 +480,9 @@ Run: `--headless res://test/DepthSmoke.tscn --quit-after 900`.
 - **Endless / infinite Depth scaling** — authored Depths only; if the ladder
   proves out, Depth 6+ is a data add, and a formula-generated tail can come
   later without touching this design.
-- **The full forge set** — 3 forged Aspects ship; the remaining Depth-themed
-  slots (and any per-loadout completions) are follow-up authoring, not
-  systems work.
+- **The full forge set** — 3 forged Aspects ship; wave 2 (11 more, planned
+  2026-07-11 — see the Forge wave 2 roster under Lane 2) is follow-up
+  authoring plus two small systems adds (DoT tracker, fireball charge input).
 - **A prestige reset layer** — shards are a *depth-only earner*, not a reset
   mechanic; a true prestige loop (reset gold/upgrades for global multipliers)
   remains parked, and nothing here blocks it.
