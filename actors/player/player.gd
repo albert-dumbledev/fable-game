@@ -1347,6 +1347,27 @@ func heal(amount: float) -> void:
 	health.heal(amount)
 
 
+## THE REVENANT'S HOUR (universal forged Aspect, docs/DEPTHS.md): a boss horn
+## restores the player in full — health, mana, every cooldown, and every charge
+## pool. RunDirector calls this on each boss-wave start (finale included) when the
+## flag is owned; the ability gate lives at the call site. Idempotent: safe to
+## call more than once per wave (a two-Juggernaut wave horns twice). set_current
+## (not heal) so a full bar lands even at the ceiling, and the guard/cast/mobility
+## timers and both charge pools reset to their maxima so nothing is mid-cooldown.
+func full_restore() -> void:
+	health.set_current(stats.get_stat(Stats.MAX_HEALTH))
+	_mana = MANA_MAX
+	_cast_cooldown = 0.0
+	_fireball_charges = _max_fireball_charges()
+	_nova_cooldown = 0.0
+	_mobility_cooldown = 0.0
+	_dash_charges = _max_dash_charges()
+	_guard = GUARD_MAX
+	_guard_broken = false
+	AudioManager.play(&"unlock_claim")
+	add_shake(0.2)
+
+
 func _on_vampire_kill(_enemy_data: Resource, _position: Vector3) -> void:
 	health.heal(VAMPIRE_HEAL)
 

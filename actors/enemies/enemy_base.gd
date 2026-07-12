@@ -18,6 +18,12 @@ static var alive: Array[EnemyBase] = []
 ## on Surface runs, since statics outlive the run scene. Read through windup_time().
 static var depth_time_scale := 1.0
 
+## DEAD WEIGHT re-entrancy guard: true only while a chain is resolving, so a
+## carry-hit kill can't start a nested chain (the loop already owns the surplus).
+## Always false at rest — it is set and cleared within one synchronous call — so
+## it never leaks across runs, but RunDirector clears it defensively all the same.
+static var dead_weight_chaining := false
+
 const MAX_PICKUP_PIECES := 8
 ## Rare utility drops: at most one magnet in the arena at a time (checked
 ## via Pickup.magnets); health is a straight per-kill roll plus a guaranteed
@@ -69,6 +75,23 @@ const FLOOR_BELOW_SLOW_MULT := 0.55
 const FLOOR_BELOW_SLOW_TIME := 1.5
 const FLOOR_BELOW_STAGGER := 0.25
 const FLOOR_BELOW_COLOR := Color(0.5, 0.4, 0.65, 0.4)
+## DEAD WEIGHT (universal forged Aspect, docs/DEPTHS.md Forge wave 2): a player
+## kill's overkill (damage dealt − HP remaining) carries to the nearest enemy
+## within this radius and keeps chaining, each hop bounded by the shrinking
+## surplus. Carry hits are raw (no_proc) so Cold Blood can't re-inflate them past
+## the original surplus — the self-limiting property the design leans on.
+const DEAD_WEIGHT_RADIUS := 4.0
+## THE UNCLOSED WOUND (universal forged Aspect): a player hit bleeds this
+## fraction of its damage over UNCLOSED_WOUND_DURATION seconds, stacking. Ticks
+## are dealt on DOT_TICK_INTERVAL so the numbers read (not one per frame).
+const UNCLOSED_WOUND_FRACTION := 0.30
+const UNCLOSED_WOUND_DURATION := 4.0
+const DOT_TICK_INTERVAL := 0.5
+const DOT_COLOR := Color(0.7, 0.05, 0.1, 0.35)
+## COLD BLOOD (universal forged Aspect): a held enemy — staggered/stunned or
+## slowed/chilled — takes this much extra from the player. The strongest raw
+## multiplier in the pool; trim to 1.35 first if it must-picks (docs/DEPTHS.md).
+const COLD_BLOOD_MULT := 1.5
 
 @onready var health: HealthComponent = $Health
 @onready var hurtbox: HurtboxComponent = $Hurtbox
@@ -108,6 +131,20 @@ var _slow_mult := 1.0
 var _slow_time := 0.0
 var _frenzy_mult := 1.0
 var _frenzy_time := 0.0
+## Ticking-stack DoT tracker (THE UNCLOSED WOUND bleed; reusable infra — future
+## burn/poison rides it). Each stack is a Vector2(damage_per_second, remaining_s);
+## stacks tick independently and are flushed as one no_proc player hit per
+## DOT_TICK_INTERVAL. _dot_source is whoever opened the wounds (the player).
+var _dot_stacks: Array[Vector2] = []
+var _dot_source: Node3D
+var _dot_pending := 0.0
+var _dot_tick_accum := 0.0
+## DEAD WEIGHT overkill accounting: mitigate_hit records the pre-hit HP, the
+## final damage that will land, and its source, so _on_died can size the surplus
+## (damage − HP remaining) of the exact blow that killed.
+var _kill_prehit_hp := 0.0
+var _kill_damage := 0.0
+var _kill_source: Node3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 
@@ -202,6 +239,13 @@ func _physics_process(delta: float) -> void:
 		_frenzy_time -= delta
 		if _frenzy_time <= 0.0:
 			_frenzy_mult = 1.0
+	# Bleed/DoT ticks (THE UNCLOSED WOUND). A tick can be lethal — bail out of the
+	# rest of the frame the same way the DEAD branch above does if it kills us.
+	if not _dot_stacks.is_empty():
+		_tick_dots(delta)
+		if state == State.DEAD:
+			move_and_slide()
+			return
 	if state != State.STUNNED:
 		_face_target()
 	match state:
@@ -297,14 +341,37 @@ func mark_vulnerable(duration: float) -> void:
 	_vulnerable_until = float(Time.get_ticks_msec()) + duration * 1000.0
 
 
-## Routes every incoming hit; scales damage while the Expose Weakness window is
-## open. Returns a fresh AttackInfo so the shared swing info is never mutated.
+## Routes every incoming hit; scales damage for the held-target multipliers
+## (Expose Weakness window, COLD BLOOD) and records the blow for DEAD WEIGHT's
+## overkill accounting. Returns a fresh AttackInfo when scaled so the shared
+## swing info is never mutated. no_proc hits (DoT ticks, Dead Weight carries)
+## land at their exact tagged value — never re-amplified — so they stay bounded.
 func mitigate_hit(info: AttackInfo) -> AttackInfo:
-	if _vulnerable_until <= 0.0 or float(Time.get_ticks_msec()) > _vulnerable_until:
-		return info
-	var scaled := AttackInfo.new(info.source, info.damage * VULNERABLE_MULT, info.knockback)
-	scaled.hit_sound = info.hit_sound
-	return scaled
+	var final := info
+	if not info.no_proc:
+		var mult := 1.0
+		# Expose Weakness (sword unique boon): open vulnerability window.
+		if _vulnerable_until > 0.0 and float(Time.get_ticks_msec()) <= _vulnerable_until:
+			mult *= VULNERABLE_MULT
+		# COLD BLOOD (universal Aspect): the player's hits on a held enemy bite harder.
+		var attacker := info.source as Player
+		if attacker != null and attacker.has_ability(&"cold_blood") and _is_held():
+			mult *= COLD_BLOOD_MULT
+		if mult != 1.0:
+			final = AttackInfo.new(info.source, info.damage * mult, info.knockback)
+			final.hit_sound = info.hit_sound
+	# Record the blow that's about to land, so a lethal one can size its overkill.
+	_kill_prehit_hp = health.current
+	_kill_damage = final.damage
+	_kill_source = final.source
+	return final
+
+
+## COLD BLOOD's "held" test: staggered/stunned (both are the STUNNED state here)
+## or slowed/chilled (a Frost Nova chill is just a slow). Reads the same state and
+## timer the twist/aspect control effects already drive — no new bookkeeping.
+func _is_held() -> bool:
+	return state == State.STUNNED or _slow_time > 0.0
 
 
 ## Chill (frost nova): scales all movement — chasing, kiting, lunges — but
@@ -322,6 +389,46 @@ func apply_slow(mult: float, duration: float) -> void:
 ## double blast damage and spawns a chill mini-nova.
 func is_chilled() -> bool:
 	return _slow_time > 0.0
+
+
+## Ticking-stack DoT (reusable infra — THE UNCLOSED WOUND rides it today; burn/
+## poison later). Adds a stack that deals `total_damage` spread over `duration`
+## seconds; stacks accumulate independently. `source` is credited with the ticks
+## (so lifesteal/Dead Weight see them as player damage). No-ops on a dead enemy.
+func apply_dot(total_damage: float, duration: float, source: Node3D) -> void:
+	if state == State.DEAD or duration <= 0.0 or total_damage <= 0.0:
+		return
+	_dot_stacks.append(Vector2(total_damage / duration, duration))
+	_dot_source = source
+
+
+## Age every DoT stack by `delta`, banking the damage, and flush it as a single
+## no_proc hit on each DOT_TICK_INTERVAL (or when the last stack expires, so the
+## final fraction always lands). One flush = one damage number, not one a frame.
+## The tick routes through the hurtbox so death/lifesteal/Dead Weight all fire,
+## but its no_proc tag keeps it from re-opening wounds — the anti-recursion rule.
+func _tick_dots(delta: float) -> void:
+	var banked := 0.0
+	for i: int in range(_dot_stacks.size() - 1, -1, -1):
+		var stack := _dot_stacks[i]
+		banked += stack.x * minf(delta, stack.y)
+		stack.y -= delta
+		if stack.y <= 0.0:
+			_dot_stacks.remove_at(i)
+		else:
+			_dot_stacks[i] = stack
+	_dot_pending += banked
+	_dot_tick_accum += delta
+	if _dot_tick_accum < DOT_TICK_INTERVAL and not _dot_stacks.is_empty():
+		return
+	var damage := _dot_pending
+	_dot_pending = 0.0
+	_dot_tick_accum = 0.0
+	if damage <= 0.0 or hurtbox == null:
+		return
+	var tick := AttackInfo.new(_dot_source, damage)
+	tick.no_proc = true
+	hurtbox.receive_hit(tick)
 
 
 ## Hatch frenzy (broodlings): a temporary speed burst applied when hatched
@@ -492,6 +599,15 @@ func _on_damaged(info: AttackInfo) -> void:
 		get_tree().current_scene,
 		global_position + Vector3(randf_range(-0.25, 0.25), 2.0, randf_range(-0.25, 0.25)),
 		info.damage, health.current <= 0.0)
+	# THE UNCLOSED WOUND (universal Aspect): a fresh player hit opens a bleed for a
+	# fraction of its damage over UNCLOSED_WOUND_DURATION, stacking. Guarded on
+	# no_proc so bleed ticks (and Dead Weight carries) never re-open a wound — the
+	# no-recursion rule. The tick itself still counts as player damage everywhere else.
+	if not info.no_proc and info.source is Player \
+			and (info.source as Player).has_ability(&"unclosed_wound"):
+		apply_dot(info.damage * UNCLOSED_WOUND_FRACTION, UNCLOSED_WOUND_DURATION, info.source)
+		BlastVfx.spawn(get_tree().current_scene,
+				global_position + Vector3(0.0, 0.9, 0.0), 0.8, DOT_COLOR, 0.05, 0.2)
 
 
 func _on_died() -> void:
@@ -520,6 +636,16 @@ func _on_died() -> void:
 	# THE FLOOR BELOW (Depth I forged Aspect): a chance-gated tremor on kill.
 	if player != null and player.has_ability(&"floor_below") and randf() < FLOOR_BELOW_CHANCE:
 		_floor_below_tremor()
+	# DEAD WEIGHT (universal forged Aspect): the player's killing blow spends its
+	# overkill on the pack. Only player kills carry, and never from inside a chain
+	# already in flight (the guard) — a carry-hit kill leaves the surplus to the
+	# owning loop instead of forking a second one. self is already erased from
+	# `alive` above, so the chain never re-targets this corpse.
+	if player != null and player.has_ability(&"dead_weight") \
+			and not dead_weight_chaining and _kill_source == player:
+		var surplus := _kill_damage - _kill_prehit_hp
+		if surplus > 0.0:
+			_dead_weight_chain(surplus, global_position, player)
 	# Elite death (Aspect Drops M2): the drop decision now lives in RunDirector —
 	# the first elites per run drop an Aspect relic, later elites fall back to the
 	# M1 magnet-or-health bounty. RunDirector owns that split (it counts kills and
@@ -557,6 +683,56 @@ func _floor_below_tremor() -> void:
 	BlastVfx.spawn(get_tree().current_scene,
 			global_position + Vector3(0.0, 0.1, 0.0), FLOOR_BELOW_RADIUS,
 			FLOOR_BELOW_COLOR, 0.1, 0.3)
+
+
+## DEAD WEIGHT chain: spend `surplus` on the nearest living enemy within
+## DEAD_WEIGHT_RADIUS of `origin`; if that hit overkills too, the remainder
+## (strictly smaller, since the victim had positive HP) carries to the next, and
+## so on until a target soaks it or none is in range. Carry hits are no_proc, so
+## Cold Blood can't re-inflate them past the surplus — the loop is self-limiting.
+## The static guard stops each carry-kill's _on_died from forking its own chain;
+## the alive-count cap is belt-and-braces against a degenerate loop.
+func _dead_weight_chain(surplus: float, origin: Vector3, player: Player) -> void:
+	dead_weight_chaining = true
+	var remaining := surplus
+	var hops := alive.size() + 1
+	while remaining > 0.0 and hops > 0:
+		hops -= 1
+		var target := _nearest_living_enemy(origin)
+		if target == null:
+			break
+		var target_hp := target.health.current
+		var carry := AttackInfo.new(player, remaining)
+		carry.no_proc = true
+		target.hurtbox.receive_hit(carry)
+		BlastVfx.spawn(get_tree().current_scene,
+				target.global_position + Vector3(0.0, 0.9, 0.0), 1.0,
+				Color(0.9, 0.85, 0.2, 0.4), 0.08, 0.2)
+		# Survived: the surplus is fully soaked, nothing carries onward.
+		if target.health.current > 0.0:
+			break
+		remaining -= target_hp
+		origin = target.global_position
+	dead_weight_chaining = false
+
+
+## Nearest living enemy (flat distance) within DEAD_WEIGHT_RADIUS of `from`,
+## excluding self and the dead. Used by the Dead Weight carry chain.
+func _nearest_living_enemy(from: Vector3) -> EnemyBase:
+	var best: EnemyBase = null
+	var best_dist := DEAD_WEIGHT_RADIUS
+	for other: EnemyBase in alive:
+		if other == self or not is_instance_valid(other) or not other.is_inside_tree():
+			continue
+		if other.state == State.DEAD or other.hurtbox == null:
+			continue
+		var offset := other.global_position - from
+		offset.y = 0.0
+		var dist := offset.length()
+		if dist <= best_dist:
+			best = other
+			best_dist = dist
+	return best
 
 
 ## Broodmother-style death burst (EnemyData.death_spawns): instantiate the
