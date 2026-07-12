@@ -92,22 +92,27 @@ func _on_hit_landed(hurtbox: HurtboxComponent) -> void:
 	_try_riposte_chain(hurtbox)
 
 
-## Crescendo (riposte_chain): a riposte swing that just killed an enemy feeds
-## the chain. Attribution runs through the swing's own hit path — not the global
-## enemy_killed, which swarm deaths would false-positive — and is credited at
-## most once per swing. The hitbox's `landed` fires after receive_hit, so the
-## resolved enemy's health already reflects this hit.
+## Crescendo (riposte_chain) and THE VANISHING STAIR (vanishing_stair) both key off
+## a riposte swing that just killed an enemy. Attribution runs through the swing's
+## own hit path — not the global enemy_killed, which swarm deaths would
+## false-positive — and is credited at most once per swing. The hitbox's `landed`
+## fires after receive_hit, so the resolved enemy's health already reflects this hit.
 func _try_riposte_chain(hurtbox: HurtboxComponent) -> void:
 	if not _riposte_swing or _riposte_kill_logged or hurtbox == null:
 		return
 	var player := wielder as Player
-	if player == null or not player.has_ability(&"riposte_chain"):
+	if player == null:
+		return
+	# Detect the riposte-kill once if EITHER duelist Aspect wants it; the player
+	# routes to Crescendo and/or THE VANISHING STAIR from a single notify.
+	if not player.has_ability(&"riposte_chain") \
+			and not player.has_ability(&"vanishing_stair"):
 		return
 	var enemy := hurtbox.get_parent() as EnemyBase
 	if enemy == null or enemy.health == null or enemy.health.current > 0.0:
 		return
 	_riposte_kill_logged = true
-	player.notify_riposte_chain_kill()
+	player.notify_riposte_kill()
 
 
 ## Swaps between the real models and the post-it/pencil easter egg

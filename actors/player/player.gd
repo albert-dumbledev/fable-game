@@ -33,6 +33,11 @@ const RIPOSTE_WINDOW := 2.0
 const CRESCENDO_STACK_BONUS := 0.25
 ## Mirror Ward (duelist Aspect): AoE radius of the reflected projectile's blast.
 const MIRROR_WARD_RADIUS := 4.0
+## THE PATIENT DARK (Depth II forged Aspect, docs/DEPTHS.md Lane 2): this long
+## without taking damage primes a full riposte on the next swing (all riposte
+## boons apply — Crescendo chains, Twin Court echoes). Reuses the parry-primed
+## swing path; the clock resets whenever the player takes damage.
+const PATIENT_DARK_PRIME_TIME := 6.0
 ## Dash: a fixed-distance blink — traveled, not teleported — with full
 ## intangibility (no enemy collision, no damage, projectiles pass through).
 const DASH_DISTANCE := 6.0
@@ -85,6 +90,13 @@ const LEAP_INDICATOR_DIM_ENERGY := 1.4
 const LEAP_INDICATOR_CONFIRM_ENERGY := 3.5
 const LEAP_INDICATOR_DIM_ALPHA := 0.45
 const LEAP_INDICATOR_CONFIRM_ALPHA := 0.75
+## THE OPEN GRAVE (Depth III forged Aspect, docs/DEPTHS.md Lane 2): during the
+## Crashing Leap crash phase, living enemies within OPEN_GRAVE_RADIUS of the landing
+## marker are dragged toward it at OPEN_GRAVE_PULL m/s — the grave opens before you
+## land. Reuses EnemyBase.apply_shove as a per-frame pull: the shove is re-set each
+## tick (not accumulated), so a steady inward velocity reads as a continuous pull.
+const OPEN_GRAVE_RADIUS := 6.0
+const OPEN_GRAVE_PULL := 4.0
 ## Levitate (Arcanist Shift): rise into a timed hover and rain spells. PURE
 ## timer — no mana cost, no intangibility, so spitter/caster/boss projectiles
 ## still connect; melee simply can't reach. Short duration + a long cooldown
@@ -189,6 +201,11 @@ var _riposte_until := 0.0
 ## Crescendo (riposte_chain): consecutive riposte kills escalate the bonus.
 ## Reset to 0 when the riposte window lapses (checked in consume_riposte).
 var _riposte_chain_stacks := 0
+## THE PATIENT DARK (patient_dark): seconds elapsed without taking damage, and a
+## latch marking that the dark has primed a riposte that persists until a swing
+## spends it. Run-scoped (a fresh Player is built each run). Reset by _on_damaged.
+var _patient_dark_charge := 0.0
+var _patient_dark_primed := false
 ## Second Wind (parry_heal): a perfect block primes lifesteal on the next swing.
 var _lifesteal_pending := false
 var _guard := GUARD_MAX
@@ -209,6 +226,9 @@ var _leap_aim_deadline_ms := 0
 var _leap_indicator_point := Vector3.ZERO
 var _leap_dive_time := 0.0
 var _leap_dive_velocity := Vector3.ZERO
+## THE OPEN GRAVE: the landing marker the crash dives to, cached so the pull has a
+## target while diving (the dive velocity alone doesn't retain the destination).
+var _leap_crash_marker := Vector3.ZERO
 var _leap_indicator: MeshInstance3D
 var _leap_indicator_material: StandardMaterial3D
 var _leap_pitch_tween: Tween
@@ -317,6 +337,7 @@ func _physics_process(delta: float) -> void:
 	if _leap_phase != LeapPhase.NONE:
 		_process_leap(delta)
 		return
+	_tick_patient_dark(delta)
 	# Fireball charges refill one at a time through the cooldown.
 	if _fireball_charges < _max_fireball_charges():
 		_cast_cooldown = maxf(0.0, _cast_cooldown - delta)
@@ -825,6 +846,7 @@ func _clamp_leap_target(point: Vector3) -> Vector3:
 ## (mirrors the dash's collision-mask + monitorable trick).
 func _begin_leap_crash(target: Vector3) -> void:
 	_leap_phase = LeapPhase.CRASH
+	_leap_crash_marker = target
 	FreezeFrame.clear_slow_motion()
 	_hide_leap_indicator()
 	_leap_dive_time = LEAP_DIVE_TIME
@@ -839,9 +861,29 @@ func _begin_leap_crash(target: Vector3) -> void:
 func _process_leap_crash(delta: float) -> void:
 	_leap_dive_time -= delta
 	velocity = _leap_dive_velocity
+	# THE OPEN GRAVE: drag enemies toward the marker while the crash is in flight.
+	if has_ability(&"open_grave"):
+		_open_grave_pull()
 	move_and_slide()
 	if _leap_dive_time <= 0.0 or is_on_floor():
 		_land_leap_crash()
+
+
+## THE OPEN GRAVE: rake every living enemy near the landing marker inward. Iterates
+## a snapshot; the per-frame apply_shove is re-set (not accumulated) so it reads as
+## a steady pull rather than a compounding fling. Dead enemies are skipped.
+func _open_grave_pull() -> void:
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
+			continue
+		if enemy.state == EnemyBase.State.DEAD:
+			continue
+		var to_marker := _leap_crash_marker - enemy.global_position
+		to_marker.y = 0.0
+		var d := to_marker.length()
+		if d > OPEN_GRAVE_RADIUS or d < 0.1:
+			continue
+		enemy.apply_shove(to_marker / d * OPEN_GRAVE_PULL)
 
 
 ## Touchdown: restore tangibility/camera, let the warhammer crash its 360°
@@ -1282,6 +1324,33 @@ func is_levitating() -> bool:
 	return _levitating
 
 
+## THE PATIENT DARK: run-scoped patience clock. With the Aspect owned, standing
+## PATIENT_DARK_PRIME_TIME seconds without taking damage primes a full riposte by
+## driving the SAME parry path (_prime_riposte), so every riposte-keyed effect —
+## Crescendo, Twin Court, Vanishing Stair — fires unchanged. The prime must PERSIST
+## until a swing spends it (unlike a parry's 2s window), so once primed the riposte
+## deadline is silently refreshed each tick (no repeated tell); when consume_riposte
+## clears it the dark is spent and the 6s clock restarts. Reset on damage taken.
+func _tick_patient_dark(delta: float) -> void:
+	if not has_ability(&"patient_dark"):
+		return
+	if _patient_dark_primed:
+		# A swing (consume_riposte) drops the deadline to 0 — that is the spend.
+		if _riposte_until <= 0.0 or float(Time.get_ticks_msec()) > _riposte_until:
+			_patient_dark_primed = false
+			_patient_dark_charge = 0.0
+		else:
+			_riposte_until = float(Time.get_ticks_msec()) + RIPOSTE_WINDOW * 1000.0
+		return
+	_patient_dark_charge += delta
+	if _patient_dark_charge >= PATIENT_DARK_PRIME_TIME:
+		_patient_dark_primed = true
+		_prime_riposte()
+		# Subtle prime tell: the blade already lit via _prime_riposte's
+		# notify_riposte_primed; layer a quiet parry cue so it also reads by ear.
+		AudioManager.play(&"parry", -12.0)
+
+
 ## A perfect block primes/refreshes the riposte window and lights the blade.
 func _prime_riposte() -> void:
 	_riposte_until = float(Time.get_ticks_msec()) + RIPOSTE_WINDOW * 1000.0
@@ -1305,12 +1374,26 @@ func consume_riposte() -> float:
 	return bonus
 
 
-## Crescendo: a riposte swing landed a killing blow. Refresh the prime instead
-## of letting it lapse and grow the chain, so the next swing hits even harder.
-## Re-fires the primed tell so the sustained window reads on the blade.
-func notify_riposte_chain_kill() -> void:
-	_riposte_chain_stacks += 1
-	_prime_riposte()
+## A riposte swing landed a killing blow. Routes the two duelist kill-Aspects from
+## the sword's single detection: Crescendo (riposte_chain) refreshes the prime and
+## grows the chain so the next swing hits even harder (re-firing the primed tell);
+## THE VANISHING STAIR (vanishing_stair) hands back a blink charge.
+func notify_riposte_kill() -> void:
+	if has_ability(&"riposte_chain"):
+		_riposte_chain_stacks += 1
+		_prime_riposte()
+	if has_ability(&"vanishing_stair"):
+		_refund_dash_charge()
+
+
+## THE VANISHING STAIR (Depth IV forged Aspect, docs/DEPTHS.md Lane 2): a riposte
+## kill instantly refunds one blink charge into the 8C dash pool, capped at the
+## loadout max. A quiet reuse of the dash blip marks the refund; no-op at the cap.
+func _refund_dash_charge() -> void:
+	if _dash_charges >= _max_dash_charges():
+		return
+	_dash_charges += 1
+	AudioManager.play(&"dash", -6.0)
 
 
 ## Weapon base damage scaled by the riposte_damage stat — the shared strike
@@ -1381,6 +1464,11 @@ func _on_damaged(info: AttackInfo) -> void:
 			_knockback = away.normalized() * info.knockback
 			# Small pop so big hits read as being launched, not slid.
 			velocity.y += minf(info.knockback * 0.15, 3.0)
+	# THE PATIENT DARK: any blow landed breaks patience — restart the clock and
+	# drop the primed latch (a live riposte window is left to lapse on its own so
+	# a parry-earned riposte isn't clobbered by an unrelated chip of damage).
+	_patient_dark_charge = 0.0
+	_patient_dark_primed = false
 	EventBus.player_damaged.emit(info.damage)
 	EventBus.player_hit.emit(info)
 
