@@ -6,6 +6,7 @@ extends Node
 const SAVE_PATH: String = "user://save.json"
 const REGISTRY_PATH: String = "res://data/upgrades/registry.tres"
 const WEAPON_REGISTRY_PATH: String = "res://data/weapons/registry.tres"
+const DEPTH_REGISTRY_PATH: String = "res://data/depths/registry.tres"
 const DEFAULT_WEAPON: StringName = &"sword_and_shield"
 const SAVE_VERSION := 2
 
@@ -13,8 +14,12 @@ var currencies: Dictionary[StringName, int] = {}
 var upgrade_levels: Dictionary[StringName, int] = {}
 var registry: UpgradeRegistry
 var weapon_registry: WeaponRegistry
+var depth_registry: DepthRegistry
 ## Loadout: the weapon the player spawns with, chosen pre-run. Persisted.
 var selected_weapon: StringName = DEFAULT_WEAPON
+## Chosen Depth (docs/DEPTHS.md), chosen pre-run beside the loadout. 0 = Surface
+## (today's run). Persisted; validated against unlocks by get_selected_depth_data.
+var selected_depth := 0
 ## Permanent abilities granted by boss drops (weapon unlocks). Persisted
 ## separately from shop upgrades; unioned into get_granted_abilities().
 var unlocked_abilities: Array[StringName] = []
@@ -31,6 +36,9 @@ func _ready() -> void:
 	weapon_registry = load(WEAPON_REGISTRY_PATH) as WeaponRegistry
 	if weapon_registry == null:
 		push_error("Failed to load weapon registry: %s" % WEAPON_REGISTRY_PATH)
+	depth_registry = load(DEPTH_REGISTRY_PATH) as DepthRegistry
+	if depth_registry == null:
+		push_error("Failed to load depth registry: %s" % DEPTH_REGISTRY_PATH)
 	load_game()
 
 
@@ -107,6 +115,33 @@ func get_selected_weapon() -> WeaponData:
 	return fallback
 
 
+func select_depth(level: int) -> void:
+	selected_depth = level
+
+
+## How deep the picker may go (docs/DEPTHS.md): the way down stays shut until the
+## first victory, then opens one Depth past the deepest cleared, capped at the
+## authored ladder's end. 0 means Surface-only.
+func max_selectable_depth() -> int:
+	if int(records.get("victories", 0)) < 1:
+		return 0
+	var cap := depth_registry.max_level() if depth_registry != null else 0
+	return mini(int(records.get("best_depth", 0)) + 1, cap)
+
+
+## The chosen Depth, validated like get_selected_weapon(): clamped to the
+## unlocked range so an edited save can't select a locked Depth. Surface (0, or
+## anything clamped down to it) returns null — every consumer treats null as
+## today's run.
+func get_selected_depth_data() -> DepthData:
+	if depth_registry == null:
+		return null
+	var level := clampi(selected_depth, 0, max_selectable_depth())
+	if level <= 0:
+		return null
+	return depth_registry.get_depth(level)
+
+
 func get_currency(id: StringName) -> int:
 	return currencies.get(id, 0)
 
@@ -158,7 +193,55 @@ func record_run(stats: Dictionary) -> Array[String]:
 		if best <= 0.0 or time < best:
 			records["fastest_victory"] = time
 			fresh.append("fastest_victory")
+		_record_depth_clear(stats, time, fresh)
 	return fresh
+
+
+## Fold a Depth victory (docs/DEPTHS.md) into the depth-scoped records: the
+## deepest clear and a per-Depth fastest + loadout roster (which power the grid,
+## badges, trim, and titles later). Surface wins (depth 0) never reach here, so
+## the global fastest_victory/victories stay depth-agnostic. Everything is
+## String-keyed and float-valued so the save JSON round-trips; new bests are
+## appended to `fresh` so the death screen's NEW BEST machinery lights up for
+## the deeper clears too.
+func _record_depth_clear(stats: Dictionary, time: float, fresh: Array[String]) -> void:
+	var depth := int(stats.get("depth", 0))
+	if depth <= 0:
+		return
+	if depth > int(records.get("best_depth", 0)):
+		records["best_depth"] = depth
+		fresh.append("best_depth")
+	var wins: Dictionary = records.get("depth_wins", {})
+	var key := str(depth)
+	var entry: Dictionary = wins.get(key, {})
+	var loadouts: Array = entry.get("loadouts", [])
+	var weapon := String(selected_weapon)
+	if not loadouts.has(weapon):
+		loadouts.append(weapon)
+	entry["loadouts"] = loadouts
+	var prev_fastest := float(entry.get("fastest", 0.0))
+	if prev_fastest <= 0.0 or time < prev_fastest:
+		entry["fastest"] = time
+		fresh.append("depth_fastest_%d" % depth)
+	wins[key] = entry
+	records["depth_wins"] = wins
+
+
+## The deepest Depth `loadout` has cleared (docs/DEPTHS.md Lane 3) — 0 if
+## none. Reads records.depth_wins the same way _record_depth_clear writes it
+## (the loadout's id present in that Depth's "loadouts" array); weapon trim
+## and the death-screen title both call this so they never drift from the
+## same lookup.
+func deepest_clear_for(loadout: StringName) -> int:
+	var wins: Dictionary = records.get("depth_wins", {})
+	var name := String(loadout)
+	var deepest := 0
+	for key: String in wins:
+		var entry: Dictionary = wins[key]
+		var loadouts: Array = entry.get("loadouts", [])
+		if loadouts.has(name):
+			deepest = maxi(deepest, int(key))
+	return deepest
 
 
 func save_game() -> void:
@@ -168,6 +251,7 @@ func save_game() -> void:
 		"upgrade_levels": _to_string_keys(upgrade_levels),
 		"unlocked_abilities": _abilities_to_array(unlocked_abilities),
 		"selected_weapon": String(selected_weapon),
+		"selected_depth": selected_depth,
 		"records": records,
 	}
 	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -195,6 +279,10 @@ func load_game() -> void:
 	var weapon_id: Variant = data.get("selected_weapon", String(DEFAULT_WEAPON))
 	if weapon_id is String:
 		selected_weapon = StringName(weapon_id)
+	# Missing key -> Surface (0). JSON numbers parse as float; the default is int.
+	var depth_val: Variant = data.get("selected_depth", 0)
+	if depth_val is float or depth_val is int:
+		selected_depth = int(depth_val)
 	var loaded_records: Variant = data.get("records", {})
 	records = loaded_records if loaded_records is Dictionary else {}
 	# Legacy-data migration: keyed on pre-rework upgrade keys and self-erasing,

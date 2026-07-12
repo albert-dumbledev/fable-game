@@ -181,7 +181,7 @@ func _stalk(delta: float) -> void:
 ## hand off to _finish_volley_windup after the windup.
 func _begin_volley_windup() -> void:
 	_phase = Phase.VOLLEY
-	var windup_time := VOLLEY_WINDUP_TIME * _cadence_mult()
+	var wind_time := VOLLEY_WINDUP_TIME * _cadence_mult()
 	var to_target := _target.global_position - global_position
 	to_target.y = 0.0
 	var toward := to_target.normalized() if to_target.length() > 0.01 else -global_transform.basis.z
@@ -190,10 +190,10 @@ func _begin_volley_windup() -> void:
 	_volley_apex.z = clampf(_volley_apex.z, -ARENA_HALF, ARENA_HALF)
 	_volley_apex.y = global_position.y
 	GroundTelegraph.spawn_line(get_tree().current_scene, global_position, _volley_apex,
-			VOLLEY_LANE_WIDTH, windup_time, BLINK_COLOR)
-	_flash_eyes(windup_time)
-	_tween_fist(BOSS_FIST_VOLLEY_WINDUP, windup_time)
-	get_tree().create_timer(windup_time, false).timeout.connect(_finish_volley_windup)
+			VOLLEY_LANE_WIDTH, wind_time, BLINK_COLOR)
+	_flash_eyes(wind_time)
+	_tween_fist(BOSS_FIST_VOLLEY_WINDUP, wind_time)
+	get_tree().create_timer(wind_time, false).timeout.connect(_finish_volley_windup)
 
 
 func _finish_volley_windup() -> void:
@@ -243,7 +243,7 @@ func _begin_engage_windup() -> void:
 	_phase = Phase.ENGAGE_WINDUP
 	# state is already CHASE (called from _stalk) — the phase alone drives
 	# motion here, the base FSM stays parked in CHASE throughout the windup.
-	var windup_time := ENGAGE_WINDUP_TIME * _cadence_mult()
+	var wind_time := ENGAGE_WINDUP_TIME * _cadence_mult()
 	var to_target := _target.global_position - global_position
 	to_target.y = 0.0
 	var toward := to_target.normalized() if to_target.length() > 0.01 else -global_transform.basis.z
@@ -252,9 +252,9 @@ func _begin_engage_windup() -> void:
 	_engage_landing.z = clampf(_engage_landing.z, -ARENA_HALF, ARENA_HALF)
 	_engage_landing.y = global_position.y
 	GroundTelegraph.spawn_line(get_tree().current_scene, global_position, _engage_landing,
-			BLINK_LANE_WIDTH, windup_time, BLINK_COLOR)
-	_flash_eyes(windup_time)
-	get_tree().create_timer(windup_time, false).timeout.connect(_finish_engage_windup)
+			BLINK_LANE_WIDTH, wind_time, BLINK_COLOR)
+	_flash_eyes(wind_time)
+	get_tree().create_timer(wind_time, false).timeout.connect(_finish_engage_windup)
 
 
 func _finish_engage_windup() -> void:
@@ -332,12 +332,12 @@ func _begin_combo_windup() -> void:
 	_combo_beat = ComboBeat.WINDUP
 	_combo_timer = 0.0
 	_face_locked = true
-	var windup_time: float = COMBO_WINDUPS[_combo_index] * _cadence_mult()
+	var wind_time: float = COMBO_WINDUPS[_combo_index] * _cadence_mult()
 	if _material != null:
 		_kill_color_tween()
 		_color_tween = create_tween()
-		_color_tween.tween_property(_material, "albedo_color", WINDUP_COLOR, windup_time)
-	_flash_eyes(windup_time)
+		_color_tween.tween_property(_material, "albedo_color", WINDUP_COLOR, wind_time)
+	_flash_eyes(wind_time)
 	if _combo_index == 2:
 		var forward := -global_transform.basis.z
 		forward.y = 0.0
@@ -345,10 +345,10 @@ func _begin_combo_windup() -> void:
 		_overhead_point = global_position + forward * OVERHEAD_IMPACT_DISTANCE
 		_overhead_point.y = 0.05
 		GroundTelegraph.spawn(get_tree().current_scene, _overhead_point,
-				OVERHEAD_INNER_RADIUS, windup_time)
-		_tween_fist(BOSS_FIST_OVERHEAD_WINDUP, windup_time)
+				OVERHEAD_INNER_RADIUS, wind_time)
+		_tween_fist(BOSS_FIST_OVERHEAD_WINDUP, wind_time)
 	else:
-		_tween_fist(BOSS_FIST_WINDUP, windup_time)
+		_tween_fist(BOSS_FIST_WINDUP, wind_time)
 
 
 func _begin_combo_strike() -> void:

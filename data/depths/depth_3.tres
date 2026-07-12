@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="DepthData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://core/depth_data.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://cs5y5yhlxd13f" path="res://core/wave_event.gd" id="2_event"]
+[ext_resource type="Resource" uid="uid://bkognv01ld0bw" path="res://data/enemies/juggernaut.tres" id="3_boss"]
+
+[sub_resource type="Resource" id="Resource_twin"]
+script = ExtResource("2_event")
+time = 158.0
+enemy = ExtResource("3_boss")
+count = 1
+announcement = "THE TWIN COURT CONVENES"
+
+[resource]
+script = ExtResource("1_script")
+level = 3
+display_name = "THE TWIN COURT"
+hp_mult = 2.0
+dmg_mult = 1.6
+reward_mult = 1.8
+alive_cap_bonus = 15
+swarm_count_mult = 1.25
+elite_min_elapsed = 180.0
+elite_max_alive = 2
+aspect_elite_cap = 3
+boss_relic_count = 2
+rarity_time_bonus = 180.0
+extra_events = Array[ExtResource("2_event")]([SubResource("Resource_twin")])
+ambient_tint = Color(0.98, 0.92, 0.92, 1)
+theme_color = Color(0.82, 0.1, 0.16, 1)

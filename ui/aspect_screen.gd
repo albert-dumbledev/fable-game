@@ -1,3 +1,4 @@
+class_name AspectScreen
 extends CanvasLayer
 ## Aspect pick overlay (Phase 9 M2): when the player walks onto an Aspect relic,
 ## pause the run and offer a pick-1-of-2 of build-warping Aspects. Modeled on the
@@ -27,9 +28,15 @@ func _on_relic_claimed() -> void:
 	_show.call_deferred()
 
 
+## Aspects offered per relic: the base 2, plus one for Wider Fate (Reliquary QoL,
+## docs/DEPTHS.md Lane 2) once owned — a leveled read, universal so no gating.
+func _choice_count() -> int:
+	return CHOICE_COUNT + (1 if MetaProgression.get_upgrade_level(&"wider_fate") > 0 else 0)
+
+
 func _show() -> void:
 	var player := get_tree().get_first_node_in_group(&"player") as Player
-	var aspects := AspectPool.roll(player, CHOICE_COUNT)
+	var aspects := AspectPool.roll(player, _choice_count())
 	# Defensive: RunDirector only spawns the relic when the pool is non-empty, so
 	# this shouldn't happen — but if it does, resume without pausing rather than
 	# stranding the player in an empty modal.

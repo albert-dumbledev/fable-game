@@ -7,6 +7,9 @@ const BRANCHES: Array[Dictionary] = [
 	{"id": &"might", "title": "MIGHT", "color": Color(0.95, 0.5, 0.4)},
 	{"id": &"vigor", "title": "VIGOR", "color": Color(0.55, 0.85, 0.5)},
 	{"id": &"arcana", "title": "ARCANA", "color": Color(0.6, 0.7, 1.0)},
+	# The Reliquary (docs/DEPTHS.md Lane 2): a shard-priced branch, hidden until
+	# the first victory (gated in _is_hidden), themed to the shard-violet.
+	{"id": &"reliquary", "title": "RELIQUARY", "color": Color(0.74, 0.62, 0.96)},
 ]
 
 ## Signature colour + identity name per loadout, so the shop visibly re-themes
@@ -28,6 +31,10 @@ const DEFAULT_LOADOUT_COLOR := Color(0.8, 0.8, 0.85)
 @onready var menu_button: Button = $Scroll/Center/Box/Buttons/MenuButton
 
 var _loadout_banner: Label
+var _victory_banner: Label
+var _depth_box: HBoxContainer
+var _depth_label: Label
+var _depth_grid: VBoxContainer
 
 
 func _ready() -> void:
@@ -48,6 +55,7 @@ func _ready() -> void:
 		int(run_stats.get("level", 0)),
 		int(run_stats.get("gold", 0)),
 	]
+	_build_victory_banner(run_stats)
 	_build_run_recap(run_stats)
 	_refresh()
 
@@ -56,6 +64,8 @@ func _refresh() -> void:
 	var gold := MetaProgression.get_currency(&"gold")
 	gold_label.text = "Gold: %d" % gold
 	_refresh_loadout()
+	_refresh_depth()
+	_refresh_badge_grid()
 	for child: Node in branches_box.get_children():
 		child.queue_free()
 	_refresh_loadout_banner()
@@ -63,7 +73,7 @@ func _refresh() -> void:
 		return
 	var placed := 0
 	for branch: Dictionary in BRANCHES:
-		var column := _make_column(branch, gold)
+		var column := _make_column(branch)
 		var count := int(column.get_meta(&"card_count", 0))
 		placed += count
 		if count == 0:
@@ -76,6 +86,47 @@ func _refresh() -> void:
 			hidden += 1
 	if placed + hidden < MetaProgression.registry.upgrades.size():
 		push_warning("Some upgrades have a branch not listed in DeathScreen.BRANCHES.")
+
+
+## --- Depth victory banners (docs/DEPTHS.md) -------------------------------
+## The moment-defining lines for the first-ever Revenant kill and each
+## Depth's first clear. Re-clears and Surface re-wins get no second banner —
+## the plain "VICTORY" title already covers those.
+func _victory_banner_text(run_stats: Dictionary) -> String:
+	if not run_stats.get("victory", false):
+		return ""
+	var new_records: Array = run_stats.get("new_records", [])
+	var depth := int(run_stats.get("depth", 0))
+	if depth > 0 and new_records.has("best_depth"):
+		var max_level := 0
+		if MetaProgression.depth_registry != null:
+			max_level = MetaProgression.depth_registry.max_level()
+		if depth >= max_level:
+			return "DEPTH %s CLEARED — THE LADDER ENDS HERE" % DepthData.numeral(depth)
+		return "DEPTH %s CLEARED — DEPTH %s UNLOCKED" % [
+			DepthData.numeral(depth), DepthData.numeral(depth + 1)]
+	if int(MetaProgression.records.get("victories", 0)) == 1:
+		return "THE WAY DOWN OPENS — DEPTH I UNLOCKED"
+	return ""
+
+
+## Builds (once) and shows the banner Label just below Title when
+## _victory_banner_text has something to say; a no-op otherwise — the death
+## and abandon paths, and ordinary re-clear victories, never grow this label.
+func _build_victory_banner(run_stats: Dictionary) -> void:
+	var text := _victory_banner_text(run_stats)
+	if text == "":
+		return
+	if _victory_banner == null:
+		_victory_banner = Label.new()
+		_victory_banner.name = "VictoryBanner"
+		_victory_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_victory_banner.add_theme_font_size_override(&"font_size", 20)
+		_victory_banner.add_theme_color_override(&"font_color", Color(0.55, 0.85, 1.0))
+		var box := title_label.get_parent()
+		box.add_child(_victory_banner)
+		box.move_child(_victory_banner, title_label.get_index() + 1)
+	_victory_banner.text = text
 
 
 ## --- Run Recap (docs/RUN_RECAP.md) ---------------------------------------
@@ -307,6 +358,8 @@ func _make_records_line(run_stats: Dictionary) -> Control:
 	_add_record_entry(entries, records, new_records, "most_gold", "Gold", false)
 	_add_record_entry(entries, records, new_records, "victories", "Victories", false)
 	_add_record_entry(entries, records, new_records, "fastest_victory", "Fastest victory", true)
+	_add_depth_record_entry(entries, records, new_records)
+	_add_depth_fastest_entries(entries, records, new_records)
 	if entries.is_empty():
 		return null
 
@@ -354,6 +407,48 @@ func _add_record_entry(
 	entries.append({"label": label, "value": formatted, "is_new": new_records.has(key)})
 
 
+## Deepest Depth cleared (docs/DEPTHS.md), roman-numeralled instead of the raw
+## int/time formatting _add_record_entry uses — same {label, value, is_new}
+## shape so it drops into the same row, NEW BEST chip included.
+func _add_depth_record_entry(
+		entries: Array[Dictionary], records: Dictionary, new_records: Array) -> void:
+	var best := int(records.get("best_depth", 0))
+	if best <= 0:
+		return
+	entries.append({
+		"label": "Deepest",
+		"value": DepthData.numeral(best),
+		"is_new": new_records.has("best_depth"),
+	})
+
+
+## Per-Depth fastest NEW BEST surfacing (docs/DEPTHS.md M4). depth_wins has no
+## flat top-level records key (each Depth's fastest lives nested at
+## depth_wins[N].fastest), so _add_record_entry's generic records.get(key)
+## lookup can't reach it — this walks new_records for "depth_fastest_<N>"
+## instead and pulls the time straight out of depth_wins. Unlike the other
+## entries there is no persistent "current best" slot to keep showing
+## afterward, so a per-Depth fastest only ever appears the run it's set —
+## NEW-BEST-or-nothing by design, which is exactly what a record-setting deep
+## clear needs to badge correctly.
+func _add_depth_fastest_entries(
+		entries: Array[Dictionary], records: Dictionary, new_records: Array) -> void:
+	var wins: Dictionary = records.get("depth_wins", {})
+	for key: String in new_records:
+		if not key.begins_with("depth_fastest_"):
+			continue
+		var level := int(key.trim_prefix("depth_fastest_"))
+		var entry: Dictionary = wins.get(str(level), {})
+		var fastest := float(entry.get("fastest", 0.0))
+		if fastest <= 0.0:
+			continue
+		entries.append({
+			"label": "FASTEST — DEPTH %s" % DepthData.numeral(level),
+			"value": _format_time(fastest),
+			"is_new": true,
+		})
+
+
 ## The theme for the currently selected loadout (falls back to a neutral grey).
 func _loadout_color() -> Color:
 	var theme: Dictionary = LOADOUT_THEMES.get(MetaProgression.selected_weapon, {})
@@ -377,23 +472,43 @@ func _refresh_loadout_banner() -> void:
 	var box := branches_box.get_parent()
 	if _loadout_banner == null:
 		_loadout_banner = Label.new()
+		_loadout_banner.name = "LoadoutBanner"
 		_loadout_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_loadout_banner.add_theme_font_size_override(&"font_size", 26)
 		box.add_child(_loadout_banner)
 		box.move_child(_loadout_banner, branches_box.get_index())
 	var identity := _loadout_name()
 	_loadout_banner.visible = identity != ""
+	var lines: Array[String] = [identity]
 	var mobility := _loadout_mobility()
-	_loadout_banner.text = "%s\n%s" % [identity, mobility] if mobility != "" else identity
+	if mobility != "":
+		lines.append(mobility)
+	var title := _loadout_title()
+	if title != "":
+		lines.append(title)
+	_loadout_banner.text = "\n".join(lines)
 	_loadout_banner.add_theme_color_override(&"font_color", _loadout_color())
 
 
-func _make_column(branch: Dictionary, gold: int) -> Control:
+## "DUELIST OF THE THIRD" (docs/DEPTHS.md): the selected loadout's identity
+## word plus an ordinal built from MetaProgression.deepest_clear_for, the same
+## lookup the weapon trim tints from. Display-only; no clears yet -> "".
+func _loadout_title() -> String:
+	var identity := _loadout_name()
+	if identity == "":
+		return ""
+	var deepest := MetaProgression.deepest_clear_for(MetaProgression.selected_weapon)
+	if deepest <= 0:
+		return ""
+	return "%s OF THE %s" % [identity, DepthData.ordinal_word(deepest)]
+
+
+func _make_column(branch: Dictionary) -> Control:
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override(&"separation", 4)
 	var header := Label.new()
-	header.text = String(branch["title"])
+	header.text = _branch_header(branch)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header.add_theme_font_size_override(&"font_size", 20)
 	header.add_theme_color_override(&"font_color", branch["color"])
@@ -411,13 +526,40 @@ func _make_column(branch: Dictionary, gold: int) -> Control:
 			arrow.add_theme_font_size_override(&"font_size", 11)
 			arrow.add_theme_color_override(&"font_color", Color(0.45, 0.45, 0.5))
 			column.add_child(arrow)
-		column.add_child(_make_card(upgrade, gold))
+		column.add_child(_make_card(upgrade))
 		cards += 1
 	column.set_meta(&"card_count", cards)
 	return column
 
 
-func _make_card(upgrade: UpgradeData, gold: int) -> Control:
+## A branch header (docs/DEPTHS.md Lane 2): the plain title for gold branches, or
+## "TITLE — N ◆" for a branch priced in a non-gold currency (the Reliquary), so
+## the shard balance reads right where you spend it — echoing the top gold label's
+## always-visible-balance idea, per-column since only this branch is non-gold.
+func _branch_header(branch: Dictionary) -> String:
+	var title := String(branch["title"])
+	var currency := _branch_currency(branch["id"])
+	if currency == &"gold":
+		return title
+	return "%s — %d %s" % [title, MetaProgression.get_currency(currency), _currency_label(currency)]
+
+
+## The (single) non-gold currency a branch charges in, or &"gold" if all its nodes
+## are gold — read from the registry so the header follows the data, not a hardcode.
+func _branch_currency(branch_id: StringName) -> StringName:
+	for upgrade: UpgradeData in MetaProgression.registry.upgrades:
+		if upgrade.branch == branch_id and upgrade.currency != &"gold":
+			return upgrade.currency
+	return &"gold"
+
+
+## Short currency tag for buy buttons + headers: "g" for gold, "◆" for shards
+## (the same diamond the recap uses for Aspects — a glyph the shipped font has).
+func _currency_label(currency: StringName) -> String:
+	return "g" if currency == &"gold" else "◆"
+
+
+func _make_card(upgrade: UpgradeData) -> Control:
 	var level := MetaProgression.get_upgrade_level(upgrade.id)
 	if not _is_locked(upgrade) and upgrade.max_level > 0 and level >= upgrade.max_level:
 		return _make_maxed_card(upgrade)
@@ -459,9 +601,12 @@ func _make_card(upgrade: UpgradeData, gold: int) -> Control:
 		box.add_child(lock)
 	else:
 		var cost := upgrade.cost_at(level)
+		# Affordability greys against this node's own currency balance (docs/DEPTHS.md
+		# Lane 2) — shards for the Reliquary, gold for everything else.
+		var balance := MetaProgression.get_currency(upgrade.currency)
 		var buy := Button.new()
-		buy.text = "Buy — %d g" % cost
-		buy.disabled = gold < cost
+		buy.text = "Buy — %d %s" % [cost, _currency_label(upgrade.currency)]
+		buy.disabled = balance < cost
 		buy.pressed.connect(_on_buy.bind(upgrade))
 		box.add_child(buy)
 	margin.add_child(box)
@@ -501,9 +646,18 @@ func _is_locked(upgrade: UpgradeData) -> bool:
 
 
 ## Hidden until its gating ability is owned — the whole card, not just locked
-## (this is how weapon subtrees appear only after the weapon's boss drop).
+## (this is how weapon subtrees appear only after the weapon's boss drop). The
+## Reliquary adds two Depth gates (docs/DEPTHS.md Lane 2): the whole branch stays
+## hidden until the first victory (same gate as the depth picker), and any node
+## whose requires_depth outruns the deepest clear stays hidden until that Depth
+## falls — so the shop reads as a map of the descent.
 func _is_hidden(upgrade: UpgradeData) -> bool:
 	if upgrade.loadout != &"" and upgrade.loadout != MetaProgression.selected_weapon:
+		return true
+	if upgrade.branch == &"reliquary" \
+			and int(MetaProgression.records.get("victories", 0)) < 1:
+		return true
+	if upgrade.requires_depth > int(MetaProgression.records.get("best_depth", 0)):
 		return true
 	return upgrade.requires_ability != &"" \
 			and not MetaProgression.get_granted_abilities().has(upgrade.requires_ability)
@@ -546,9 +700,131 @@ func _on_weapon_selected(weapon: WeaponData) -> void:
 	_refresh()
 
 
+## Depth picker (docs/DEPTHS.md): SURFACE + one button per unlocked Depth,
+## mirroring _refresh_loadout exactly — toggle-mode buttons, the current
+## selection pressed+disabled. Hidden entirely until the first victory opens
+## Depth I; locked Depths beyond max_selectable_depth() are never shown (no
+## tease-noise). The row itself is code-built (lazily created once) since this
+## screen has no scene edits, same as _loadout_banner below.
+func _refresh_depth() -> void:
+	if _depth_box == null:
+		_depth_box = HBoxContainer.new()
+		_depth_box.name = "DepthPicker"
+		_depth_box.add_theme_constant_override(&"separation", 10)
+		_depth_box.alignment = BoxContainer.ALIGNMENT_CENTER
+		_depth_label = Label.new()
+		_depth_label.text = "Depth:"
+		_depth_label.add_theme_font_size_override(&"font_size", 18)
+		_depth_box.add_child(_depth_label)
+		loadout_box.get_parent().add_child(_depth_box)
+	loadout_box.get_parent().move_child(_depth_box, loadout_box.get_index() + 1)
+	for child: Node in _depth_box.get_children():
+		if child != _depth_label:
+			child.queue_free()
+	var max_depth := MetaProgression.max_selectable_depth()
+	_depth_box.visible = max_depth > 0
+	if max_depth == 0:
+		return
+	# An edited/stale save's selection clamps down to the unlocked range —
+	# the clamped value is what reads as selected, same as get_selected_depth_data.
+	var selected := clampi(MetaProgression.selected_depth, 0, max_depth)
+	for level: int in range(max_depth + 1):
+		var button := Button.new()
+		button.text = "SURFACE" if level == 0 else DepthData.numeral(level)
+		if level > 0 and MetaProgression.depth_registry != null:
+			var depth_data := MetaProgression.depth_registry.get_depth(level)
+			if depth_data != null:
+				button.tooltip_text = depth_data.display_name
+		button.toggle_mode = true
+		button.button_pressed = level == selected
+		button.disabled = level == selected
+		button.pressed.connect(_on_depth_selected.bind(level))
+		_depth_box.add_child(button)
+
+
+func _on_depth_selected(level: int) -> void:
+	AudioManager.play(&"click")
+	MetaProgression.select_depth(level)
+	MetaProgression.save_game()
+	_refresh()
+
+
+## Loadout x Depth badge grid (docs/DEPTHS.md Lane 3): one row per unlocked
+## loadout (weapon registry order, via get_unlocked_weapons), one column per
+## authored Depth. Cleared cells read purely from records.depth_wins (no new
+## save data) and light up in that Depth's theme_color; uncleared cells stay
+## dim/empty. Hidden entirely until the first Depth clear — the picker alone
+## covers the pre-Depth state, same hide-entirely idiom as _refresh_depth.
+## Rebuilt each _refresh() like the pickers above it; cells are named
+## Cell_<loadout>_<level> so the smoke test can key a specific cell without
+## depending on layout.
+func _refresh_badge_grid() -> void:
+	if _depth_grid == null:
+		_depth_grid = VBoxContainer.new()
+		_depth_grid.name = "DepthGrid"
+		_depth_grid.add_theme_constant_override(&"separation", 3)
+		loadout_box.get_parent().add_child(_depth_grid)
+	loadout_box.get_parent().move_child(_depth_grid, _depth_box.get_index() + 1)
+	for child: Node in _depth_grid.get_children():
+		child.queue_free()
+	var best := int(MetaProgression.records.get("best_depth", 0))
+	_depth_grid.visible = best >= 1
+	if best < 1 or MetaProgression.depth_registry == null:
+		return
+	var max_level := MetaProgression.depth_registry.max_level()
+	if max_level <= 0:
+		return
+	for weapon: WeaponData in MetaProgression.get_unlocked_weapons():
+		_depth_grid.add_child(_make_grid_row(weapon, max_level))
+
+
+func _make_grid_row(weapon: WeaponData, max_level: int) -> Control:
+	var row := HBoxContainer.new()
+	row.name = "Row_%s" % weapon.id
+	row.add_theme_constant_override(&"separation", 4)
+	var theme: Dictionary = LOADOUT_THEMES.get(weapon.id, {})
+	var label := Label.new()
+	label.text = String(theme.get("name", weapon.display_name))
+	label.custom_minimum_size = Vector2(90, 0)
+	label.add_theme_font_size_override(&"font_size", 12)
+	label.add_theme_color_override(&"font_color", theme.get("color", DEFAULT_LOADOUT_COLOR))
+	row.add_child(label)
+	for level: int in range(1, max_level + 1):
+		row.add_child(_make_grid_cell(weapon.id, level))
+	return row
+
+
+## A single loadout x Depth cell. Cleared reads purely from
+## records.depth_wins[str(level)].loadouts containing this loadout's id — no
+## new save data. The tooltip carries the per-Depth fastest on cleared cells.
+func _make_grid_cell(loadout: StringName, level: int) -> Control:
+	var wins: Dictionary = MetaProgression.records.get("depth_wins", {})
+	var entry: Dictionary = wins.get(str(level), {})
+	var loadouts: Array = entry.get("loadouts", [])
+	var cleared := loadouts.has(String(loadout))
+	var cell := PanelContainer.new()
+	cell.name = "Cell_%s_%d" % [loadout, level]
+	cell.custom_minimum_size = Vector2(16, 16)
+	cell.set_meta(&"cleared", cleared)
+	var style := StyleBoxFlat.new()
+	style.set_corner_radius_all(3)
+	if cleared:
+		var depth_data: DepthData = MetaProgression.depth_registry.get_depth(level)
+		style.bg_color = depth_data.theme_color if depth_data != null else Color.WHITE
+		cell.tooltip_text = "DEPTH %s — fastest %s" % [
+			DepthData.numeral(level), _format_time(float(entry.get("fastest", 0.0)))]
+	else:
+		style.bg_color = Color(1.0, 1.0, 1.0, 0.08)
+		cell.tooltip_text = "DEPTH %s" % DepthData.numeral(level)
+	cell.add_theme_stylebox_override(&"panel", style)
+	return cell
+
+
 func _on_buy(upgrade: UpgradeData) -> void:
 	var level := MetaProgression.get_upgrade_level(upgrade.id)
-	if not MetaProgression.try_spend(&"gold", upgrade.cost_at(level)):
+	# Charge the node's own currency (docs/DEPTHS.md Lane 2) — gold leaves gold
+	# untouched, Reliquary nodes spend shards.
+	if not MetaProgression.try_spend(upgrade.currency, upgrade.cost_at(level)):
 		return
 	AudioManager.play(&"coin")
 	MetaProgression.increment_upgrade(upgrade.id)

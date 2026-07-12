@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="DepthRegistry" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://core/depth_registry.gd" id="1_script"]
+[ext_resource type="Script" path="res://core/depth_data.gd" id="2_type"]
+[ext_resource type="Resource" path="res://data/depths/depth_1.tres" id="3_d1"]
+[ext_resource type="Resource" path="res://data/depths/depth_2.tres" id="4_d2"]
+[ext_resource type="Resource" path="res://data/depths/depth_3.tres" id="5_d3"]
+[ext_resource type="Resource" path="res://data/depths/depth_4.tres" id="6_d4"]
+[ext_resource type="Resource" path="res://data/depths/depth_5.tres" id="7_d5"]
+
+[resource]
+script = ExtResource("1_script")
+depths = Array[ExtResource("2_type")]([ExtResource("3_d1"), ExtResource("4_d2"), ExtResource("5_d3"), ExtResource("6_d4"), ExtResource("7_d5")])

@@ -38,6 +38,12 @@ const LOW_HEALTH_FRACTION := 0.25
 const GHOST_DELAY := 0.35
 const GHOST_DRAIN_TIME := 0.4
 const BOSS_BAR_COLOR := Color(1, 0.4, 0.35)
+## Depth chip tint (docs/DEPTHS.md): a quiet, desaturated accent — ambient
+## status, not an alert, so it stays well off the boss/kill/gold palette.
+const DEPTH_CHIP_COLOR := Color(0.62, 0.68, 0.85)
+## Shard blip tint (docs/DEPTHS.md Lane 2): the Reliquary's shard-violet, distinct
+## from the gold counter so a banked boss reward reads as its own currency.
+const SHARD_BLIP_COLOR := Color(0.74, 0.62, 0.96)
 ## Kill streak: purely cosmetic combo ticker. Shows from this many kills,
 ## resets after this long without one.
 const STREAK_MIN := 3
@@ -48,6 +54,10 @@ var _shown_second := -1
 var _kills := 0
 var _running := true
 var _player: Player
+var _depth_chip: Label
+var _shard_blip: Label
+var _shard_balance := 0
+var _shard_blip_tween: Tween
 var _skill_slots: Dictionary[StringName, SkillSlot] = {}
 var _health_fill: StyleBoxFlat
 var _mana_bar: ProgressBar
@@ -115,6 +125,8 @@ func _ready() -> void:
 	_mana_bar.add_theme_stylebox_override(&"fill", mana_fill)
 	_mana_bar.visible = false
 	add_child(_mana_bar)
+	_setup_depth_chip()
+	_setup_shard_blip()
 	_bind_player.call_deferred()
 
 
@@ -141,6 +153,40 @@ func _process(delta: float) -> void:
 		if _streak_time <= 0.0:
 			_end_streak()
 	_update_vignette(delta)
+
+
+## Depth chip (docs/DEPTHS.md): a quiet `DEPTH II` label next to the run
+## timer, shown only on depth runs. The Depth is fixed for the run's lifetime
+## (chosen pre-run), so this reads it once here rather than wiring a signal —
+## RunDirector readies before the HUD (see its _ready comment), so the group
+## lookup is safe to do synchronously on this frame.
+func _setup_depth_chip() -> void:
+	_depth_chip = Label.new()
+	_depth_chip.name = "DepthChip"
+	_depth_chip.add_theme_font_size_override(&"font_size", 20)
+	_depth_chip.add_theme_color_override(&"font_color", DEPTH_CHIP_COLOR)
+	timer_label.get_parent().add_child(_depth_chip)
+	timer_label.get_parent().move_child(_depth_chip, timer_label.get_index() + 1)
+	var rd := get_tree().get_first_node_in_group(&"run_director") as RunDirector
+	var depth: DepthData = rd.depth if rd != null else null
+	_depth_chip.visible = depth != null
+	if depth != null:
+		_depth_chip.text = "DEPTH %s" % DepthData.numeral(depth.level)
+
+
+## Shard blip (docs/DEPTHS.md Lane 2): a small transient "+N SHARD(S)" flag next
+## to the gold counter, flashed when a boss kill banks shards mid-run. Built once
+## here (invisible), animated in _on_shards_changed — no new banner system, just
+## the counter-label + punch/fade pattern already used for the streak/gold pops.
+func _setup_shard_blip() -> void:
+	_shard_balance = MetaProgression.get_currency(&"shards")
+	_shard_blip = Label.new()
+	_shard_blip.name = "ShardBlip"
+	_shard_blip.add_theme_font_size_override(&"font_size", 18)
+	_shard_blip.add_theme_color_override(&"font_color", SHARD_BLIP_COLOR)
+	_shard_blip.modulate.a = 0.0
+	gold_label.get_parent().add_child(_shard_blip)
+	gold_label.get_parent().move_child(_shard_blip, gold_label.get_index() + 1)
 
 
 func _bind_player() -> void:
@@ -254,6 +300,9 @@ func _health_color(fraction: float) -> Color:
 
 
 func _on_currency_changed(id: StringName, amount: int) -> void:
+	if id == &"shards":
+		_on_shards_changed(amount)
+		return
 	if id != &"gold":
 		return
 	var gained := amount > _gold_target
@@ -266,6 +315,32 @@ func _on_currency_changed(id: StringName, amount: int) -> void:
 		_gold_pop_tween = create_tween()
 		_gold_pop_tween.tween_property(gold_label, "scale", Vector2.ONE, 0.18) \
 			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+## A boss kill banked shards this run (docs/DEPTHS.md Lane 2): flash the "+N
+## SHARD(S)" blip and a quiet low cue. `amount` is the new balance, so the gain is
+## the delta from the last seen balance. Surface runs never emit for &"shards".
+func _on_shards_changed(amount: int) -> void:
+	if _shard_blip == null:
+		return
+	var gained := amount - _shard_balance
+	_shard_balance = amount
+	if gained <= 0:
+		return
+	_shard_blip.text = "+%d SHARD%s" % [gained, "" if gained == 1 else "S"]
+	_shard_blip.modulate.a = 1.0
+	_shard_blip.pivot_offset = _shard_blip.size * 0.5
+	_shard_blip.scale = Vector2(1.3, 1.3)
+	if _shard_blip_tween != null:
+		_shard_blip_tween.kill()
+	_shard_blip_tween = create_tween()
+	_shard_blip_tween.tween_property(_shard_blip, "scale", Vector2.ONE, 0.16) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_shard_blip_tween.tween_interval(0.9)
+	_shard_blip_tween.tween_property(_shard_blip, "modulate:a", 0.0, 0.6)
+	# A quiet low blip, reused from the coin cue at reduced volume so it reads as a
+	# smaller, rarer cousin of a gold pickup.
+	AudioManager.play(&"coin", -10.0, 0.1)
 
 
 func _on_enemy_killed(_data: Resource, _position: Vector3) -> void:

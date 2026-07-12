@@ -12,7 +12,12 @@ enum State { CHASE, WINDUP, ATTACK, RECOVER, STUNNED, DEAD }
 ## Sites that can kill mid-loop iterate a duplicate() snapshot.
 static var alive: Array[EnemyBase] = []
 
-const PICKUP_SCENE := preload("res://actors/pickups/Pickup.tscn")
+## Depth telegraph compression (docs/DEPTHS.md): a run-scoped scale on every
+## windup duration (THE QUICKENING runs it at 0.85). Same static lifecycle as
+## `alive` — RunDirector sets it from the Depth in _ready and resets it to 1.0
+## on Surface runs, since statics outlive the run scene. Read through windup_time().
+static var depth_time_scale := 1.0
+
 const MAX_PICKUP_PIECES := 8
 ## Rare utility drops: at most one magnet in the arena at a time (checked
 ## via Pickup.magnets); health is a straight per-kill roll plus a guaranteed
@@ -53,6 +58,17 @@ const WALL_IMPACT_MIN_SPEED := 5.0
 ## this contact radius, dealing each the Bone Breaker treatment once per shove.
 const MASS_DRIVER_CONTACT := 1.1
 const MASS_DRIVER_STAGGER := 0.3
+## THE FLOOR BELOW (Depth I forged Aspect, docs/DEPTHS.md Lane 2): a kill has this
+## chance to erupt a short ground tremor that slows and briefly staggers enemies
+## within its radius. Chance-gated and slow-led — the stagger is a one-shot beat
+## that skips the already-stunned, never a lock, so chained kills can't perma-freeze
+## a pack (the Fault Line lesson). Reuses apply_slow/stun; no new system.
+const FLOOR_BELOW_CHANCE := 0.15
+const FLOOR_BELOW_RADIUS := 4.0
+const FLOOR_BELOW_SLOW_MULT := 0.55
+const FLOOR_BELOW_SLOW_TIME := 1.5
+const FLOOR_BELOW_STAGGER := 0.25
+const FLOOR_BELOW_COLOR := Color(0.5, 0.4, 0.65, 0.4)
 
 @onready var health: HealthComponent = $Health
 @onready var hurtbox: HurtboxComponent = $Hurtbox
@@ -193,7 +209,7 @@ func _physics_process(delta: float) -> void:
 			_chase()
 		State.WINDUP:
 			_hold_still()
-			if _state_time >= data.windup_time:
+			if _state_time >= windup_time():
 				_begin_attack()
 		State.ATTACK:
 			# Lunge momentum from _begin_attack, bleeding off quickly.
@@ -323,6 +339,14 @@ func move_speed() -> float:
 	return data.move_speed * _slow_mult * _frenzy_mult
 
 
+## The telegraph windup duration, scaled by the Depth's compression
+## (docs/DEPTHS.md). Every site that would read data.windup_time — the state
+## timer, the colour/eye/fist tells, and the boss slam telegraphs — routes
+## through this so the tell and the strike stay in lockstep at depth.
+func windup_time() -> float:
+	return data.windup_time * depth_time_scale
+
+
 func _chase() -> void:
 	var to_target := _target.global_position - global_position
 	to_target.y = 0.0
@@ -354,10 +378,10 @@ func _begin_windup() -> void:
 	if _material != null:
 		_kill_color_tween()
 		_color_tween = create_tween()
-		_color_tween.tween_property(_material, "albedo_color", WINDUP_COLOR, data.windup_time)
-	_flash_eyes(data.windup_time)
+		_color_tween.tween_property(_material, "albedo_color", WINDUP_COLOR, windup_time())
+	_flash_eyes(windup_time())
 	# Cock the fist back so the incoming punch is readable.
-	_tween_fist(FIST_WINDUP, data.windup_time)
+	_tween_fist(FIST_WINDUP, windup_time())
 
 
 func _begin_attack() -> void:
@@ -493,6 +517,9 @@ func _on_died() -> void:
 	var player := get_tree().get_first_node_in_group(&"player") as Player
 	if player != null and player.has_ability(&"prospectors_idol"):
 		_spawn_single_pickup(&"gold", 1, 0.0)
+	# THE FLOOR BELOW (Depth I forged Aspect): a chance-gated tremor on kill.
+	if player != null and player.has_ability(&"floor_below") and randf() < FLOOR_BELOW_CHANCE:
+		_floor_below_tremor()
 	# Elite death (Aspect Drops M2): the drop decision now lives in RunDirector —
 	# the first elites per run drop an Aspect relic, later elites fall back to the
 	# M1 magnet-or-health bounty. RunDirector owns that split (it counts kills and
@@ -507,6 +534,29 @@ func _on_died() -> void:
 	var tween := create_tween()
 	tween.tween_property(self, "scale", Vector3.ONE * 0.05, 0.22)
 	tween.tween_callback(queue_free)
+
+
+## THE FLOOR BELOW tremor (Depth I forged Aspect): bog down and briefly stagger
+## every living enemy within FLOOR_BELOW_RADIUS of the corpse. Iterates a snapshot
+## (self is already erased from `alive` by _on_died before this runs, but the
+## guard is belt-and-braces); the slow is reapplied cleanly and the stagger skips
+## the already-stunned so it never compounds into a lock.
+func _floor_below_tremor() -> void:
+	for other: EnemyBase in alive.duplicate():
+		if other == self or not is_instance_valid(other) or not other.is_inside_tree():
+			continue
+		if other.state == State.DEAD:
+			continue
+		var offset := other.global_position - global_position
+		offset.y = 0.0
+		if offset.length() > FLOOR_BELOW_RADIUS:
+			continue
+		other.apply_slow(FLOOR_BELOW_SLOW_MULT, FLOOR_BELOW_SLOW_TIME)
+		if other.state != State.STUNNED:
+			other.stun(FLOOR_BELOW_STAGGER)
+	BlastVfx.spawn(get_tree().current_scene,
+			global_position + Vector3(0.0, 0.1, 0.0), FLOOR_BELOW_RADIUS,
+			FLOOR_BELOW_COLOR, 0.1, 0.3)
 
 
 ## Broodmother-style death burst (EnemyData.death_spawns): instantiate the
@@ -563,7 +613,7 @@ func _spawn_single_pickup(kind: StringName, value: int, lifetime: float) -> void
 	var parent := get_tree().current_scene
 	if parent == null:
 		return
-	var pickup := PICKUP_SCENE.instantiate() as Pickup
+	var pickup := Pickup.make()
 	var burst := Vector3(randf_range(-1.5, 1.5), randf_range(6.0, 9.0), randf_range(-1.5, 1.5))
 	pickup.setup(kind, value, burst)
 	if lifetime > 0.0:
@@ -593,7 +643,7 @@ func _spawn_pickup_pieces(kind: StringName, total: int, pieces_cap: int,
 		var piece_value := base_value + (1 if i < remainder else 0)
 		if piece_value <= 0:
 			continue
-		var pickup := PICKUP_SCENE.instantiate() as Pickup
+		var pickup := Pickup.make()
 		var angle := randf() * TAU
 		if ring:
 			angle = (float(i) + randf_range(-0.3, 0.3)) * TAU / float(pieces)

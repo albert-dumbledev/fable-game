@@ -73,11 +73,16 @@ func _on_enemy_killed(enemy_data: Resource, _position: Vector3) -> void:
 func _on_player_hit(info: AttackInfo) -> void:
 	var id := SELF_ID
 	var name := SELF_NAME
-	var enemy := info.source as EnemyBase
+	# A delayed hit (projectile, flame patch) can land after its source enemy
+	# was freed, and a freed object can't be cast or type-checked — fall through
+	# to the &"unknown" bucket instead. typeof() is the freed-vs-null test:
+	# a freed object compares == null, but its Variant is still TYPE_OBJECT.
+	var source: Node3D = info.source if is_instance_valid(info.source) else null
+	var enemy := source as EnemyBase
 	if enemy != null and enemy.data != null:
 		id = _enemy_id(enemy.data)
 		name = enemy.data.display_name if enemy.data.display_name != "" else String(id)
-	elif info.source != null and info.source is not Player:
+	elif typeof(info.source) == TYPE_OBJECT and source is not Player:
 		id = &"unknown"
 		name = UNKNOWN_NAME
 	if damage_taken.has(id):
