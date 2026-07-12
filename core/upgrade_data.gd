@@ -27,6 +27,16 @@ extends Resource
 ## The loadout this upgrade belongs to (a weapon id). Only applies and only
 ## shows in the shop while that loadout is selected. Empty = universal.
 @export var loadout: StringName = &""
+## Which currency the shop charges and reads for this node (docs/DEPTHS.md Lane 2).
+## Default &"gold" keeps every existing node on the run economy; the Reliquary
+## branch sets &"shards" so its balance is charged/greyed against that pool and
+## shown beside the branch header.
+@export var currency: StringName = &"gold"
+## Depth gate (docs/DEPTHS.md): hidden entirely from the shop until the player's
+## deepest clear reaches this Depth (records.best_depth >= requires_depth) — the
+## same hide-entirely idiom as requires_ability, so the Reliquary reads as a map
+## of the descent. 0 = no Depth gate (visible as soon as its branch is).
+@export var requires_depth := 0
 
 
 func cost_at(level: int) -> int:

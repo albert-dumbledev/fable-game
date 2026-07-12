@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"pressing_dark"
+display_name = "The Pressing Dark"
+description = "The dark presses in — every hammer slam drags the enemies it catches to a crawl, control folded into the crush"
+weight = 1.0
+unique = true
+grants_ability = &"pressing_dark"
+requires_weapon = &"warhammer"
+requires_any_ability = Array[StringName]([&"forge_pressing_dark"])

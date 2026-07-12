@@ -137,8 +137,8 @@ func _begin_windup() -> void:
 	if _material != null:
 		_kill_color_tween()
 		_color_tween = create_tween()
-		_color_tween.tween_property(_material, "albedo_color", WINDUP_COLOR, data.windup_time)
-	_flash_eyes(data.windup_time)
+		_color_tween.tween_property(_material, "albedo_color", WINDUP_COLOR, windup_time())
+	_flash_eyes(windup_time())
 
 
 func _begin_attack() -> void:

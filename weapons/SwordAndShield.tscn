@@ -1,4 +1,4 @@
-[gd_scene load_steps=33 format=3]
+[gd_scene load_steps=35 format=3]
 
 [ext_resource type="Script" path="res://weapons/sword_and_shield.gd" id="1_script"]
 [ext_resource type="Resource" path="res://data/weapons/sword.tres" id="2_data"]
@@ -124,6 +124,18 @@ top_radius = 0.034
 bottom_radius = 0.034
 height = 0.07
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_trim"]
+albedo_color = Color(0.5, 0.5, 0.5, 1)
+emission_enabled = true
+emission = Color(0.5, 0.5, 0.5, 1)
+emission_energy_multiplier = 1.6
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_trim"]
+material = SubResource("StandardMaterial3D_trim")
+top_radius = 0.032
+bottom_radius = 0.032
+height = 0.02
+
 [sub_resource type="BoxShape3D" id="BoxShape3D_hitbox"]
 size = Vector3(1.4, 1.2, 2.2)
 
@@ -161,6 +173,11 @@ surface_material_override/0 = SubResource("StandardMaterial3D_grip")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.21)
 mesh = SubResource("SphereMesh_pommel")
 surface_material_override/0 = SubResource("StandardMaterial3D_guard")
+
+[node name="DepthTrim" type="MeshInstance3D" parent="SwordPivot/SwordModel"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -0.02)
+visible = false
+mesh = SubResource("CylinderMesh_trim")
 
 [node name="PencilModel" type="Node3D" parent="SwordPivot"]
 visible = false

@@ -8,6 +8,11 @@ extends Node
 
 ## A basic melee mob eligible for the elite roll (no boss/finale/broodling tag).
 const ELITE_ENEMY := "res://data/enemies/chaser.tres"
+## Expected Aspect registry size. Was 12 through Phase 9; the Depths M5 forge lane
+## (docs/DEPTHS.md Lane 2) added 3 forged Aspects — THE FLOOR BELOW / THE PRESSING
+## DARK / THE TWIN COURT — bringing it to 15. Asserted deliberately so a dropped
+## registry entry fails the smoke instead of passing quietly.
+const EXPECTED_ASPECT_COUNT := 15
 
 var _failed := false
 
@@ -40,10 +45,15 @@ func _run() -> void:
 	await _test_elite_relic(spawner)
 	await _test_claim(player)
 
+	# The forged-Aspect additions must actually land in the registry.
+	var count := AspectPool.ASPECT_REGISTRY.boons.size()
+	if count != EXPECTED_ASPECT_COUNT:
+		_fail("expected %d aspects registered, got %d" % [EXPECTED_ASPECT_COUNT, count])
+
 	if _failed:
 		print("SMOKE FAIL")
 	else:
-		print("SMOKE OK — %d aspects registered" % AspectPool.ASPECT_REGISTRY.boons.size())
+		print("SMOKE OK — %d aspects registered" % count)
 	_finish()
 
 

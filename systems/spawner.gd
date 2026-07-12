@@ -18,6 +18,10 @@ const ELITE_COOLDOWN := 50.0
 
 @export var wave_table: WaveTable
 
+## The active Depth (docs/DEPTHS.md), set by RunDirector. null = Surface: every
+## code path below reads it as identity so Surface runs are byte-identical.
+var depth: DepthData
+
 var _spawn_timer := 0.0
 var _elite_cooldown := 0.0
 
@@ -29,8 +33,13 @@ func tick(elapsed: float, delta: float) -> void:
 	_spawn_timer -= delta
 	if _spawn_timer > 0.0:
 		return
-	_spawn_timer = wave_table.spawn_interval_at(elapsed)
-	if EnemyBase.alive.size() >= wave_table.max_alive_at(elapsed):
+	var interval := wave_table.spawn_interval_at(elapsed)
+	var cap := wave_table.max_alive_at(elapsed)
+	if depth != null:
+		interval *= depth.interval_mult
+		cap += depth.alive_cap_bonus
+	_spawn_timer = interval
+	if EnemyBase.alive.size() >= cap:
 		return
 	_spawn(elapsed)
 
@@ -45,11 +54,12 @@ func _spawn(elapsed: float) -> void:
 	spawn_enemy(data, elapsed)
 
 
-## Elite gate for pool spawns: past the time lock, off cooldown, none currently
-## alive, and not a boss/finale (those never reach _spawn, but guard anyway).
-## Only when all of those hold does the ELITE_CHANCE roll happen.
+## Elite gate for pool spawns: past the time lock, off cooldown, under the alive
+## cap, and not a boss/finale (those never reach _spawn, but guard anyway). Only
+## when all of those hold does the ELITE_CHANCE roll happen. Deep runs both open
+## the window earlier and allow more elites at once (docs/DEPTHS.md M3).
 func _should_make_elite(elapsed: float, data: EnemyData) -> bool:
-	if elapsed < ELITE_MIN_ELAPSED or _elite_cooldown > 0.0:
+	if elapsed < _elite_min_elapsed() or _elite_cooldown > 0.0:
 		return false
 	if data == null or data.tags.has(&"boss") or data.tags.has(&"finale"):
 		return false
@@ -58,11 +68,30 @@ func _should_make_elite(elapsed: float, data: EnemyData) -> bool:
 	return randf() < ELITE_CHANCE
 
 
-## Mirrors RunDirector's rare/scavenger scans: one elite at a time.
+## The elite time lock: the Depth's override when it sets one (>= 0), else the
+## Spawner default. Surface (null depth) always reads the default.
+func _elite_min_elapsed() -> float:
+	if depth != null and depth.elite_min_elapsed >= 0.0:
+		return depth.elite_min_elapsed
+	return ELITE_MIN_ELAPSED
+
+
+## The concurrent-elite cap: the Depth's when on a depth run, else 1 (Surface's
+## today-behavior). Read as a structural handle by the smoke.
+func _elite_max_alive() -> int:
+	return depth.elite_max_alive if depth != null else 1
+
+
+## True once the concurrent-elite cap is reached — a count check against
+## _elite_max_alive (Surface: 1, i.e. today's one-at-a-time gate).
 func _elite_alive() -> bool:
+	var cap := _elite_max_alive()
+	var count := 0
 	for enemy: EnemyBase in EnemyBase.alive:
 		if is_instance_valid(enemy) and enemy.is_elite:
-			return true
+			count += 1
+			if count >= cap:
+				return true
 	return false
 
 
@@ -78,8 +107,17 @@ func spawn_enemy(data: EnemyData, elapsed: float, elite: bool = false) -> EnemyB
 	var enemy := data.scene.instantiate() as EnemyBase
 	if enemy == null:
 		return null
-	enemy.setup(data, wave_table.hp_mult_at(elapsed), wave_table.dmg_mult_at(elapsed),
-			wave_table.reward_mult_at(elapsed))
+	# Depth folds its flat mults on top of the WaveTable's time scaling; this one
+	# site covers pool spawns, scheduled events, and death-spawned Broodlings
+	# (children inherit the parent's mults in EnemyBase._spawn_death_spawns).
+	var hp := wave_table.hp_mult_at(elapsed)
+	var dmg := wave_table.dmg_mult_at(elapsed)
+	var reward := wave_table.reward_mult_at(elapsed)
+	if depth != null:
+		hp *= depth.hp_mult
+		dmg *= depth.dmg_mult
+		reward *= depth.reward_mult
+	enemy.setup(data, hp, dmg, reward)
 	# make_elite folds the ×4 HP into _hp_mult, which _ready reads — so it must
 	# land before add_child (which triggers _ready).
 	if elite:

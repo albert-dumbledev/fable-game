@@ -29,6 +29,15 @@ const SWEEP_RADIUS := 3.64
 ## Second Wind (parry_heal): a lifesteal swing heals this fraction of the
 ## damage it deals, per enemy hit.
 const LIFESTEAL_PCT := 0.25
+## THE TWIN COURT (Depth III forged Aspect, docs/DEPTHS.md Lane 2): a riposte swing
+## is answered by a phantom twin — a second, weaker radial strike a beat later, for
+## TWIN_ECHO_DAMAGE_MULT of the (riposte-buffed) swing damage. Mirrors the Blade
+## Cyclone sweep with a cooler ghost tell; an independent strike, so it never
+## touches the swing's Crescendo bookkeeping.
+const TWIN_ECHO_DELAY := 0.22
+const TWIN_ECHO_DAMAGE_MULT := 0.5
+const TWIN_ECHO_RADIUS := 3.0
+const TWIN_ECHO_COLOR := Color(0.55, 0.72, 1.0, 0.4)
 
 @onready var hitbox: HitboxComponent = $Hitbox
 @onready var sword_pivot: Node3D = $SwordPivot
@@ -132,6 +141,10 @@ func _do_attack(duration: float) -> void:
 	# Crescendo tracks kills on riposte swings only, once per swing.
 	_riposte_swing = riposte > 0.0
 	_riposte_kill_logged = false
+	# THE TWIN COURT: a riposte swing throws a delayed phantom echo (the twin).
+	if _riposte_swing and player != null and player.has_ability(&"twin_court"):
+		get_tree().create_timer(TWIN_ECHO_DELAY, false).timeout.connect(
+				_twin_echo.bind(damage * TWIN_ECHO_DAMAGE_MULT))
 	var sweep := riposte > 0.0 and player != null and player.has_ability(&"riposte_sweep")
 	_swing_damage = damage
 	_lifesteal_swing = player != null and player.consume_lifesteal()
@@ -241,6 +254,31 @@ func _flash_riposte(duration: float) -> void:
 	_blade_material.emission_energy_multiplier = 6.0
 	_riposte_tween = create_tween()
 	_riposte_tween.tween_property(_blade_material, "emission_energy_multiplier", 0.0, duration * 0.6)
+
+
+## THE TWIN COURT echo: a phantom radial strike a beat after a riposte swing, at
+## reduced damage. Mirrors _sweep_hit's radial pass so it reliably lands as the
+## twin, with a cooler ghost tell. Deliberately independent of the swing's
+## Crescendo state (which the next swing may already have reset) — the echo just
+## deals its damage. Guarded like the sweep since receive_hit can free an enemy.
+func _twin_echo(damage: float) -> void:
+	if wielder == null or not is_inside_tree():
+		return
+	var info := AttackInfo.new(wielder, damage)
+	info.hit_sound = &"melee_hit"
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
+			continue
+		var offset := enemy.global_position - wielder.global_position
+		offset.y = 0.0
+		if offset.length() > TWIN_ECHO_RADIUS:
+			continue
+		var enemy_hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
+		if enemy_hurtbox != null:
+			enemy_hurtbox.receive_hit(info)
+	BlastVfx.spawn(get_tree().current_scene,
+			wielder.global_position + Vector3(0.0, 0.1, 0.0), TWIN_ECHO_RADIUS,
+			TWIN_ECHO_COLOR, 0.1, 0.25)
 
 
 ## Blade Cyclone: a full-circle strike for a riposte swing. Hits every enemy in

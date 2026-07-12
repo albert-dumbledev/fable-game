@@ -1361,6 +1361,7 @@ func _on_damaged(info: AttackInfo) -> void:
 			# Small pop so big hits read as being launched, not slid.
 			velocity.y += minf(info.knockback * 0.15, 3.0)
 	EventBus.player_damaged.emit(info.damage)
+	EventBus.player_hit.emit(info)
 
 
 func _on_died() -> void:
