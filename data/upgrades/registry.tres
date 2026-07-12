@@ -26,7 +26,18 @@
 [ext_resource type="Resource" path="res://data/upgrades/forge_floor_below.tres" id="25_ffb"]
 [ext_resource type="Resource" path="res://data/upgrades/forge_pressing_dark.tres" id="26_fpd"]
 [ext_resource type="Resource" path="res://data/upgrades/forge_twin_court.tres" id="27_ftc"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_dead_weight.tres" id="28_fdw"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_deep_draught.tres" id="29_fdd"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_patient_dark.tres" id="30_fpd2"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_drowned_veil.tres" id="31_fdv"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_unclosed_wound.tres" id="32_fuw"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_open_grave.tres" id="33_fog"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_waiting_cold.tres" id="34_fwc"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_cold_blood.tres" id="35_fcb"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_vanishing_stair.tres" id="36_fvs"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_hollow_earth.tres" id="37_fhe"]
+[ext_resource type="Resource" path="res://data/upgrades/forge_revenants_hour.tres" id="38_frh"]
 
 [resource]
 script = ExtResource("1_script")
-upgrades = Array[ExtResource("2_type")]([ExtResource("3_dmg"), ExtResource("4_hp"), ExtResource("5_as"), ExtResource("6_ms"), ExtResource("8_fn"), ExtResource("9_cw"), ExtResource("10_hw"), ExtResource("11_at"), ExtResource("12_oc"), ExtResource("13_hd"), ExtResource("14_has"), ExtResource("15_hh"), ExtResource("16_hms"), ExtResource("17_sd"), ExtResource("18_sas"), ExtResource("19_sh"), ExtResource("20_sms"), ExtResource("21_st"), ExtResource("22_dc"), ExtResource("23_wf"), ExtResource("24_fc"), ExtResource("25_ffb"), ExtResource("26_fpd"), ExtResource("27_ftc")])
+upgrades = Array[ExtResource("2_type")]([ExtResource("3_dmg"), ExtResource("4_hp"), ExtResource("5_as"), ExtResource("6_ms"), ExtResource("8_fn"), ExtResource("9_cw"), ExtResource("10_hw"), ExtResource("11_at"), ExtResource("12_oc"), ExtResource("13_hd"), ExtResource("14_has"), ExtResource("15_hh"), ExtResource("16_hms"), ExtResource("17_sd"), ExtResource("18_sas"), ExtResource("19_sh"), ExtResource("20_sms"), ExtResource("21_st"), ExtResource("22_dc"), ExtResource("23_wf"), ExtResource("24_fc"), ExtResource("25_ffb"), ExtResource("26_fpd"), ExtResource("27_ftc"), ExtResource("28_fdw"), ExtResource("29_fdd"), ExtResource("30_fpd2"), ExtResource("31_fdv"), ExtResource("32_fuw"), ExtResource("33_fog"), ExtResource("34_fwc"), ExtResource("35_fcb"), ExtResource("36_fvs"), ExtResource("37_fhe"), ExtResource("38_frh")])

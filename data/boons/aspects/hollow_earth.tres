@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"hollow_earth"
+display_name = "Hollow Earth"
+description = "The ground is hollow beneath every fall — enemies killed by a Seismic wave erupt a half-force shockwave where they drop"
+weight = 1.0
+unique = true
+grants_ability = &"hollow_earth"
+requires_weapon = &"warhammer"
+requires_any_ability = Array[StringName]([&"forge_hollow_earth"])

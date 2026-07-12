@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="UpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/upgrade_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"forge_unclosed_wound"
+display_name = "Forge: The Unclosed Wound"
+description = "Add the universal Aspect THE UNCLOSED WOUND to the relic drop pool — a portion of damage dealt bleeds over four seconds, stacking. Forged, never auto-equipped."
+base_cost = 20
+max_level = 1
+grants_ability = &"forge_unclosed_wound"
+branch = &"reliquary"
+currency = &"shards"
+requires_depth = 3

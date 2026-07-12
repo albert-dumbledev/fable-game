@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"vanishing_stair"
+display_name = "The Vanishing Stair"
+description = "The step that isn't there — every riposte kill instantly refunds a blink charge"
+weight = 1.0
+unique = true
+grants_ability = &"vanishing_stair"
+requires_weapon = &"sword_and_shield"
+requires_any_ability = Array[StringName]([&"forge_vanishing_stair"])

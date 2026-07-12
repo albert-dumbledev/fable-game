@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="UpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/upgrade_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"forge_open_grave"
+display_name = "Forge: The Open Grave"
+description = "Add the warhammer Aspect THE OPEN GRAVE to the relic drop pool — during Crashing Leap's descent, enemies are dragged toward the landing marker. Forged, never auto-equipped."
+base_cost = 20
+max_level = 1
+grants_ability = &"forge_open_grave"
+branch = &"reliquary"
+currency = &"shards"
+requires_depth = 3
