@@ -5,7 +5,6 @@ extends Node
 
 @onready var spawner: Spawner = $Spawner
 
-const PICKUP_SCENE := preload("res://actors/pickups/Pickup.tscn")
 
 # Level cadence target ~10-30s. A gentle geometric curve keeps that roughly
 # constant as XP income ramps, while big chunks (swarms, bosses) still pop
@@ -389,7 +388,7 @@ func _spawn_relic(ability: StringName, position: Vector3) -> void:
 	var scene := get_tree().current_scene
 	if scene == null:
 		return
-	var relic := PICKUP_SCENE.instantiate() as Pickup
+	var relic := Pickup.make()
 	relic.ability = ability
 	relic.setup(&"unlock", 1, Vector3(0.0, 6.0, 0.0))
 	scene.add_child(relic)
@@ -425,7 +424,7 @@ func _spawn_aspect_relic(position: Vector3, _paused: bool) -> void:
 	var scene := get_tree().current_scene
 	if scene == null:
 		return
-	var relic := PICKUP_SCENE.instantiate() as Pickup
+	var relic := Pickup.make()
 	relic.setup(&"aspect", 1, Vector3(0.0, 6.0, 0.0))
 	scene.add_child(relic)
 	relic.global_position = position + Vector3(0.0, 1.2, 0.0)
@@ -438,7 +437,7 @@ func _spawn_utility_pickup(kind: StringName, value: int, lifetime: float, positi
 	var scene := get_tree().current_scene
 	if scene == null:
 		return
-	var pickup := PICKUP_SCENE.instantiate() as Pickup
+	var pickup := Pickup.make()
 	var burst := Vector3(randf_range(-1.5, 1.5), randf_range(6.0, 9.0), randf_range(-1.5, 1.5))
 	pickup.setup(kind, value, burst)
 	if lifetime > 0.0:

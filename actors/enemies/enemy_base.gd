@@ -18,7 +18,6 @@ static var alive: Array[EnemyBase] = []
 ## on Surface runs, since statics outlive the run scene. Read through windup_time().
 static var depth_time_scale := 1.0
 
-const PICKUP_SCENE := preload("res://actors/pickups/Pickup.tscn")
 const MAX_PICKUP_PIECES := 8
 ## Rare utility drops: at most one magnet in the arena at a time (checked
 ## via Pickup.magnets); health is a straight per-kill roll plus a guaranteed
@@ -614,7 +613,7 @@ func _spawn_single_pickup(kind: StringName, value: int, lifetime: float) -> void
 	var parent := get_tree().current_scene
 	if parent == null:
 		return
-	var pickup := PICKUP_SCENE.instantiate() as Pickup
+	var pickup := Pickup.make()
 	var burst := Vector3(randf_range(-1.5, 1.5), randf_range(6.0, 9.0), randf_range(-1.5, 1.5))
 	pickup.setup(kind, value, burst)
 	if lifetime > 0.0:
@@ -644,7 +643,7 @@ func _spawn_pickup_pieces(kind: StringName, total: int, pieces_cap: int,
 		var piece_value := base_value + (1 if i < remainder else 0)
 		if piece_value <= 0:
 			continue
-		var pickup := PICKUP_SCENE.instantiate() as Pickup
+		var pickup := Pickup.make()
 		var angle := randf() * TAU
 		if ring:
 			angle = (float(i) + randf_range(-0.3, 0.3)) * TAU / float(pieces)

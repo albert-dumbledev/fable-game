@@ -32,6 +32,8 @@ const ASPECT_PULSE_HIGH := 4.5
 ## drops (gold/XP/health) while the player owns the flag.
 const PROSPECTOR_RADIUS_MULT := 2.0
 
+const SCENE_PATH := "res://actors/pickups/Pickup.tscn"
+
 ## Every magnet pickup currently alive, so the minimap can ping them without
 ## a group scan.
 static var magnets: Array[Pickup] = []
@@ -59,6 +61,15 @@ var _target: Node3D
 @onready var health_mesh: Node3D = $HealthMesh
 @onready var unlock_mesh: MeshInstance3D = $UnlockMesh
 @onready var aspect_mesh: MeshInstance3D = $AspectMesh
+
+
+## The one way to instantiate a pickup. Pickup.tscn's script chain circles back
+## to its spawners (pickup.gd -> Player -> EnemyBase -> Pickup.tscn), so a
+## `preload` const in a spawner can re-enter the scene's own load and bake an
+## empty PackedScene — kills then drop nothing, with a "node count is 0" error.
+## A call-time load() always reads the completed, cached scene.
+static func make() -> Pickup:
+	return (load(SCENE_PATH) as PackedScene).instantiate() as Pickup
 
 
 ## Call before adding to the tree.
