@@ -40,6 +40,9 @@ func _run() -> void:
 	await _test_deep_cache()
 	await _test_surface_shard_control()
 	await _test_reliquary_shop()
+	_test_wave2_registry()
+	await _test_wave2_forge_gate()
+	await _test_wave2_runtime()
 
 	_restore_save()
 	print("SMOKE OK — depth" if _ok else "SMOKE FAIL — depth")
@@ -692,6 +695,132 @@ func _test_reliquary_shop() -> void:
 				% [forge.cost_at(0), shards_before, MetaProgression.get_currency(&"shards")])
 		_check(MetaProgression.get_currency(&"gold") == gold_before,
 				"reliquary buy left gold untouched (%d)" % gold_before)
+
+
+## Forge wave 2 (docs/DEPTHS.md "Forge wave 2 — shipped 2026-07-12"): every one
+## of the 11 new Aspects id, weapon gate, and grants_ability triple, plus the
+## paired forge node's requires_depth/base_cost — the exact table in the doc
+## (I=12 II=16 III=20 IV=25 V=30). requires_weapon == &"" marks a universal.
+const WAVE2_ASPECTS := {
+	&"patient_dark": {"forge": &"forge_patient_dark", "weapon": &"sword_and_shield",
+			"depth": 2, "cost": 16},
+	&"vanishing_stair": {"forge": &"forge_vanishing_stair", "weapon": &"sword_and_shield",
+			"depth": 4, "cost": 25},
+	&"open_grave": {"forge": &"forge_open_grave", "weapon": &"warhammer",
+			"depth": 3, "cost": 20},
+	&"hollow_earth": {"forge": &"forge_hollow_earth", "weapon": &"warhammer",
+			"depth": 4, "cost": 25},
+	&"deep_draught": {"forge": &"forge_deep_draught", "weapon": &"battle_staff",
+			"depth": 1, "cost": 12},
+	&"drowned_veil": {"forge": &"forge_drowned_veil", "weapon": &"battle_staff",
+			"depth": 2, "cost": 16},
+	&"waiting_cold": {"forge": &"forge_waiting_cold", "weapon": &"battle_staff",
+			"depth": 3, "cost": 20},
+	&"dead_weight": {"forge": &"forge_dead_weight", "weapon": &"",
+			"depth": 1, "cost": 12},
+	&"unclosed_wound": {"forge": &"forge_unclosed_wound", "weapon": &"",
+			"depth": 3, "cost": 20},
+	&"cold_blood": {"forge": &"forge_cold_blood", "weapon": &"",
+			"depth": 4, "cost": 25},
+	&"revenants_hour": {"forge": &"forge_revenants_hour", "weapon": &"",
+			"depth": 5, "cost": 30},
+}
+
+
+## Registry checks (pure, no arena needed): every wave-2 Aspect is registered,
+## and its paired forge node exists in the upgrade registry with the shared
+## reliquary shape (currency shards, branch reliquary, max_level 1) and the
+## exact requires_depth/base_cost pair from the doc's price table.
+func _test_wave2_registry() -> void:
+	for id: StringName in WAVE2_ASPECTS:
+		var info: Dictionary = WAVE2_ASPECTS[id]
+		_check(_find_aspect(id) != null, "wave 2: Aspect '%s' is registered" % id)
+
+		var upgrade := _find_upgrade(info["forge"])
+		_check(upgrade != null
+				and upgrade.currency == &"shards"
+				and upgrade.branch == &"reliquary"
+				and upgrade.max_level == 1
+				and upgrade.requires_depth == int(info["depth"])
+				and int(upgrade.cost_at(0)) == int(info["cost"]),
+				"wave 2: forge node '%s' shape (shards/reliquary/max1, depth %d, cost %d) — got %s"
+				% [info["forge"], info["depth"], info["cost"],
+				("null" if upgrade == null else "currency=%s branch=%s max=%d depth=%d cost=%d"
+						% [upgrade.currency, upgrade.branch, upgrade.max_level,
+						upgrade.requires_depth, upgrade.cost_at(0)])])
+
+
+## Forge gating (docs/DEPTHS.md Lane 2, wave 2): every one of the 11 new
+## Aspects is OUT of AspectPool.available() before its forge_* flag is owned
+## and IN once granted, exactly like the original three. Weapon-gated Aspects
+## need the right weapon mounted first — rather than a full weapon remount
+## (Player._mount_weapon's scene/setup dance), this swaps player.weapon's
+## WeaponData directly, since AspectPool.available only reads weapon_data.id.
+func _test_wave2_forge_gate() -> void:
+	MetaProgression.records = {"victories": 1, "best_depth": 5}
+	MetaProgression.selected_depth = 5
+	MetaProgression.unlocked_abilities = []
+	MetaProgression.selected_weapon = &"sword_and_shield"
+
+	var arena := await _boot_arena()
+	if arena == null:
+		return
+	var player := get_tree().get_first_node_in_group(&"player") as Player
+	if player == null or player.weapon == null:
+		_check(false, "wave 2 forge gate: player + weapon present")
+		return
+
+	var weapon_data := {
+		&"sword_and_shield": load("res://data/weapons/sword.tres"),
+		&"warhammer": load("res://data/weapons/warhammer.tres"),
+		&"battle_staff": load("res://data/weapons/staff.tres"),
+	}
+
+	# Every wave-2 Aspect starts out of the pool, forge flags unowned.
+	for id: StringName in WAVE2_ASPECTS:
+		_check(not _pool_has(player, id), "wave 2 forge gate: '%s' out before forging" % id)
+
+	for id: StringName in WAVE2_ASPECTS:
+		var info: Dictionary = WAVE2_ASPECTS[id]
+		var weapon: StringName = info["weapon"]
+		if weapon != &"":
+			player.weapon.weapon_data = weapon_data[weapon]
+		player.grant_ability(info["forge"])
+		_check(_pool_has(player, id), "wave 2 forge gate: '%s' enters the pool once forged" % id)
+
+	player.weapon.weapon_data = weapon_data[&"sword_and_shield"]
+
+
+## Cheap runtime asserts (docs/DEPTHS.md wave 2), reusing the arena the forge
+## gate test just booted: EnemyBase.apply_dot ticks damage onto a spawned
+## enemy (the ticking-stack DoT tracker backing The Unclosed Wound), and
+## Player.full_restore refills a damaged health/mana pool.
+func _test_wave2_runtime() -> void:
+	var spawner := _find_spawner()
+	var chaser_data: EnemyData = load("res://data/enemies/chaser.tres")
+	var enemy := spawner.spawn_enemy(chaser_data, KNOWN_ELAPSED) if spawner != null else null
+	if enemy == null:
+		_check(false, "wave 2 runtime: DoT test enemy spawned")
+	else:
+		var before := enemy.health.current
+		enemy.apply_dot(before * 0.5, 0.4, null)
+		for i in 40:
+			await get_tree().physics_frame
+		_check(enemy.health.current < before,
+				"wave 2 runtime: apply_dot ticked damage onto the enemy (%.1f -> %.1f)"
+				% [before, enemy.health.current])
+
+	var player := get_tree().get_first_node_in_group(&"player") as Player
+	if player == null:
+		_check(false, "wave 2 runtime: player present for full_restore test")
+		return
+	player.health.set_current(1.0)
+	player._mana = 0.0
+	player.full_restore()
+	_check(is_equal_approx(player.health.current, player.stats.get_stat(Stats.MAX_HEALTH)),
+			"wave 2 runtime: full_restore refilled health")
+	_check(is_equal_approx(player._mana, player.MANA_MAX),
+			"wave 2 runtime: full_restore refilled mana")
 
 
 ## An Aspect from the registry by id (or null) — the forge-gate lookups.
