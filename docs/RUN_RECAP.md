@@ -1,5 +1,14 @@
 # Run Recap & Personal Bests
 
+> **Status (2026-07-12): recap now lives on its own screen.** The pre-run hub
+> (loadout/Depth pickers, badge grid, loadout banner, both upgrade shops) was
+> split out of `ui/death_screen.gd` into a new `ui/LoadoutScreen.tscn`;
+> `ui/DeathScreen.tscn` is recap-only (title, victory/depth banners, killer
+> headline, stats, this doc's BOONS/SLAIN/DAMAGE panel, records line, gold)
+> with a single Continue button that hands off to the Loadout screen. Nothing
+> in this doc's recap/records machinery moved — see docs/DEPTHS.md's status
+> block for the pickers/grid/shop side of the split.
+
 ## Why
 
 The death/victory screen shows three numbers — time, kills, gold — then drops you
@@ -15,7 +24,8 @@ specs — telemetry can later reuse the same seams.
 
 ## What the player sees
 
-On the death/victory screen, between the headline stats and the shop:
+On the death/victory screen, below the headline stats (the shop now lives on
+the separate Loadout screen reached via Continue — see status block):
 
 1. **Killer headline** — "Slain by CASTER" under the RUN OVER title (deaths
    only; self-inflicted Blood Pact deaths say so).
@@ -102,7 +112,8 @@ dict as `new_records` for the death screen.
 
 Recap panel + records line, code-built like the rest of the screen (no scene
 edits), inserted after `StatsLabel` in the existing `Box` VBox. Column rows cap
-at 8 with a "+N more" tail so a long run can't push the shop off-screen.
+at 8 with a "+N more" tail so a long run can't push the Continue button
+off-screen.
 
 ## Files touched
 

@@ -1,11 +1,15 @@
 extends Node
-## Top-level game state machine: Menu -> InRun -> DeathScreen -> (shop) -> InRun.
+## Top-level game state machine:
+##   Menu -> Loadout -> InRun -> DeathScreen (recap) -> Loadout -> InRun.
+## The Loadout screen is the pre-run hub (pick weapon/Depth, spend at the
+## shops); the DeathScreen is now recap-only and hands back to Loadout.
 ## Owns scene transitions. No gameplay logic lives here.
 
-enum State { MENU, IN_RUN, DEATH_SCREEN }
+enum State { MENU, LOADOUT, IN_RUN, DEATH_SCREEN }
 
 const ARENA_SCENE: String = "res://levels/Arena.tscn"
 const DEATH_SCREEN_SCENE: String = "res://ui/DeathScreen.tscn"
+const LOADOUT_SCREEN_SCENE: String = "res://ui/LoadoutScreen.tscn"
 const MAIN_MENU_SCENE: String = "res://ui/MainMenu.tscn"
 
 var state: State = State.MENU
@@ -16,6 +20,12 @@ func go_to_menu() -> void:
 	state = State.MENU
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().change_scene_to_file(MAIN_MENU_SCENE)
+
+
+func go_to_loadout() -> void:
+	state = State.LOADOUT
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file(LOADOUT_SCREEN_SCENE)
 
 
 func start_run() -> void:

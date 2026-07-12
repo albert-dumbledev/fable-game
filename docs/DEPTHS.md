@@ -4,6 +4,15 @@
 > (`test/DepthSmoke.tscn`; all prior harnesses green). **Forge wave 2 shipped
 > (2026-07-12)** on branch `forge-wave-2` — all 11 planned Aspects + forge
 > nodes are in, headless-verified. **M6 (balance playtest) pending** for both.
+> **2026-07-12: pre-run hub split out of the death screen.** `ui/DeathScreen.tscn`
+> is now recap-only (title, banners, killer headline, stats, BOONS/SLAIN/DAMAGE
+> panel, records line, gold) with a single Continue button. The Depth picker,
+> loadout picker, loadout × Depth badge grid, loadout banner, and both shops
+> (gold might/vigor/arcana + the shard Reliquary, now its own bordered section
+> rather than a fourth gold column) moved to a new `ui/LoadoutScreen.tscn`.
+> Flow: Menu → Loadout → InRun → DeathScreen (recap) → Loadout. `test/depth_smoke.gd`
+> re-points its picker/grid/banner/shop assertions at a new `_boot_loadout_screen()`
+> boot; the VictoryBanner/records-line checks stay on `_boot_death_screen()`.
 > Implementation notes recorded against the design below:
 >
 > - The five `.tres` are authored as **compounded supersets** — each deeper
@@ -95,7 +104,8 @@ Design constraints that shaped everything below:
 
 1. **First Revenant kill:** the victory screen adds a banner — *"THE WAY DOWN
    OPENS — DEPTH I UNLOCKED"*. This is the moment the system exists.
-2. **Death screen:** a **Depth picker** row (mirroring the loadout picker,
+2. **Loadout screen** (the pre-run hub; split out of the death screen
+   2026-07-12): a **Depth picker** row (mirroring the loadout picker,
    hidden until the first victory): `SURFACE · I · II · III …` up to the
    deepest cleared + 1. Selection persists in the save like the loadout.
 3. **In run:** a run-start announcement (*"DEPTH II — THE FLOOR BELOW"*) with a
@@ -109,11 +119,12 @@ Design constraints that shaped everything below:
    a badge in that cell; the loadout's weapon gains a **trim tint** for its
    deepest clear; the loadout banner gains a **title** ("DUELIST OF THE
    THIRD").
-5. **The Reliquary:** a fourth shop branch (hidden until the first victory)
-   priced in shards — reroll/option-widening nodes plus **Forge** nodes that
+5. **The Reliquary:** a shard-priced shop section, hidden until the first
+   victory — reroll/option-widening nodes plus **Forge** nodes that
    permanently add a new depth-themed Aspect to the relic drop pool. Deeper
    nodes are hidden until their Depth is cleared: the shop becomes a map of
-   the descent.
+   the descent. Lives in its own bordered panel on LoadoutScreen, separate
+   from the gold branches (split 2026-07-12; see status block).
 
 ## The five Depths (first-guess numbers, calibrate by feel)
 
@@ -178,7 +189,7 @@ Implementation: `RunDirector._track_boss` death hooks call
 `MetaProgression.add_currency(&"shards", depth.level)`; the clear bonus lands
 in `finish_victory`.
 
-**The Reliquary (fourth shop branch, priced in shards):** nodes are
+**The Reliquary (its own shop section, priced in shards):** nodes are
 `UpgradeData` with two new fields — `currency` (default `&"gold"`; the shop
 reads/charges that balance) and `requires_depth` (hidden until
 `records.best_depth >= N`, same hide-entirely pattern as `requires_ability`).

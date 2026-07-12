@@ -1,6 +1,11 @@
 # Progression Rework — rare drops, boss-drop unlocks, loadout identity
 
 > **Status: ✅ Implemented (Phase 5).** All milestones M1–M5 shipped, plus two rounds of playtest-feedback balance/UX (see PLAN.md §5). This is now the design reference; two things landed differently from the draft below: (1) the per-loadout upgrade **split needed no save migration** — the sword loadout reuses the existing upgrade ids, so veteran purchases carry over automatically and only hammer/staff get fresh trees; (2) spells are **staff-only**, gated on the staff being mounted (`weapon is Staff`) plus `requires_weapon = &"battle_staff"` on the spell boons.
+>
+> **2026-07-12: the loadout picker and shop moved off the death screen.** Both
+> now live on a new `ui/LoadoutScreen.tscn` (the pre-run hub), reached via the
+> death screen's Continue button; `ui/death_screen.gd` is recap-only. No
+> behavior here changed — see docs/DEPTHS.md's status block for the full split.
 
 Restructures three progression systems: (A) rare utility drops (magnet, health), (B) weapon unlocks move from the gold shop to boss drops, and (C) each loadout gets its own stat/boon identity — sword = parry/duelist, hammer = AoE/crowd-control, and a new staff loadout that takes the spells with it.
 
@@ -44,7 +49,7 @@ Weapon unlocks leave the gold shop. Bosses become the unlock gate: **each boss k
 - `EnemyData` gains `@export var unlock_drops: Array[StringName] = []` — ordered ability flags. On boss death, the first entry the player doesn't own spawns as a **weapon relic pickup**; if all are owned, nothing drops. Juggernaut: `[&"weapon_warhammer", &"weapon_staff"]` — so the *first* juggernaut you kill drops the hammer, and the first one you kill *after owning the hammer* drops the staff (in practice: the second boss encounter, without needing to count waves — kill-order gating is robust against skipped/died-before bosses in a way that clock-time gating isn't).
 - **Relic pickup:** a `Pickup` with `kind = &"unlock"` plus a new `ability: StringName` field. Oversized glowing mesh, infinite lifetime, no magnet (walk to it), spawned after the loot waves in `BossEnemy._on_died`'s choreography tween — the fountain finale.
 - **On collect:** `MetaProgression.grant_meta_ability(ability)` → appends to a new persisted `unlocked_abilities: Array[StringName]`, saves immediately (dying two seconds later must not eat the drop), fires the wave-banner ("WARHAMMER CLAIMED — equip it from your loadout") + a unique stinger. `get_granted_abilities()` returns upgrades ∪ `unlocked_abilities`; nothing downstream changes — `is_weapon_unlocked`, the loadout picker, and boon gating all read that one function.
-- The weapon equips **next run** via the existing death-screen loadout picker. No mid-run weapon swapping — that's a different feature.
+- The weapon equips **next run** via the existing loadout picker (now on `ui/LoadoutScreen.tscn`, split out of the death screen 2026-07-12 — see docs/DEPTHS.md's status block). No mid-run weapon swapping — that's a different feature.
 
 ### B2. Warhammer migration
 
@@ -61,7 +66,7 @@ Design target: picking a loadout should pick a *game*, not a damage skin. Each w
 
 **Shared plumbing (do first):**
 
-- `UpgradeData` gains `@export var requires_ability: StringName = &""` — the shop hides the node entirely (not just locks it) until the flag is owned. This is how hammer/staff subtrees appear in the tree only after their boss drop. One check in the death-screen tree builder.
+- `UpgradeData` gains `@export var requires_ability: StringName = &""` — the shop hides the node entirely (not just locks it) until the flag is owned. This is how hammer/staff subtrees appear in the tree only after their boss drop. One check in the shop tree builder (now `ui/loadout_screen.gd`, split out of the death screen 2026-07-12).
 - New stat ids in `core/stats.gd` (all base-1.0 multipliers unless noted): `riposte_damage`, `parry_stun`, `hammer_shove`, `spell_damage`. Registered in `display_name` so boon descriptions auto-generate.
 - Loadout-specific meta upgrades **don't need equip-time gating**: `riposte_damage` on a hammer run simply never gets read. Purchase-gating via `requires_ability` is enough.
 

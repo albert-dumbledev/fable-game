@@ -25,7 +25,7 @@ func _ready() -> void:
 
 func _on_play() -> void:
 	AudioManager.play(&"click")
-	GameManager.start_run()
+	GameManager.go_to_loadout()
 
 
 func _on_settings() -> void:

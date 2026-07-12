@@ -44,10 +44,10 @@ layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 1
 
-[node name="NextRunButton" type="Button" parent="Scroll/Center/Box/Buttons" unique_id=1009868403]
+[node name="ContinueButton" type="Button" parent="Scroll/Center/Box/Buttons" unique_id=1009868403]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "Next Run"
+text = "Continue"
 
 [node name="MenuButton" type="Button" parent="Scroll/Center/Box/Buttons" unique_id=919618777]
 layout_mode = 2
@@ -65,17 +65,3 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Gold: 0"
 horizontal_alignment = 1
-
-[node name="Loadout" type="HBoxContainer" parent="Scroll/Center/Box" unique_id=1427777103]
-layout_mode = 2
-theme_override_constants/separation = 10
-alignment = 1
-
-[node name="LoadoutLabel" type="Label" parent="Scroll/Center/Box/Loadout" unique_id=107292555]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Loadout:"
-
-[node name="Branches" type="HBoxContainer" parent="Scroll/Center/Box" unique_id=1161454430]
-layout_mode = 2
-theme_override_constants/separation = 20

@@ -135,19 +135,21 @@ func _test_depth_run() -> void:
 
 	# M2: finish_victory's end_run() call already swapped current_scene to the
 	# real DeathScreen (deferred, but well within the waits above) — assert its
-	# picker/records-line/banner against this exact state (victories 1,
-	# best_depth 1 -> max_selectable_depth 2).
+	# records-line/banner against this exact state (victories 1, best_depth 1
+	# -> max_selectable_depth 2). The Depth picker itself lives on LoadoutScreen
+	# now (split 2026-07-12) — asserted separately below.
 	_test_death_screen_depth_clear()
+	await _test_loadout_screen_depth_picker()
 
 
-## The Depth picker shows exactly SURFACE/I/II, the records line carries
-## "Deepest", and the depth-clear banner reads the exact house-voice line.
-func _test_death_screen_depth_clear() -> void:
-	var screen := get_tree().current_scene
+## The Depth picker moved to LoadoutScreen (split 2026-07-12, docs/DEPTHS.md).
+## Booting it fresh off the same records state left by the Depth I clear above
+## (victories 1, best_depth 1) shows exactly SURFACE/I/II.
+func _test_loadout_screen_depth_picker() -> void:
+	var screen := await _boot_loadout_screen()
 	if screen == null:
-		_check(false, "death screen: current_scene exists after the clear")
+		_check(false, "loadout screen: booted after the clear")
 		return
-
 	var picker := screen.get_node_or_null(^"Scroll/Center/Box/DepthPicker")
 	var button_texts: Array[String] = []
 	if picker != null:
@@ -155,7 +157,16 @@ func _test_death_screen_depth_clear() -> void:
 			if child is Button:
 				button_texts.append((child as Button).text)
 	_check(button_texts == ["SURFACE", "I", "II"],
-			"death screen depth picker shows exactly SURFACE, I, II (got %s)" % [button_texts])
+			"loadout screen depth picker shows exactly SURFACE, I, II (got %s)" % [button_texts])
+
+
+## The records line carries "Deepest", and the depth-clear banner reads the
+## exact house-voice line — both stay on the recap-only DeathScreen.
+func _test_death_screen_depth_clear() -> void:
+	var screen := get_tree().current_scene
+	if screen == null:
+		_check(false, "death screen: current_scene exists after the clear")
+		return
 
 	var has_deepest := false
 	for text: String in _collect_label_texts(screen):
@@ -368,13 +379,16 @@ func _test_surface_control() -> void:
 
 ## M4 (docs/DEPTHS.md Lane 3): badge grid, per-Depth fastest NEW BEST,
 ## the title line, and weapon trim. Fabricates a richer save state directly
-## rather than driving a second full arena run — the death screen only reads
+## rather than driving a second full arena run — both screens only read
 ## MetaProgression.records and GameManager.last_run_stats, so mounting those
-## and instancing a fresh DeathScreen is the cleaner seam. Scenario: the
-## current loadout (sword_and_shield) just freshly cleared Depth III, and a
-## second unlocked loadout (warhammer) already has an older Depth I clear —
-## two loadouts x uneven depths exercises the grid's rows/cleared-cell math
-## and the title's "OF THE THIRD" in one fabricated snapshot.
+## and instancing fresh LoadoutScreen/DeathScreen is the cleaner seam.
+## Scenario: the current loadout (sword_and_shield) just freshly cleared
+## Depth III, and a second unlocked loadout (warhammer) already has an older
+## Depth I clear — two loadouts x uneven depths exercises the grid's
+## rows/cleared-cell math and the title's "OF THE THIRD" in one fabricated
+## snapshot. The badge grid and loadout banner live on LoadoutScreen; the
+## per-Depth-fastest NEW BEST label lives in DeathScreen's records line
+## (split 2026-07-12) — each asserted off its own boot.
 func _test_status_lane() -> void:
 	MetaProgression.unlocked_abilities = [&"weapon_warhammer"]
 	MetaProgression.selected_weapon = &"sword_and_shield"
@@ -393,12 +407,12 @@ func _test_status_lane() -> void:
 		"new_records": ["best_depth", "depth_fastest_3"],
 	}
 
-	var screen := await _boot_death_screen()
-	if screen == null:
+	var loadout_screen := await _boot_loadout_screen()
+	if loadout_screen == null:
 		return
 
 	# --- Badge grid: rows = unlocked loadouts, cols = authored max Depth ---
-	var grid := screen.get_node_or_null(^"Scroll/Center/Box/DepthGrid")
+	var grid := loadout_screen.get_node_or_null(^"Scroll/Center/Box/DepthGrid")
 	_check(grid != null and grid.visible, "status lane: badge grid exists and is visible")
 	if grid != null:
 		var max_level := MetaProgression.depth_registry.max_level() \
@@ -424,14 +438,17 @@ func _test_status_lane() -> void:
 				"status lane: warhammer's Depth III cell reads uncleared")
 
 	# --- Title line: "DUELIST OF THE THIRD" from the same deepest-clear lookup ---
-	var banner := screen.get_node_or_null(^"Scroll/Center/Box/LoadoutBanner") as Label
+	var banner := loadout_screen.get_node_or_null(^"Scroll/Center/Box/LoadoutBanner") as Label
 	var banner_text := banner.text if banner != null else ""
 	_check(banner_text.find("OF THE THIRD") != -1,
 			"status lane: loadout banner title reads 'OF THE THIRD' (got '%s')" % banner_text)
 
 	# --- NEW BEST label mapping: depth_fastest_3 -> "FASTEST — DEPTH III" ---
+	var death_screen := await _boot_death_screen()
+	if death_screen == null:
+		return
 	var found_label := false
-	for text: String in _collect_label_texts(screen):
+	for text: String in _collect_label_texts(death_screen):
 		if text.find("FASTEST") != -1 and text.find("DEPTH III") != -1:
 			found_label = true
 			break
@@ -658,7 +675,9 @@ func _test_surface_shard_control() -> void:
 
 ## Reliquary shop (docs/DEPTHS.md Lane 2): at best_depth 1 the shop renders the
 ## requires_depth 1 forge node but hides the requires_depth 3 node; buying a shard
-## node deducts shards and leaves gold untouched.
+## node deducts shards and leaves gold untouched. The Reliquary now lives in its
+## own section on LoadoutScreen (split 2026-07-12), separate from the gold
+## Branches columns.
 func _test_reliquary_shop() -> void:
 	MetaProgression.selected_weapon = &"sword_and_shield"
 	MetaProgression.unlocked_abilities = []
@@ -669,15 +688,15 @@ func _test_reliquary_shop() -> void:
 	MetaProgression.currencies[&"shards"] = 20
 	GameManager.last_run_stats = {}
 
-	var screen := await _boot_death_screen()
+	var screen := await _boot_loadout_screen()
 	if screen == null:
 		return
 
 	# Rendered tree: requires_depth 1 shows, requires_depth 3 is hidden.
-	var branches := screen.get_node_or_null(^"Scroll/Center/Box/Branches")
+	var reliquary := screen.get_node_or_null(^"Scroll/Center/Box/Reliquary")
 	var labels: Array[String] = []
-	if branches != null:
-		labels = _collect_label_texts(branches)
+	if reliquary != null:
+		labels = _collect_label_texts(reliquary)
 	_check(_texts_contain(labels, "Forge: The Floor Below"),
 			"reliquary shop: the requires_depth 1 forge node renders at best_depth 1")
 	_check(not _texts_contain(labels, "Fourth Card"),
@@ -868,6 +887,23 @@ func _boot_death_screen() -> Node:
 		for i in 2:
 			await get_tree().physics_frame
 	var screen: Node = load("res://ui/DeathScreen.tscn").instantiate()
+	get_tree().root.add_child(screen)
+	get_tree().current_scene = screen
+	for i in 5:
+		await get_tree().physics_frame
+	return screen
+
+
+## Instantiate a fresh LoadoutScreen directly (not via GameManager.go_to_loadout),
+## front it, and free the previous scene — mirrors _boot_death_screen exactly
+## (the pre-run hub split out of the death screen 2026-07-12).
+func _boot_loadout_screen() -> Node:
+	var prev := get_tree().current_scene
+	if prev != null and prev != self and is_instance_valid(prev):
+		prev.queue_free()
+		for i in 2:
+			await get_tree().physics_frame
+	var screen: Node = load("res://ui/LoadoutScreen.tscn").instantiate()
 	get_tree().root.add_child(screen)
 	get_tree().current_scene = screen
 	for i in 5:
