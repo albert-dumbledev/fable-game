@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"deep_draught"
+display_name = "The Deep Draught"
+description = "Drink deep before you cast — hold the Fireball to overcharge, up to double cost for up to double blast"
+weight = 1.0
+unique = true
+grants_ability = &"deep_draught"
+requires_weapon = &"battle_staff"
+requires_any_ability = Array[StringName]([&"forge_deep_draught"])

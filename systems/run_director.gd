@@ -86,6 +86,9 @@ func _ready() -> void:
 	# set EVERY run — 0.85 at THE QUICKENING, back to 1.0 on Surface so a Depth run
 	# never leaves faster telegraphs bleeding into the next Surface run.
 	EnemyBase.depth_time_scale = depth.windup_mult if depth != null else 1.0
+	# Defensive reset of the Dead Weight chain guard: it self-clears within each
+	# chain call, but a static that outlives the scene is reset every run anyway.
+	EnemyBase.dead_weight_chaining = false
 	# Subtle arena mood tint (display-only); Surface runs render untouched.
 	if depth != null:
 		_apply_ambient_tint()
@@ -200,6 +203,10 @@ func _fire_due_events() -> void:
 			if enemy != null and event.enemy.tags.has(&"boss"):
 				EventBus.boss_spawned.emit(enemy)
 				_track_boss(enemy, event.enemy)
+				# THE REVENANT'S HOUR (universal forged Aspect, docs/DEPTHS.md):
+				# every boss horn restores the player fully. The finale (THE
+				# REVENANT) is tagged boss too, so it hits this path as well.
+				_restore_on_boss_horn()
 
 
 ## The run's event schedule, cached: the WaveTable's events plus the Depth's
@@ -309,6 +316,15 @@ func _final_stats(extra: Dictionary) -> Dictionary:
 	stats["new_records"] = MetaProgression.record_run(stats)
 	MetaProgression.save_game()
 	return stats
+
+
+## THE REVENANT'S HOUR (universal forged Aspect, docs/DEPTHS.md): when the flag
+## is owned, a boss horn restores the player fully. Called from the boss-spawn
+## path (finale included). No-ops without the flag or without a live player.
+func _restore_on_boss_horn() -> void:
+	var player := get_tree().get_first_node_in_group(&"player") as Player
+	if player != null and player.has_ability(&"revenants_hour"):
+		player.full_restore()
 
 
 ## Register a spawned boss so the wave can tell when the last one falls. The

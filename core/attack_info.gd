@@ -15,6 +15,11 @@ var hit_sound: StringName = &"hit"
 ## tell melee from ranged — Mirror Ward only reflects the latter. Boulders
 ## never set it (the mortar has no mid-flight collision to block).
 var projectile := false
+## Internal follow-up damage: THE UNCLOSED WOUND bleed ticks and DEAD WEIGHT
+## overkill carries (docs/DEPTHS.md). Marks a hit that must NOT spawn on-hit
+## procs (no new bleed) and must NOT be re-amplified (Cold Blood, Expose
+## Weakness), so ticking/chaining effects stay bounded and never recurse.
+var no_proc := false
 
 
 func _init(p_source: Node3D = null, p_damage: float = 0.0, p_knockback: float = 0.0) -> void:

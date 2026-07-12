@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="UpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/upgrade_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"forge_cold_blood"
+display_name = "Forge: Cold Blood"
+description = "Add the universal Aspect COLD BLOOD to the relic drop pool — held enemies, staggered, stunned, slowed, or chilled, take one and a half times damage. Forged, never auto-equipped."
+base_cost = 25
+max_level = 1
+grants_ability = &"forge_cold_blood"
+branch = &"reliquary"
+currency = &"shards"
+requires_depth = 4

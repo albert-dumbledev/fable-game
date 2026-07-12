@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"drowned_veil"
+display_name = "The Drowned Veil"
+description = "A veil drowns the pain before it reaches you — damage drains mana before health, the surplus spilling to HP when the well runs dry"
+weight = 1.0
+unique = true
+grants_ability = &"drowned_veil"
+requires_weapon = &"battle_staff"
+requires_any_ability = Array[StringName]([&"forge_drowned_veil"])

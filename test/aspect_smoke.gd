@@ -9,10 +9,10 @@ extends Node
 ## A basic melee mob eligible for the elite roll (no boss/finale/broodling tag).
 const ELITE_ENEMY := "res://data/enemies/chaser.tres"
 ## Expected Aspect registry size. Was 12 through Phase 9; the Depths M5 forge lane
-## (docs/DEPTHS.md Lane 2) added 3 forged Aspects — THE FLOOR BELOW / THE PRESSING
-## DARK / THE TWIN COURT — bringing it to 15. Asserted deliberately so a dropped
-## registry entry fails the smoke instead of passing quietly.
-const EXPECTED_ASPECT_COUNT := 15
+## (docs/DEPTHS.md Lane 2) added 3 forged Aspects, bringing it to 15; Forge wave 2
+## adds the remaining 11 (4 universal + 7 loadout-themed), bringing it to 26.
+## Asserted deliberately so a dropped registry entry fails the smoke quietly.
+const EXPECTED_ASPECT_COUNT := 26
 
 var _failed := false
 

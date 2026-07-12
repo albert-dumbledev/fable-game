@@ -20,6 +20,11 @@ const DRAG_STUN := 0.5
 const PULL_STUN := 0.5
 const PULL_STRENGTH := 9.0
 const PULL_MAX := 22.0
+## HOLLOW EARTH (Depth IV forged Aspect, docs/DEPTHS.md Lane 2): an enemy the wave
+## kills erupts a fresh shockwave from its corpse at this fraction of the wave's
+## damage and range. Single generation only — the erupted wave carries `_no_erupt`
+## so its own kills don't cascade, mirroring the Mass Driver / Shatterflux stance.
+const HOLLOW_EARTH_MULT := 0.5
 
 var _info: AttackInfo
 var _dir := Vector3.FORWARD
@@ -33,6 +38,10 @@ var _drag := false
 var _dragged: Array[EnemyBase] = []
 var _pull := false
 var _origin := Vector3.ZERO
+## HOLLOW EARTH: resolved from the caster's ability; false on erupted child waves
+## so the effect stops at a single generation (set via `no_erupt` at spawn).
+var _hollow_earth := false
+var _no_erupt := false
 ## Fault Line (Aspect): the spawning weapon, so each caught enemy can refund a
 ## slice of its secondary cooldown. Null when the caster lacks the aspect.
 var _weapon: Weapon
@@ -46,7 +55,7 @@ var _through_damage := 0.0
 static func spawn(parent: Node, position: Vector3, info: AttackInfo,
 		direction: Vector3, radius_mult: float = 1.0, shove: float = SHOVE,
 		drag: bool = false, pull: bool = false, range_dist: float = RANGE,
-		weapon: Weapon = null) -> void:
+		weapon: Weapon = null, no_erupt: bool = false) -> void:
 	if parent == null:
 		return
 	var wave := GroundShockwave.new()
@@ -59,6 +68,7 @@ static func spawn(parent: Node, position: Vector3, info: AttackInfo,
 	wave._range = range_dist
 	wave._origin = position
 	wave._weapon = weapon
+	wave._no_erupt = no_erupt
 	parent.add_child(wave)
 	wave.global_position = position
 
@@ -69,6 +79,9 @@ func _ready() -> void:
 	# payload and drives enemies through their neighbours.
 	var player := _info.source as Player
 	_fault_line = _weapon != null and player != null and player.has_ability(&"fault_line")
+	# HOLLOW EARTH: only the first generation erupts; child waves spawn with
+	# `_no_erupt` set, so their kills never cascade another eruption.
+	_hollow_earth = not _no_erupt and player != null and player.has_ability(&"hollow_earth")
 	if player != null and player.has_ability(&"mass_driver"):
 		_wall_damage = _info.damage * Warhammer.BONE_BREAKER_MULT
 		_through_damage = _info.damage * Warhammer.BONE_BREAKER_MULT
@@ -110,6 +123,10 @@ func _physics_process(delta: float) -> void:
 		var hurtbox := enemy.get_node_or_null(^"Hurtbox") as HurtboxComponent
 		if hurtbox != null:
 			hurtbox.receive_hit(AttackInfo.new(_info.source, _info.damage))
+			# HOLLOW EARTH: a wave-kill erupts a half-strength shockwave from the
+			# corpse. Single generation (`_hollow_earth` is false on erupted waves).
+			if _hollow_earth and enemy.health != null and enemy.health.current <= 0.0:
+				_erupt_hollow_earth(enemy.global_position)
 		# Pull (Implosion) rakes enemies back to the cast origin and staggers
 		# them; Riptide (drag) carries them forward; otherwise a plain carry.
 		# Every shove carries the Mass Driver payload (0 unless owned).
@@ -132,6 +149,21 @@ func _physics_process(delta: float) -> void:
 		if _drag:
 			_stagger_dragged()
 		queue_free()
+
+
+## HOLLOW EARTH: erupt a half-strength shockwave from a corpse, travelling the same
+## direction as this wave. Spawned with `no_erupt = true` so this child is the last
+## generation — its own kills can't erupt again (the anti-cascade stance shared with
+## Mass Driver's through-sweep and Shatterflux's mini-nova). Plain wave: no drag/
+## pull/Fault Line inherited, so the eruption reads as a clean secondary quake.
+func _erupt_hollow_earth(corpse: Vector3) -> void:
+	if not is_inside_tree():
+		return
+	corpse.y = 0.1
+	GroundShockwave.spawn(get_tree().current_scene, corpse,
+			AttackInfo.new(_info.source, _info.damage * HOLLOW_EARTH_MULT), _dir,
+			_radius / HIT_RADIUS, SHOVE, false, false, _range * HOLLOW_EARTH_MULT,
+			null, true)
 
 
 ## Riptide payoff: the dragged clump is left briefly staggered at the end of

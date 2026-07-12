@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"dead_weight"
+display_name = "Dead Weight"
+description = "Nothing goes to waste — overkill damage carries to the nearest enemy and keeps chaining until the surplus is spent"
+weight = 1.0
+unique = true
+grants_ability = &"dead_weight"
+requires_weapon = &""
+requires_any_ability = Array[StringName]([&"forge_dead_weight"])

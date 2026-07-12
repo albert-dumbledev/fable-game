@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"unclosed_wound"
+display_name = "The Unclosed Wound"
+description = "Some hits never close — a portion of damage dealt bleeds over four seconds, and the bleeds stack"
+weight = 1.0
+unique = true
+grants_ability = &"unclosed_wound"
+requires_weapon = &""
+requires_any_ability = Array[StringName]([&"forge_unclosed_wound"])

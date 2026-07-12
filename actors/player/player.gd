@@ -33,6 +33,11 @@ const RIPOSTE_WINDOW := 2.0
 const CRESCENDO_STACK_BONUS := 0.25
 ## Mirror Ward (duelist Aspect): AoE radius of the reflected projectile's blast.
 const MIRROR_WARD_RADIUS := 4.0
+## THE PATIENT DARK (Depth II forged Aspect, docs/DEPTHS.md Lane 2): this long
+## without taking damage primes a full riposte on the next swing (all riposte
+## boons apply — Crescendo chains, Twin Court echoes). Reuses the parry-primed
+## swing path; the clock resets whenever the player takes damage.
+const PATIENT_DARK_PRIME_TIME := 6.0
 ## Dash: a fixed-distance blink — traveled, not teleported — with full
 ## intangibility (no enemy collision, no damage, projectiles pass through).
 const DASH_DISTANCE := 6.0
@@ -85,6 +90,13 @@ const LEAP_INDICATOR_DIM_ENERGY := 1.4
 const LEAP_INDICATOR_CONFIRM_ENERGY := 3.5
 const LEAP_INDICATOR_DIM_ALPHA := 0.45
 const LEAP_INDICATOR_CONFIRM_ALPHA := 0.75
+## THE OPEN GRAVE (Depth III forged Aspect, docs/DEPTHS.md Lane 2): during the
+## Crashing Leap crash phase, living enemies within OPEN_GRAVE_RADIUS of the landing
+## marker are dragged toward it at OPEN_GRAVE_PULL m/s — the grave opens before you
+## land. Reuses EnemyBase.apply_shove as a per-frame pull: the shove is re-set each
+## tick (not accumulated), so a steady inward velocity reads as a continuous pull.
+const OPEN_GRAVE_RADIUS := 6.0
+const OPEN_GRAVE_PULL := 4.0
 ## Levitate (Arcanist Shift): rise into a timed hover and rain spells. PURE
 ## timer — no mana cost, no intangibility, so spitter/caster/boss projectiles
 ## still connect; melee simply can't reach. Short duration + a long cooldown
@@ -116,6 +128,15 @@ const FIREBALL_BASE_DAMAGE := 45.0
 const FIREBALL_COOLDOWN := 3.0
 ## Casting locks out the sword and shield while the orb charges.
 const FIREBALL_CHARGE_TIME := 0.8
+## THE DEEP DRAUGHT (Depth I forged Aspect, docs/DEPTHS.md Lane 2): with the flag,
+## the staff's Fireball RMB becomes press-hold-release. Holding overcharges the
+## shot over this window; releasing fires at the reached fraction t in [0,1],
+## scaling mana cost, blast radius, and damage by (1 + t) — a full hold is 2× cost
+## for 2× blast and damage. A quick tap (t≈0) is byte-identical to the flagless
+## fireball. Without the flag the input never enters this path (see the cast block).
+## The overcharge draws from the mana pool only (never Blood-Pact HP): if the pool
+## can't fund the held fraction, t clamps to what it covers, never below the base.
+const DEEP_DRAUGHT_CHARGE_TIME := 1.0
 ## Frost Nova: instant icy burst around the player — no charge, no stow —
 ## that chills everything caught to a crawl. The defensive panic button.
 const FROST_NOVA_RADIUS := 6.0
@@ -136,6 +157,17 @@ const FROST_NOVA_MANA_COST := 30.0
 ## shortfall in health at this rate (0.5 HP per missing mana). A cast whose HP
 ## price would drop the player to 0 is refused outright — see _spend_mana.
 const BLOOD_PACT_HP_PER_MANA := 0.5
+## THE DROWNED VEIL (Depth II forged Aspect, docs/DEPTHS.md Lane 2): incoming damage
+## drinks the mana pool before health — this much mana soaks one point of damage
+## (2 mana : 1 HP). The remainder spills to HP once the pool runs dry. Deliberate
+## tension with Blood Pact (both spend the same pool) and Arcane Surge (a drained
+## pool can't hold the ≥80% surge threshold).
+const DROWNED_VEIL_MANA_PER_HP := 2.0
+## THE WAITING COLD (Depth III forged Aspect, docs/DEPTHS.md Lane 2): a Frost Nova
+## cast plants a rune (weapons/frost_rune.gd) instead of firing instantly; its
+## detonation routes back through the shared nova routine at this multiplier, so
+## every nova boon (Echo Nova, Glacial Wave) still applies.
+const WAITING_COLD_DAMAGE_MULT := 1.5
 ## Echo Nova (unique boon): a second, weaker pulse after the first.
 const NOVA_ECHO_DELAY := 1.0
 const NOVA_ECHO_DAMAGE_MULT := 0.5
@@ -189,6 +221,11 @@ var _riposte_until := 0.0
 ## Crescendo (riposte_chain): consecutive riposte kills escalate the bonus.
 ## Reset to 0 when the riposte window lapses (checked in consume_riposte).
 var _riposte_chain_stacks := 0
+## THE PATIENT DARK (patient_dark): seconds elapsed without taking damage, and a
+## latch marking that the dark has primed a riposte that persists until a swing
+## spends it. Run-scoped (a fresh Player is built each run). Reset by _on_damaged.
+var _patient_dark_charge := 0.0
+var _patient_dark_primed := false
 ## Second Wind (parry_heal): a perfect block primes lifesteal on the next swing.
 var _lifesteal_pending := false
 var _guard := GUARD_MAX
@@ -209,6 +246,9 @@ var _leap_aim_deadline_ms := 0
 var _leap_indicator_point := Vector3.ZERO
 var _leap_dive_time := 0.0
 var _leap_dive_velocity := Vector3.ZERO
+## THE OPEN GRAVE: the landing marker the crash dives to, cached so the pull has a
+## target while diving (the dive velocity alone doesn't retain the destination).
+var _leap_crash_marker := Vector3.ZERO
 var _leap_indicator: MeshInstance3D
 var _leap_indicator_material: StandardMaterial3D
 var _leap_pitch_tween: Tween
@@ -232,6 +272,16 @@ var _charging := false
 var _charge_time := 0.0
 var _charge_duration := FIREBALL_CHARGE_TIME
 var _charge_orb: MeshInstance3D
+## THE DEEP DRAUGHT overcharge state: whether the RMB is being held to overcharge,
+## how long it has been held, its growing hold-tell orb, and the (1 + t) multiplier
+## the release locks in — threaded into _begin_cast → _finish_cast for cost/blast/
+## damage. Defaults to 1.0 so the flagless cast is untouched.
+var _draught_holding := false
+var _draught_charge := 0.0
+var _draught_orb: MeshInstance3D
+var _charge_draught_mult := 1.0
+## THE WAITING COLD: the single standing rune, if any. A fresh cast replaces it.
+var _frost_rune: FrostRune
 var _knockback := Vector3.ZERO
 ## Undying Will: the once-per-run lethal save is spent (resets naturally — a
 ## fresh Player is built each run) plus the post-save grace deadline (ticks_msec).
@@ -317,6 +367,7 @@ func _physics_process(delta: float) -> void:
 	if _leap_phase != LeapPhase.NONE:
 		_process_leap(delta)
 		return
+	_tick_patient_dark(delta)
 	# Fireball charges refill one at a time through the cooldown.
 	if _fireball_charges < _max_fireball_charges():
 		_cast_cooldown = maxf(0.0, _cast_cooldown - delta)
@@ -341,7 +392,9 @@ func _physics_process(delta: float) -> void:
 		_charge_time += delta
 		if _charge_orb != null:
 			var t := clampf(_charge_time / _charge_duration, 0.0, 1.0)
-			_charge_orb.scale = Vector3.ONE * lerpf(0.4, 1.8, t)
+			# Overcharged casts telegraph bigger — the committed orb scales up with
+			# the locked-in draught multiplier (1.0 for a base cast: unchanged).
+			_charge_orb.scale = Vector3.ONE * lerpf(0.4, 1.8, t) * _charge_draught_mult
 		if _charge_time >= _charge_duration:
 			_finish_cast()
 	else:
@@ -353,16 +406,26 @@ func _physics_process(delta: float) -> void:
 				_omni_window_end_ms = Time.get_ticks_msec() + int(OMNI_BLOCK_WINDOW * 1000.0)
 				_omni_next_ms = Time.get_ticks_msec() + int(OMNI_BLOCK_COOLDOWN * 1000.0)
 		weapon.set_blocking(block_held)
-		# On weapons with no shield, RMB is the weapon's secondary ability.
-		if not weapon.weapon_data.can_block \
-				and Input.is_action_just_pressed("block"):
-			weapon.try_secondary()
+		# On weapons with no shield, RMB is the weapon's secondary ability. THE
+		# DEEP DRAUGHT rewires the staff's RMB into a press-hold-release overcharge
+		# (see _tick_deep_draught); every other no-shield secondary — and a staff
+		# without the flag — still fires on press, the unchanged path.
+		if not weapon.weapon_data.can_block:
+			if weapon is Staff and has_ability(&"deep_draught"):
+				_tick_deep_draught(delta)
+			elif Input.is_action_just_pressed("block"):
+				weapon.try_secondary()
 		if Input.is_action_pressed("attack"):
 			weapon.try_attack()
 		if weapon is Staff and has_ability(&"frost_nova") \
 				and Input.is_action_just_pressed("cast_2") and _nova_cooldown <= 0.0:
 			if _spend_mana(FROST_NOVA_MANA_COST):
-				_cast_frost_nova()
+				# THE WAITING COLD plants a rune instead of firing the nova now;
+				# the cast (cooldown + mana) is otherwise identical.
+				if has_ability(&"waiting_cold"):
+					_plant_frost_rune()
+				else:
+					_cast_frost_nova()
 
 	if Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = JUMP_VELOCITY
@@ -505,14 +568,33 @@ func mitigate_hit(info: AttackInfo) -> AttackInfo:
 				EventBus.attack_blocked.emit()
 				_drain_guard(GUARD_HIT_COST)
 			return null
+	# THE DROWNED VEIL (staff forged Aspect, docs/DEPTHS.md Lane 2): the mana pool
+	# drinks damage before health does — DROWNED_VEIL_MANA_PER_HP mana soaks one
+	# point of damage, up to whatever the pool holds; the unabsorbed remainder
+	# spills to HP. Runs on the unblocked path BEFORE Undying Will, so only the
+	# spill can ever be lethal. The reduced hit is a FRESH AttackInfo — never
+	# mutate the shared one (enemy projectiles reuse their _info across hits; same
+	# rule as EnemyBase.mitigate_hit). A fully absorbed hit deliberately flows on
+	# as a 0-damage hit: HealthComponent.take_damage still fires `damaged` →
+	# _on_damaged, so the patient-dark reset, shake, and hit telemetry all trip.
+	# The veil eats the harm, not the impact — a hit is still a hit.
+	var final := info
+	if has_ability(&"drowned_veil") and _mana > 0.0 and info.damage > 0.0:
+		var absorbed := minf(info.damage, _mana / DROWNED_VEIL_MANA_PER_HP)
+		_mana -= absorbed * DROWNED_VEIL_MANA_PER_HP
+		final = AttackInfo.new(info.source, info.damage - absorbed, info.knockback)
+		final.hit_sound = info.hit_sound
+		final.projectile = info.projectile
+		final.no_proc = info.no_proc
+		EventBus.mana_absorbed.emit(absorbed)
 	# Undying Will (universal Aspect): a blow that would kill is refused once per
 	# run — restore to a sliver, clear the crowd, and open the grace window. This
 	# sits on the non-blocked path, right where the hit would otherwise land full.
 	if has_ability(&"undying_will") and not _undying_used \
-			and info.damage >= health.current:
+			and final.damage >= health.current:
 		_trigger_undying()
 		return null
-	return info
+	return final
 
 
 ## Undying Will: the once-per-run lethal save. Restore to a sliver of max HP
@@ -825,6 +907,7 @@ func _clamp_leap_target(point: Vector3) -> Vector3:
 ## (mirrors the dash's collision-mask + monitorable trick).
 func _begin_leap_crash(target: Vector3) -> void:
 	_leap_phase = LeapPhase.CRASH
+	_leap_crash_marker = target
 	FreezeFrame.clear_slow_motion()
 	_hide_leap_indicator()
 	_leap_dive_time = LEAP_DIVE_TIME
@@ -839,9 +922,29 @@ func _begin_leap_crash(target: Vector3) -> void:
 func _process_leap_crash(delta: float) -> void:
 	_leap_dive_time -= delta
 	velocity = _leap_dive_velocity
+	# THE OPEN GRAVE: drag enemies toward the marker while the crash is in flight.
+	if has_ability(&"open_grave"):
+		_open_grave_pull()
 	move_and_slide()
 	if _leap_dive_time <= 0.0 or is_on_floor():
 		_land_leap_crash()
+
+
+## THE OPEN GRAVE: rake every living enemy near the landing marker inward. Iterates
+## a snapshot; the per-frame apply_shove is re-set (not accumulated) so it reads as
+## a steady pull rather than a compounding fling. Dead enemies are skipped.
+func _open_grave_pull() -> void:
+	for enemy: EnemyBase in EnemyBase.alive.duplicate():
+		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
+			continue
+		if enemy.state == EnemyBase.State.DEAD:
+			continue
+		var to_marker := _leap_crash_marker - enemy.global_position
+		to_marker.y = 0.0
+		var d := to_marker.length()
+		if d > OPEN_GRAVE_RADIUS or d < 0.1:
+			continue
+		enemy.apply_shove(to_marker / d * OPEN_GRAVE_PULL)
 
 
 ## Touchdown: restore tangibility/camera, let the warhammer crash its 360°
@@ -990,9 +1093,88 @@ func _levitate_view(rising: bool) -> void:
 			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
-func _begin_cast() -> void:
+## THE DEEP DRAUGHT: the staff RMB's press-hold-release overcharge, driven each
+## tick while the flag is owned. Press begins a hold (only if a fireball is
+## actually available — same charge/charging gate the flagless tap has); holding
+## accumulates the charge and grows the tell; release fires at the reached
+## fraction. A quick tap accumulates ~0 and fires the base fireball.
+func _tick_deep_draught(delta: float) -> void:
+	if Input.is_action_just_pressed("block"):
+		if not _charging and not _draught_holding and _fireball_charges > 0:
+			_draught_holding = true
+			_draught_charge = 0.0
+			_begin_draught_tell()
+		return
+	if not _draught_holding:
+		return
+	if Input.is_action_pressed("block"):
+		_draught_charge += delta
+		_update_draught_tell()
+	else:
+		_draught_holding = false
+		_release_draught()
+
+
+## Release: fire the overcharged fireball. The held fraction t sets the desired
+## (1 + t) multiplier; if the mana pool can't fund that, the multiplier clamps to
+## what the pool covers but never below the base 1.0 — a base shot still routes
+## through _spend_mana so Blood Pact / denial behave exactly as the flagless tap.
+## The overcharge itself never dips into Blood-Pact HP (only the base 40 can).
+func _release_draught() -> void:
+	var held_t := clampf(_draught_charge / DEEP_DRAUGHT_CHARGE_TIME, 0.0, 1.0)
+	_clear_draught_tell()
+	if _charging or _fireball_charges <= 0:
+		return
+	var desired_mult := 1.0 + held_t
+	var mult := desired_mult
+	if _mana < FIREBALL_MANA_COST * desired_mult:
+		mult = clampf(_mana / FIREBALL_MANA_COST, 1.0, desired_mult)
+	if not _spend_mana(FIREBALL_MANA_COST * mult):
+		return
+	_begin_cast(mult)
+
+
+## A small emissive orb in front of the camera that grows and brightens as the
+## overcharge builds — the charge tell. Reuses the committed-cast orb's look;
+## freed on release (or superseded by the committed orb _begin_cast builds).
+func _begin_draught_tell() -> void:
+	_draught_orb = MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.12
+	sphere.height = 0.24
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(1.0, 0.5, 0.1)
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.45, 0.1)
+	material.emission_energy_multiplier = 2.5
+	sphere.material = material
+	_draught_orb.mesh = sphere
+	camera.add_child(_draught_orb)
+	_draught_orb.position = Vector3(0.0, -0.18, -0.7)
+	_draught_orb.scale = Vector3.ONE * 0.4
+
+
+func _update_draught_tell() -> void:
+	if _draught_orb == null:
+		return
+	var t := clampf(_draught_charge / DEEP_DRAUGHT_CHARGE_TIME, 0.0, 1.0)
+	# Scale spans the base (0.4) up to a full-hold orb, matching (1 + t).
+	_draught_orb.scale = Vector3.ONE * 0.4 * (1.0 + t)
+
+
+func _clear_draught_tell() -> void:
+	if _draught_orb != null:
+		_draught_orb.queue_free()
+		_draught_orb = null
+
+
+## Begins the committed fireball windup. `overcharge` is THE DEEP DRAUGHT's locked
+## (1 + t) multiplier — 1.0 for a base cast, up to 2.0 for a full hold — threaded
+## into _finish_cast for the shot's cost/blast/damage and the orb tell.
+func _begin_cast(overcharge: float = 1.0) -> void:
 	_charging = true
 	_charge_time = 0.0
+	_charge_draught_mult = overcharge
 	_charge_duration = FIREBALL_CHARGE_TIME * maxf(0.2, stats.get_stat(Stats.CAST_TIME))
 	# Growing orb in front of the camera telegraphs the charge.
 	_charge_orb = MeshInstance3D.new()
@@ -1008,7 +1190,7 @@ func _begin_cast() -> void:
 	_charge_orb.mesh = sphere
 	camera.add_child(_charge_orb)
 	_charge_orb.position = Vector3(0.0, -0.18, -0.7)
-	_charge_orb.scale = Vector3.ONE * 0.4
+	_charge_orb.scale = Vector3.ONE * 0.4 * _charge_draught_mult
 
 
 func _finish_cast() -> void:
@@ -1022,35 +1204,73 @@ func _finish_cast() -> void:
 	AudioManager.play(&"fireball_shoot")
 	var ball := FIREBALL_SCENE.instantiate() as Fireball
 	var dir := -camera.global_transform.basis.z
+	# THE DEEP DRAUGHT scales both damage and blast radius by the overcharge
+	# multiplier locked at release (1.0 for a base cast — unchanged).
 	var ball_damage := (FIREBALL_BASE_DAMAGE + stats.get_stat(Stats.DAMAGE) * 1.5) \
-			* stats.get_stat(Stats.SPELL_DAMAGE)
+			* stats.get_stat(Stats.SPELL_DAMAGE) * _charge_draught_mult
 	ball.setup(
 		AttackInfo.new(self, ball_damage),
-		dir, stats.get_stat(Stats.FIREBALL_AOE), has_ability(&"burning_ground"))
+		dir, stats.get_stat(Stats.FIREBALL_AOE) * _charge_draught_mult,
+		has_ability(&"burning_ground"))
 	get_tree().current_scene.add_child(ball)
 	ball.global_position = camera.global_position + dir * 0.8
 
 
 func _cast_frost_nova() -> void:
 	_nova_cooldown = _spell_cooldown(FROST_NOVA_COOLDOWN)
-	_do_nova(1.0, FROST_NOVA_SLOW_MULT, FROST_NOVA_SLOW_TIME)
+	_detonate_nova(global_position, 1.0, true)
+
+
+## THE WAITING COLD: plant (or replace) the standing rune at the player's feet. The
+## Frost Nova cost was already paid by the caller and the cooldown is set here, so a
+## planted cast reads on the HUD exactly like the instant one. One rune at a time: a
+## fresh cast REPLACES a standing rune (repositioning the trap) rather than popping
+## it early — a quiet, deliberate call, so casting again never wastes the pulse.
+func _plant_frost_rune() -> void:
+	_nova_cooldown = _spell_cooldown(FROST_NOVA_COOLDOWN)
+	if is_instance_valid(_frost_rune):
+		_frost_rune.queue_free()
+	_frost_rune = FrostRune.spawn(get_tree().current_scene, global_position, self)
+	# Quiet plant cue (the full frost burst plays on detonation via _do_nova).
+	AudioManager.play(&"frost_nova", -9.0)
+
+
+## THE WAITING COLD: the planted rune calls this when it trips or times out. Routes
+## through the shared nova at the rune's own position and WAITING_COLD_DAMAGE_MULT so
+## every nova boon still applies; _do_nova handles the frost SFX and shake.
+func detonate_frost_rune(center: Vector3) -> void:
+	_detonate_nova(center, WAITING_COLD_DAMAGE_MULT, false)
+
+
+## Fire a Frost Nova pulse at `center`, scaled by `damage_mult`. Shared by the
+## instant cast (centred on the player, 1.0×) and THE WAITING COLD's rune (its own
+## planted position, 1.5×), so nova boons — Echo Nova, Glacial Wave — apply to both.
+## `follow_player` keeps the instant cast's Echo Nova tracking the player (it always
+## re-read the caster's position at echo time); the rune's echo stays on the rune.
+func _detonate_nova(center: Vector3, damage_mult: float, follow_player: bool) -> void:
+	_do_nova(damage_mult, FROST_NOVA_SLOW_MULT, FROST_NOVA_SLOW_TIME, center)
 	if has_ability(&"nova_echo"):
-		get_tree().create_timer(NOVA_ECHO_DELAY, false).timeout.connect(_nova_echo)
+		get_tree().create_timer(NOVA_ECHO_DELAY, false).timeout.connect(
+				_nova_echo.bind(center, damage_mult, follow_player))
 
 
-func _nova_echo() -> void:
+func _nova_echo(center: Vector3, damage_mult: float, follow_player: bool) -> void:
 	if _dead or not is_inside_tree():
 		return
-	_do_nova(NOVA_ECHO_DAMAGE_MULT, NOVA_ECHO_SLOW_MULT, NOVA_ECHO_SLOW_TIME)
+	# The echo inherits the parent pulse's multiplier so the rune's 1.5× carries
+	# through; a base cast passes 1.0 and this is the original echo damage.
+	_do_nova(NOVA_ECHO_DAMAGE_MULT * damage_mult, NOVA_ECHO_SLOW_MULT,
+			NOVA_ECHO_SLOW_TIME, global_position if follow_player else center)
 
 
-func _do_nova(damage_mult: float, slow_mult: float, slow_time: float) -> void:
+func _do_nova(damage_mult: float, slow_mult: float, slow_time: float,
+		center: Vector3) -> void:
 	var damage := (FROST_NOVA_DAMAGE + stats.get_stat(Stats.DAMAGE) * 0.4) * damage_mult \
 			* stats.get_stat(Stats.SPELL_DAMAGE)
 	for enemy: EnemyBase in EnemyBase.alive.duplicate():
 		if not is_instance_valid(enemy) or not enemy.is_inside_tree():
 			continue
-		var offset := enemy.global_position - global_position
+		var offset := enemy.global_position - center
 		offset.y = 0.0
 		if offset.length() > FROST_NOVA_RADIUS:
 			continue
@@ -1060,10 +1280,10 @@ func _do_nova(damage_mult: float, slow_mult: float, slow_time: float) -> void:
 		enemy.apply_slow(slow_mult, slow_time)
 		if has_ability(&"nova_push") and offset.length() > 0.01:
 			enemy.apply_shove(offset.normalized() * NOVA_PUSH_FORCE)
-	BlastVfx.spawn(get_tree().current_scene, global_position, FROST_NOVA_RADIUS,
+	BlastVfx.spawn(get_tree().current_scene, center, FROST_NOVA_RADIUS,
 			FROST_NOVA_COLOR, 0.35, 0.4)
 	# Lingering frost skim across the ground where the nova passed.
-	BlastVfx.spawn(get_tree().current_scene, global_position, FROST_NOVA_RADIUS,
+	BlastVfx.spawn(get_tree().current_scene, center, FROST_NOVA_RADIUS,
 			Color(0.7, 0.9, 1.0, 0.35), 0.04, 1.1)
 	AudioManager.play(&"frost_nova")
 	add_shake(0.2)
@@ -1282,6 +1502,33 @@ func is_levitating() -> bool:
 	return _levitating
 
 
+## THE PATIENT DARK: run-scoped patience clock. With the Aspect owned, standing
+## PATIENT_DARK_PRIME_TIME seconds without taking damage primes a full riposte by
+## driving the SAME parry path (_prime_riposte), so every riposte-keyed effect —
+## Crescendo, Twin Court, Vanishing Stair — fires unchanged. The prime must PERSIST
+## until a swing spends it (unlike a parry's 2s window), so once primed the riposte
+## deadline is silently refreshed each tick (no repeated tell); when consume_riposte
+## clears it the dark is spent and the 6s clock restarts. Reset on damage taken.
+func _tick_patient_dark(delta: float) -> void:
+	if not has_ability(&"patient_dark"):
+		return
+	if _patient_dark_primed:
+		# A swing (consume_riposte) drops the deadline to 0 — that is the spend.
+		if _riposte_until <= 0.0 or float(Time.get_ticks_msec()) > _riposte_until:
+			_patient_dark_primed = false
+			_patient_dark_charge = 0.0
+		else:
+			_riposte_until = float(Time.get_ticks_msec()) + RIPOSTE_WINDOW * 1000.0
+		return
+	_patient_dark_charge += delta
+	if _patient_dark_charge >= PATIENT_DARK_PRIME_TIME:
+		_patient_dark_primed = true
+		_prime_riposte()
+		# Subtle prime tell: the blade already lit via _prime_riposte's
+		# notify_riposte_primed; layer a quiet parry cue so it also reads by ear.
+		AudioManager.play(&"parry", -12.0)
+
+
 ## A perfect block primes/refreshes the riposte window and lights the blade.
 func _prime_riposte() -> void:
 	_riposte_until = float(Time.get_ticks_msec()) + RIPOSTE_WINDOW * 1000.0
@@ -1305,12 +1552,26 @@ func consume_riposte() -> float:
 	return bonus
 
 
-## Crescendo: a riposte swing landed a killing blow. Refresh the prime instead
-## of letting it lapse and grow the chain, so the next swing hits even harder.
-## Re-fires the primed tell so the sustained window reads on the blade.
-func notify_riposte_chain_kill() -> void:
-	_riposte_chain_stacks += 1
-	_prime_riposte()
+## A riposte swing landed a killing blow. Routes the two duelist kill-Aspects from
+## the sword's single detection: Crescendo (riposte_chain) refreshes the prime and
+## grows the chain so the next swing hits even harder (re-firing the primed tell);
+## THE VANISHING STAIR (vanishing_stair) hands back a blink charge.
+func notify_riposte_kill() -> void:
+	if has_ability(&"riposte_chain"):
+		_riposte_chain_stacks += 1
+		_prime_riposte()
+	if has_ability(&"vanishing_stair"):
+		_refund_dash_charge()
+
+
+## THE VANISHING STAIR (Depth IV forged Aspect, docs/DEPTHS.md Lane 2): a riposte
+## kill instantly refunds one blink charge into the 8C dash pool, capped at the
+## loadout max. A quiet reuse of the dash blip marks the refund; no-op at the cap.
+func _refund_dash_charge() -> void:
+	if _dash_charges >= _max_dash_charges():
+		return
+	_dash_charges += 1
+	AudioManager.play(&"dash", -6.0)
 
 
 ## Weapon base damage scaled by the riposte_damage stat — the shared strike
@@ -1347,6 +1608,27 @@ func heal(amount: float) -> void:
 	health.heal(amount)
 
 
+## THE REVENANT'S HOUR (universal forged Aspect, docs/DEPTHS.md): a boss horn
+## restores the player in full — health, mana, every cooldown, and every charge
+## pool. RunDirector calls this on each boss-wave start (finale included) when the
+## flag is owned; the ability gate lives at the call site. Idempotent: safe to
+## call more than once per wave (a two-Juggernaut wave horns twice). set_current
+## (not heal) so a full bar lands even at the ceiling, and the guard/cast/mobility
+## timers and both charge pools reset to their maxima so nothing is mid-cooldown.
+func full_restore() -> void:
+	health.set_current(stats.get_stat(Stats.MAX_HEALTH))
+	_mana = MANA_MAX
+	_cast_cooldown = 0.0
+	_fireball_charges = _max_fireball_charges()
+	_nova_cooldown = 0.0
+	_mobility_cooldown = 0.0
+	_dash_charges = _max_dash_charges()
+	_guard = GUARD_MAX
+	_guard_broken = false
+	AudioManager.play(&"unlock_claim")
+	add_shake(0.2)
+
+
 func _on_vampire_kill(_enemy_data: Resource, _position: Vector3) -> void:
 	health.heal(VAMPIRE_HEAL)
 
@@ -1360,6 +1642,11 @@ func _on_damaged(info: AttackInfo) -> void:
 			_knockback = away.normalized() * info.knockback
 			# Small pop so big hits read as being launched, not slid.
 			velocity.y += minf(info.knockback * 0.15, 3.0)
+	# THE PATIENT DARK: any blow landed breaks patience — restart the clock and
+	# drop the primed latch (a live riposte window is left to lapse on its own so
+	# a parry-earned riposte isn't clobbered by an unrelated chip of damage).
+	_patient_dark_charge = 0.0
+	_patient_dark_primed = false
 	EventBus.player_damaged.emit(info.damage)
 	EventBus.player_hit.emit(info)
 

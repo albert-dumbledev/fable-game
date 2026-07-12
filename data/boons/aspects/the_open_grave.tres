@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BoonData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/boon_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"open_grave"
+display_name = "The Open Grave"
+description = "The grave opens before you land — during Crashing Leap's descent, enemies are dragged toward the marker awaiting them"
+weight = 1.0
+unique = true
+grants_ability = &"open_grave"
+requires_weapon = &"warhammer"
+requires_any_ability = Array[StringName]([&"forge_open_grave"])

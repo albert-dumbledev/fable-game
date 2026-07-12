@@ -73,6 +73,11 @@ signal mana_cast_denied
 @warning_ignore("unused_signal")
 signal mana_burned(amount: float)
 
+## Emitted when THE DROWNED VEIL (forged Aspect) soaks incoming damage with mana —
+## `amount` is the damage absorbed, so the HUD can flash the mana bar on the save.
+@warning_ignore("unused_signal")
+signal mana_absorbed(amount: float)
+
 ## Emitted when the player walks onto an Aspect relic. No args — the AspectScreen
 ## does the pick-1-of-2 roll itself. Opening the screen is the whole payload.
 @warning_ignore("unused_signal")

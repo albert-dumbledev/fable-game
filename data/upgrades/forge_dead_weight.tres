@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="UpgradeData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/upgrade_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = &"forge_dead_weight"
+display_name = "Forge: Dead Weight"
+description = "Add the universal Aspect DEAD WEIGHT to the relic drop pool — overkill damage carries to the nearest enemy and keeps chaining until spent. Forged, never auto-equipped."
+base_cost = 12
+max_level = 1
+grants_ability = &"forge_dead_weight"
+branch = &"reliquary"
+currency = &"shards"
+requires_depth = 1

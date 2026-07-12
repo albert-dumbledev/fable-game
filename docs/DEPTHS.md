@@ -1,8 +1,10 @@
 # Depths — Post-Victory Ascension
 
 > **Status (2026-07-11): M1–M5 shipped** on branch `depths`, headless-verified
-> (`test/DepthSmoke.tscn`; all prior harnesses green). **M6 (balance playtest)
-> pending.** Implementation notes recorded against the design below:
+> (`test/DepthSmoke.tscn`; all prior harnesses green). **Forge wave 2 shipped
+> (2026-07-12)** on branch `forge-wave-2` — all 11 planned Aspects + forge
+> nodes are in, headless-verified. **M6 (balance playtest) pending** for both.
+> Implementation notes recorded against the design below:
 >
 > - The five `.tres` are authored as **compounded supersets** — each deeper
 >   Depth carries every shallower twist (Depth IV/V also run the twin
@@ -25,6 +27,26 @@
 >   swing, a phantom radial twin hits everything within 3 m for 0.5×).
 > - `BoonScreen`/`AspectScreen` gained `class_name`s (harness typing); the
 >   shard glyph in UI is ◆ (proven in-font, same as the recap's Aspect mark).
+> - **Forge wave 2 implementation notes:** `AttackInfo.no_proc` is new house
+>   infra — DoT ticks and Dead Weight carries set it so they never re-proc
+>   riposte/Cold-Blood-style multipliers or re-open a wound (anti-recursion).
+>   `EnemyBase` gained a reusable ticking-stack DoT tracker (Unclosed Wound
+>   today; burn/poison ride the same rails later). `notify_riposte_chain_kill`
+>   was renamed **`notify_riposte_kill`** and is now shared by Crescendo and
+>   The Vanishing Stair's blink refund. `FrostRune` (`weapons/frost_rune.gd`)
+>   is a code-built node — 0.5 s arm, 6 s auto-fire, a recast replaces the live
+>   rune, and detonation always routes back through the player's shared
+>   `_do_nova` at 1.5× so every nova boon still applies. The Deep Draught
+>   overcharge clamps the mana spend to whatever the pool covers but never
+>   below the base cast (`_release_draught`). The Drowned Veil absorption
+>   builds a **fresh** `AttackInfo` rather than mutating the incoming one (the
+>   house no-mutation rule) — and a fully-absorbed hit still counts as a hit
+>   for Patient Dark's reset and similar on-hit trackers. `EventBus` gained
+>   `mana_absorbed` with a matching HUD mana-bar flash. `_do_nova` took a
+>   `center` param so a flagless Echo Nova still tracks the player while
+>   Waiting Cold's rune detonates from a fixed point. Cold Blood's "held" test
+>   is `state == STUNNED or _slow_time > 0.0` at **1.5×**; the doc's own
+>   trim-to-1.35× escape hatch is unused for now pending playtest.
 
 ## Why
 
@@ -191,7 +213,7 @@ loadout-themed forges (Depth II–III)**, themes drawn from the Depth names
 (Twin Court → a twin/echo mechanic, etc.); the remaining slots are authored
 later — the structure is the feature, the pool can grow.
 
-#### Forge wave 2 — planned roster (jam outcome 2026-07-11, unimplemented)
+#### Forge wave 2 — shipped 2026-07-12 (jam outcome 2026-07-11)
 
 Brings every loadout to 3 forged Aspects and universals to 5. Design rules the
 jam settled on: rewire a verb or add a decision, never a flat stat or an RNG
@@ -480,9 +502,10 @@ Run: `--headless res://test/DepthSmoke.tscn --quit-after 900`.
 - **Endless / infinite Depth scaling** — authored Depths only; if the ladder
   proves out, Depth 6+ is a data add, and a formula-generated tail can come
   later without touching this design.
-- **The full forge set** — 3 forged Aspects ship; wave 2 (11 more, planned
-  2026-07-11 — see the Forge wave 2 roster under Lane 2) is follow-up
-  authoring plus two small systems adds (DoT tracker, fireball charge input).
+- **The full forge set** — **done.** The original 3 forged Aspects plus the
+  Forge wave 2 roster (11 more, see Lane 2) shipped 2026-07-12, bringing the
+  Aspect registry to 26 and the forge tree to 14 capstones (I×3 · II×3 ·
+  III×4 · IV×3 · V×1).
 - **A prestige reset layer** — shards are a *depth-only earner*, not a reset
   mechanic; a true prestige loop (reset gold/upgrades for global multipliers)
   remains parked, and nothing here blocks it.

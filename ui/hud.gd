@@ -89,6 +89,7 @@ func _ready() -> void:
 	EventBus.boss_spawned.connect(_on_boss_spawned)
 	EventBus.mana_cast_denied.connect(_on_cast_denied)
 	EventBus.mana_burned.connect(_on_mana_burned)
+	EventBus.mana_absorbed.connect(_on_mana_absorbed)
 	_gold_target = MetaProgression.get_currency(&"gold")
 	_gold_display = float(_gold_target)
 	gold_label.text = "Gold: %d" % _gold_target
@@ -403,6 +404,17 @@ func _on_mana_burned(_amount: float) -> void:
 	if _mana_bar == null:
 		return
 	_mana_bar.modulate = Color(2.0, 0.5, 0.5)
+	var tween := create_tween()
+	tween.tween_property(_mana_bar, "modulate", Color.WHITE, 0.4)
+
+
+## THE DROWNED VEIL soaked a hit with mana — pulse the bar icy-blue so the absorb
+## reads on the pool that paid for it. `_amount` is the damage soaked (unused; the
+## flash is a fixed cue, matching the burn/deny pulses).
+func _on_mana_absorbed(_amount: float) -> void:
+	if _mana_bar == null:
+		return
+	_mana_bar.modulate = Color(0.6, 0.9, 2.0)
 	var tween := create_tween()
 	tween.tween_property(_mana_bar, "modulate", Color.WHITE, 0.4)
 
